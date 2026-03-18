@@ -57,6 +57,9 @@ importers:
 
   apps/mobile:
     dependencies:
+      '@repo/supabase':
+        specifier: workspace:*
+        version: link:../../packages/supabase
       '@supabase/supabase-js':
         specifier: ^2.99.2
         version: 2.99.2
@@ -100,6 +103,9 @@ importers:
       '@fontsource-variable/geist':
         specifier: ^5.2.8
         version: 5.2.8
+      '@repo/supabase':
+        specifier: workspace:*
+        version: link:../../packages/supabase
       '@supabase/supabase-js':
         specifier: ^2.99.2
         version: 2.99.2
@@ -209,6 +215,12 @@ importers:
       typescript-eslint:
         specifier: ^8.50.0
         version: 8.50.0(eslint@9.39.1(jiti@2.6.1))(typescript@5.9.2)
+
+  packages/supabase:
+    dependencies:
+      '@supabase/supabase-js':
+        specifier: ^2.99.2
+        version: 2.99.2
 
   packages/typescript-config: {}
 

@@ -6,6 +6,6 @@
     "./*": "./src/*.ts"
   },
   "dependencies": {
-    "@supabase/supabase-js": "latest"
+    "@supabase/supabase-js": "^2.99.2"
   }
 }
