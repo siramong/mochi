@@ -1,7 +1,7 @@
+import "@/global.css";
 import { useState } from 'react'
 import { ActivityIndicator, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { supabase } from '@/lib/supabase'
-import "@/global.css";
 
 export function LoginScreen() {
   const [email, setEmail] = useState('')
