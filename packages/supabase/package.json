@@ -1,5 +1,5 @@
 {
-  "name": "@repo/supabase",
+  "name": "@mochi/supabase",
   "version": "0.0.0",
   "private": true,
   "exports": {

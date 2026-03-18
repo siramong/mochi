@@ -1,5 +1,5 @@
 {
-  "name": "my-app",
+  "name": "mochi",
   "private": true,
   "scripts": {
     "build": "turbo run build",
