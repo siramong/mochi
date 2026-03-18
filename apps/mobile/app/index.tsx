@@ -1,39 +1,82 @@
-import { View, Text, TouchableOpacity } from 'react-native'
+import { useEffect, useState } from 'react'
+import { ActivityIndicator, SafeAreaView, View } from 'react-native'
 import { supabase } from '@/lib/supabase'
 import { useSession } from '@/hooks/useSession'
+import { BottomNav, MobileScreen } from '@/components/BottomNav'
+import { ExerciseRoutine } from '@/components/ExerciseRoutine'
+import { HomeDashboard } from '@/components/HomeDashboard'
+import { StudySchedule } from '@/components/StudySchedule'
 
 export function HomeScreen() {
   const { session } = useSession()
+  const [currentScreen, setCurrentScreen] = useState<MobileScreen>('home')
+  const [userName, setUserName] = useState('Student')
+  const [loadingName, setLoadingName] = useState(true)
 
-  return (
-    <View className="flex-1 bg-blue-50 px-6 pt-16">
-      <View className="rounded-3xl bg-purple-100 p-6 shadow-sm">
-        <Text className="text-3xl font-bold text-purple-800">Hola, Mochi</Text>
-        <Text className="mt-2 text-base text-purple-700">
-          Tu día de enfoque y energía empieza aquí.
-        </Text>
-      </View>
+  useEffect(() => {
+    let mounted = true
 
-      <View className="mt-6 rounded-3xl bg-pink-100 p-5 shadow-sm">
-        <Text className="text-sm font-semibold text-purple-700">Sesión activa</Text>
-        <Text className="mt-2 text-base text-purple-800">{session?.user.email}</Text>
-      </View>
+    async function loadName() {
+      if (!session?.user.id) {
+        if (mounted) {
+          setUserName('Student')
+          setLoadingName(false)
+        }
+        return
+      }
 
-      <View className="mt-5 rounded-3xl bg-yellow-100 p-5 shadow-sm">
-        <Text className="text-sm text-purple-700">
-          Pronto verás aquí tus bloques de estudio, rutinas y progreso diario.
-        </Text>
-      </View>
+      setLoadingName(true)
 
-      <TouchableOpacity
-        className="mt-6 items-center rounded-2xl bg-green-100 px-4 py-3"
-        onPress={() => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', session.user.id)
+        .single()
+
+      if (!mounted) return
+
+      const nextName = data?.full_name?.trim() || 'Student'
+      setUserName(nextName)
+      setLoadingName(false)
+    }
+
+    void loadName()
+
+    return () => {
+      mounted = false
+    }
+  }, [session?.user.id])
+
+  const content = {
+    home: (
+      <HomeDashboard
+        userName={userName}
+        email={session?.user.email}
+        onSignOut={() => {
           void supabase.auth.signOut()
         }}
-      >
-        <Text className="text-base font-semibold text-purple-800">Cerrar sesión</Text>
-      </TouchableOpacity>
-    </View>
+      />
+    ),
+    study: <StudySchedule />,
+    exercise: <ExerciseRoutine />,
+  }[currentScreen]
+
+  if (loadingName) {
+    return (
+      <View className="flex-1 items-center justify-center bg-purple-100">
+        <ActivityIndicator size="large" />
+      </View>
+    )
+  }
+
+  return (
+    <SafeAreaView className="flex-1 bg-purple-100">
+      <View className="flex-1">
+        {content}
+      </View>
+
+      <BottomNav currentScreen={currentScreen} onNavigate={setCurrentScreen} />
+    </SafeAreaView>
   )
 }
 

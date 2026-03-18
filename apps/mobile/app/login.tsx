@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { ActivityIndicator, Text, TextInput, TouchableOpacity, View } from 'react-native'
+import { Ionicons } from '@expo/vector-icons'
 import { supabase } from '@/lib/supabase'
 
 export function LoginScreen() {
@@ -37,61 +38,70 @@ export function LoginScreen() {
   }
 
   return (
-    <View className="flex-1 bg-purple-50 px-6 pt-16">
-      <View className="rounded-3xl bg-yellow-100 p-6 shadow-sm">
-        <Text className="text-3xl font-bold text-purple-700">Mochi</Text>
-        <Text className="mt-2 text-base text-purple-600">
-          Tu espacio adorable para estudio, ejercicio y rutina diaria.
-        </Text>
+    <View className="flex-1 items-center justify-center bg-purple-100 px-6">
+      <View className="absolute left-10 top-20 h-12 w-12 items-center justify-center rounded-2xl bg-purple-200">
+        <Ionicons name="sparkles" size={22} />
       </View>
 
-      <View className="mt-6 rounded-3xl bg-pink-100 p-5 shadow-sm">
-        <Text className="text-sm font-semibold text-purple-700">Correo</Text>
-        <TextInput
-          className="mt-2 rounded-2xl bg-white px-4 py-3 text-base text-purple-900"
-          placeholder="tu@email.com"
-          value={email}
-          onChangeText={setEmail}
-          autoCapitalize="none"
-          keyboardType="email-address"
-          editable={!loading}
-        />
+      <View className="absolute bottom-32 right-10 h-12 w-12 items-center justify-center rounded-2xl bg-pink-200">
+        <Ionicons name="heart" size={22} />
+      </View>
 
-        <Text className="mt-4 text-sm font-semibold text-purple-700">Contraseña</Text>
-        <TextInput
-          className="mt-2 rounded-2xl bg-white px-4 py-3 text-base text-purple-900"
-          placeholder="••••••••"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-          editable={!loading}
-        />
+      <View className="w-full max-w-sm">
+        <View className="items-center">
+          <View className="mb-4 h-20 w-20 items-center justify-center rounded-3xl border-2 border-purple-200 bg-white">
+            <Ionicons name="planet" size={36} />
+          </View>
+          <Text className="text-5xl font-extrabold text-purple-800">Mochi</Text>
+          <Text className="mt-2 text-lg font-semibold text-purple-700">Tu cute study buddy</Text>
+        </View>
 
-        {error ? <Text className="mt-3 text-sm text-purple-700">{error}</Text> : null}
+        <View className="mt-8">
+          <TextInput
+            className="rounded-3xl border-2 border-purple-200 bg-white px-5 py-4 text-base text-purple-900"
+            placeholder="Email address"
+            value={email}
+            onChangeText={setEmail}
+            autoCapitalize="none"
+            keyboardType="email-address"
+            editable={!loading}
+          />
 
-        <TouchableOpacity
-          className="mt-5 items-center rounded-2xl bg-blue-100 px-4 py-3 disabled:opacity-60"
-          onPress={() => {
-            void signIn()
-          }}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator />
-          ) : (
-            <Text className="text-base font-semibold text-purple-800">Iniciar sesión</Text>
-          )}
-        </TouchableOpacity>
+          <TextInput
+            className="mt-4 rounded-3xl border-2 border-purple-200 bg-white px-5 py-4 text-base text-purple-900"
+            placeholder="Password"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+            editable={!loading}
+          />
 
-        <TouchableOpacity
-          className="mt-3 items-center rounded-2xl bg-green-100 px-4 py-3 disabled:opacity-60"
-          onPress={() => {
-            void signUp()
-          }}
-          disabled={loading}
-        >
-          <Text className="text-base font-semibold text-purple-800">Crear cuenta</Text>
-        </TouchableOpacity>
+          {error ? <Text className="mt-3 text-sm text-purple-900">{error}</Text> : null}
+
+          <TouchableOpacity
+            className="mt-5 items-center rounded-3xl bg-purple-600 px-4 py-4 disabled:opacity-60"
+            onPress={() => {
+              void signIn()
+            }}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator />
+            ) : (
+              <Text className="text-lg font-extrabold text-white">Log In</Text>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            className="mt-3 items-center rounded-3xl border-2 border-purple-200 bg-white px-4 py-4 disabled:opacity-60"
+            onPress={() => {
+              void signUp()
+            }}
+            disabled={loading}
+          >
+            <Text className="text-lg font-extrabold text-purple-700">Create Account</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   )
