@@ -1,4 +1,5 @@
 import AuthComponent from '@/components/Auth'
+import './App.css'
 
 function App() {
   return (
