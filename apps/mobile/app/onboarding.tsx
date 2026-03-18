@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { ActivityIndicator, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { router } from 'expo-router'
 import { supabase } from '@/lib/supabase'
+import "@/global.css";
 
 function isValidTime(value: string) {
   return /^([01]\d|2[0-3]):([0-5]\d)$/.test(value)

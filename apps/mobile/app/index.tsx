@@ -1,6 +1,7 @@
 import { View, Text, TouchableOpacity } from 'react-native'
 import { supabase } from '@/lib/supabase'
 import { useSession } from '@/hooks/useSession'
+import "@/global.css";
 
 export function HomeScreen() {
   const { session } = useSession()
