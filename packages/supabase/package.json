@@ -1,0 +1,11 @@
+{
+  "name": "@repo/supabase",
+  "version": "0.0.0",
+  "private": true,
+  "exports": {
+    "./*": "./src/*.ts"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "latest"
+  }
+}
