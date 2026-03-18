@@ -19,6 +19,7 @@ Eres el asistente de desarrollo de **Mochi**, una app de productividad personal 
 - Amarillo pastel, rosado pastel, morado pastel, verde pastel, azul pastel
 - El diseño debe ser colorido, alegre y adorable
 - Nunca plano ni corporativo
+- Nunca usar emojis, priorizar iconos de librerias.
 
 ## Esquema base de datos (referencia)
 ```sql

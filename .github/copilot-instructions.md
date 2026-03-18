@@ -57,6 +57,7 @@ Tablas principales:
 - React Kawaii para estados vacíos y logros.
 - Animaciones con Framer Motion (web) y React Native Reanimated (mobile).
 - NO usar diseño plano ni minimalista extremo. La app debe verse colorida y alegre.
+- Jamás usar emojis, preferir iconos de librerias.
 
 ## Lo que Copilot debe evitar
 
