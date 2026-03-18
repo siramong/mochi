@@ -1,4 +1,4 @@
-import { createSupabaseClient } from '@repo/supabase/client'
+import { createSupabaseClient } from '@mochi/supabase/client'
 
 export const supabase = createSupabaseClient(
   import.meta.env.VITE_SUPABASE_URL,

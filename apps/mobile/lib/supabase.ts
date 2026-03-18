@@ -1,4 +1,4 @@
-import { createSupabaseClient } from '@repo/supabase/client'
+import { createSupabaseClient } from '@mochi/supabase/client'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 
 export const supabase = createSupabaseClient(
