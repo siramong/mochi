@@ -1,4 +1,4 @@
-import "@/global.css";
+import "../global.css";
 import { useEffect } from "react";
 import { Stack, router } from "expo-router";
 import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native";

@@ -1,4 +1,3 @@
-import "@/global.css";
 import { View, Text, TouchableOpacity } from 'react-native'
 import { supabase } from '@/lib/supabase'
 import { useSession } from '@/hooks/useSession'

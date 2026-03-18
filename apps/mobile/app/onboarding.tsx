@@ -1,4 +1,3 @@
-import "@/global.css";
 import { useMemo, useState } from 'react'
 import { ActivityIndicator, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { router } from 'expo-router'
