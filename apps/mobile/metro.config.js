@@ -13,4 +13,9 @@ config.resolver.nodeModulesPaths = [
   path.resolve(monorepoRoot, "node_modules"),
 ];
 
+// Resolver para paquetes del monorepo
+config.resolver.extraNodeModules = {
+  '@mochi/supabase': path.resolve(monorepoRoot, 'packages/supabase'),
+};
+
 module.exports = withNativeWind(config, { input: "./global.css" });
