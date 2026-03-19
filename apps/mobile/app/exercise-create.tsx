@@ -1,13 +1,14 @@
 import { useState } from 'react'
 import { ActivityIndicator, ScrollView, Text, TextInput, TouchableOpacity, View, Alert } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
-import { router } from 'expo-router'
+import { router, useLocalSearchParams } from 'expo-router'
 import { supabase } from '@/lib/supabase'
 import { useSession } from '@/context/SessionContext'
 import { suggestExerciseDescription } from '@/lib/ai'
 
 export function CreateExerciseScreen() {
   const { session } = useSession()
+  const params = useLocalSearchParams<{ returnTo?: string | string[] }>()
   const [name, setName] = useState('')
   const [sets, setSets] = useState('3')
   const [reps, setReps] = useState('10')
@@ -16,6 +17,17 @@ export function CreateExerciseScreen() {
   const [loading, setLoading] = useState(false)
   const [aiLoading, setAiLoading] = useState(false)
   const [aiDescription, setAiDescription] = useState('')
+
+  const returnTo = Array.isArray(params.returnTo) ? params.returnTo[0] : params.returnTo
+
+  const handleGoBack = () => {
+    if (returnTo && returnTo.startsWith('/')) {
+      router.replace(returnTo as Parameters<typeof router.replace>[0])
+      return
+    }
+
+    router.back()
+  }
 
   const handleAISuggest = async () => {
     if (!name.trim()) {
@@ -63,7 +75,7 @@ export function CreateExerciseScreen() {
       Alert.alert('¡Éxito!', 'Ejercicio creado', [
         {
           text: 'OK',
-          onPress: () => router.back(),
+          onPress: handleGoBack,
         },
       ])
     } catch (error) {
@@ -77,7 +89,7 @@ export function CreateExerciseScreen() {
     <ScrollView className="flex-1 bg-teal-100">
       <View className="px-5 py-6">
         {/* Header */}
-        <TouchableOpacity onPress={() => router.back()} className="mb-4 flex-row items-center">
+        <TouchableOpacity onPress={handleGoBack} className="mb-4 flex-row items-center">
           <Ionicons name="chevron-back" size={24} color="#0d9488" />
           <Text className="ml-2 text-lg font-bold text-teal-700">Volver</Text>
         </TouchableOpacity>

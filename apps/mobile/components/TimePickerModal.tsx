@@ -1,6 +1,6 @@
 import { Text, View, TouchableOpacity, ScrollView, Modal } from 'react-native'
-import { useState } from 'react'
-import { Ionicons } from '@expo/vector-icons'
+import { useEffect, useState } from 'react'
+import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated'
 
 type TimePickerModalProps = {
   visible: boolean
@@ -13,6 +13,27 @@ type TimePickerModalProps = {
 export function TimePickerModal({ visible, time, onConfirm, onCancel, label }: TimePickerModalProps) {
   const [hours, setHours] = useState(parseInt(time.split(':')[0]))
   const [minutes, setMinutes] = useState(parseInt(time.split(':')[1]))
+  const modalScale = useSharedValue(0.8)
+  const modalOpacity = useSharedValue(0)
+
+  useEffect(() => {
+    if (visible) {
+      modalScale.value = 0.8
+      modalOpacity.value = 0
+      modalScale.value = withSpring(1, { damping: 14, stiffness: 180 })
+      modalOpacity.value = withTiming(1, { duration: 220 })
+      return
+    }
+
+    modalOpacity.value = withTiming(0, { duration: 120 })
+  }, [visible, modalOpacity, modalScale])
+
+  const modalAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      opacity: modalOpacity.value,
+      transform: [{ scale: modalScale.value }],
+    }
+  })
 
   const hoursArray = Array.from({ length: 24 }, (_, i) => i)
   const minutesArray = Array.from({ length: 60 }, (_, i) => i)
@@ -25,7 +46,7 @@ export function TimePickerModal({ visible, time, onConfirm, onCancel, label }: T
   return (
     <Modal visible={visible} transparent animationType="fade">
       <View className="flex-1 items-center justify-center bg-black/40">
-        <View className="w-80 rounded-3xl bg-white p-6">
+        <Animated.View style={modalAnimatedStyle} className="w-80 rounded-3xl bg-white p-6">
           <Text className="text-lg font-extrabold text-purple-900">{label}</Text>
 
           <View className="mt-6 flex-row justify-center gap-4">
@@ -96,7 +117,7 @@ export function TimePickerModal({ visible, time, onConfirm, onCancel, label }: T
               <Text className="font-bold text-white">Confirmar</Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </Animated.View>
       </View>
     </Modal>
   )

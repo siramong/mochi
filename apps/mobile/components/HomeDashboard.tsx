@@ -1,8 +1,18 @@
 import { Ionicons } from '@expo/vector-icons'
 import { useEffect, useState } from 'react'
-import { Text, TouchableOpacity, View, ScrollView, ActivityIndicator } from 'react-native'
+import { Text, TouchableOpacity, View, ScrollView } from 'react-native'
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated'
 import { supabase } from '@/lib/supabase'
 import type { StudyBlock, RoutineWithExercises } from '@/types/database'
+import { MochiCharacter } from '@/components/MochiCharacter'
 
 type HomeDashboardProps = {
   userName: string
@@ -21,6 +31,39 @@ const colorMap: Record<string, string> = {
 
 const dayMap = ['D', 'L', 'M', 'X', 'J', 'V', 'S']
 
+type AnimatedDashboardCardProps = {
+  children: React.ReactNode
+  delay: number
+  animationSeed: number
+  className: string
+}
+
+function AnimatedDashboardCard({ children, delay, animationSeed, className }: AnimatedDashboardCardProps) {
+  const opacity = useSharedValue(0)
+  const translateY = useSharedValue(16)
+
+  useEffect(() => {
+    opacity.value = 0
+    translateY.value = 16
+
+    opacity.value = withDelay(delay, withTiming(1, { duration: 320, easing: Easing.out(Easing.cubic) }))
+    translateY.value = withDelay(delay, withTiming(0, { duration: 360, easing: Easing.out(Easing.cubic) }))
+  }, [animationSeed, delay, opacity, translateY])
+
+  const animatedStyle = useAnimatedStyle(() => {
+    return {
+      opacity: opacity.value,
+      transform: [{ translateY: translateY.value }],
+    }
+  })
+
+  return (
+    <Animated.View style={animatedStyle} className={className}>
+      {children}
+    </Animated.View>
+  )
+}
+
 export function HomeDashboard({ userName, email, onSignOut }: HomeDashboardProps) {
   const today = new Date().toLocaleDateString('es-ES', {
     weekday: 'long',
@@ -32,6 +75,31 @@ export function HomeDashboard({ userName, email, onSignOut }: HomeDashboardProps
   const [todayRoutine, setTodayRoutine] = useState<RoutineWithExercises | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [animationSeed, setAnimationSeed] = useState(0)
+
+  const loadingScale = useSharedValue(1)
+
+  useEffect(() => {
+    if (loading) {
+      loadingScale.value = withRepeat(
+        withSequence(
+          withTiming(1.06, { duration: 650, easing: Easing.inOut(Easing.quad) }),
+          withTiming(1, { duration: 650, easing: Easing.inOut(Easing.quad) })
+        ),
+        -1,
+        false
+      )
+      return
+    }
+
+    loadingScale.value = withTiming(1, { duration: 180 })
+  }, [loading, loadingScale])
+
+  const loadingAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ scale: loadingScale.value }],
+    }
+  })
 
   useEffect(() => {
     async function loadTodayData() {
@@ -81,6 +149,8 @@ export function HomeDashboard({ userName, email, onSignOut }: HomeDashboardProps
             setTodayRoutine(routine)
           }
         }
+
+        setAnimationSeed((prev) => prev + 1)
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Error cargando datos')
       } finally {
@@ -106,8 +176,11 @@ export function HomeDashboard({ userName, email, onSignOut }: HomeDashboardProps
         <Text className="mt-1 text-sm font-semibold capitalize text-blue-700">{today}</Text>
       </View>
 
-      {/* Study blocks section */}
-      <View className="mt-6 rounded-3xl border-2 border-blue-200 bg-white p-5">
+      <AnimatedDashboardCard
+        delay={0}
+        animationSeed={animationSeed}
+        className="mt-6 rounded-3xl border-2 border-blue-200 bg-white p-5"
+      >
         <View className="mb-3 flex-row items-center">
           <Ionicons name="book" size={18} color="#1e40af" />
           <Text className="ml-2 text-base font-bold text-blue-900">Bloques de estudio</Text>
@@ -115,12 +188,18 @@ export function HomeDashboard({ userName, email, onSignOut }: HomeDashboardProps
 
         {loading ? (
           <View className="items-center py-6">
-            <ActivityIndicator size="small" color="#3b82f6" />
+            <Animated.View style={loadingAnimatedStyle}>
+              <MochiCharacter mood="thinking" size={82} />
+            </Animated.View>
+            <Text className="mt-3 text-sm font-semibold text-blue-700">Cargando tu agenda...</Text>
           </View>
         ) : error ? (
           <Text className="text-sm font-semibold text-red-600">{error}</Text>
         ) : todayBlocks.length === 0 ? (
-          <Text className="text-sm font-semibold text-slate-500">No hay bloques para hoy</Text>
+          <View className="items-center py-2">
+            <MochiCharacter mood="sleepy" size={78} />
+            <Text className="mt-3 text-sm font-semibold text-slate-500">No hay bloques para este día</Text>
+          </View>
         ) : (
           todayBlocks.map((block) => (
             <View
@@ -153,17 +232,23 @@ export function HomeDashboard({ userName, email, onSignOut }: HomeDashboardProps
             </View>
           ))
         )}
-      </View>
+      </AnimatedDashboardCard>
 
-      {/* Routine section */}
-      <View className="mt-4 rounded-3xl border-2 border-teal-200 bg-white p-5">
+      <AnimatedDashboardCard
+        delay={100}
+        animationSeed={animationSeed}
+        className="mt-4 rounded-3xl border-2 border-teal-200 bg-white p-5"
+      >
         <View className="mb-2 flex-row items-center">
           <Ionicons name="barbell" size={18} color="#0d9488" />
           <Text className="ml-2 text-base font-bold text-blue-900">Rutina de hoy</Text>
         </View>
         {loading ? (
           <View className="items-center py-6">
-            <ActivityIndicator size="small" color="#14b8a6" />
+            <Animated.View style={loadingAnimatedStyle}>
+              <MochiCharacter mood="thinking" size={82} />
+            </Animated.View>
+            <Text className="mt-3 text-sm font-semibold text-teal-700">Preparando tus rutinas...</Text>
           </View>
         ) : todayRoutine ? (
           <>
@@ -176,17 +261,23 @@ export function HomeDashboard({ userName, email, onSignOut }: HomeDashboardProps
             </TouchableOpacity>
           </>
         ) : (
-          <Text className="text-sm font-semibold text-slate-500">Sin rutina para hoy</Text>
+          <View className="items-center py-2">
+            <MochiCharacter mood="happy" size={78} />
+            <Text className="mt-3 text-sm font-semibold text-slate-500">Crea tu primera rutina</Text>
+          </View>
         )}
-      </View>
+      </AnimatedDashboardCard>
 
-      {/* Session info */}
-      <View className="mb-12 mt-4 rounded-3xl border border-purple-100 bg-white p-4">
+      <AnimatedDashboardCard
+        delay={200}
+        animationSeed={animationSeed}
+        className="mb-12 mt-4 rounded-3xl border border-purple-100 bg-white p-4"
+      >
         <Text className="text-xs font-semibold text-purple-800">Sesión activa: {email ?? 'sin correo'}</Text>
         <TouchableOpacity className="mt-3 items-center rounded-2xl bg-purple-200 py-3" onPress={onSignOut}>
           <Text className="font-bold text-purple-900">Cerrar sesión</Text>
         </TouchableOpacity>
-      </View>
+      </AnimatedDashboardCard>
     </ScrollView>
   )
 }

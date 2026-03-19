@@ -1,10 +1,22 @@
 import { Ionicons } from '@expo/vector-icons'
-import { useEffect, useState } from 'react'
-import { ScrollView, Text, TouchableOpacity, View, ActivityIndicator } from 'react-native'
+import { useCallback, useEffect, useState } from 'react'
+import { ScrollView, Text, TouchableOpacity, View } from 'react-native'
 import { router } from 'expo-router'
+import { useFocusEffect } from '@react-navigation/native'
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withRepeat,
+  withSequence,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated'
 import { supabase } from '@/lib/supabase'
 import { useSession } from '@/context/SessionContext'
 import type { RoutineWithExercises } from '@/types/database'
+import { MochiCharacter } from '@/components/MochiCharacter'
 
 const colorMap: Record<string, string> = {
   teal: 'bg-teal-200',
@@ -17,48 +29,137 @@ const colorMap: Record<string, string> = {
 
 const dayMap = ['D', 'L', 'M', 'X', 'J', 'V', 'S']
 
+type AnimatedRoutineCardProps = {
+  routine: RoutineWithExercises
+  index: number
+  animationSeed: number
+  totalTime: string
+}
+
+function AnimatedRoutineCard({ routine, index, animationSeed, totalTime }: AnimatedRoutineCardProps) {
+  const opacity = useSharedValue(0)
+  const translateY = useSharedValue(16)
+
+  useEffect(() => {
+    opacity.value = 0
+    translateY.value = 16
+
+    opacity.value = withDelay(index * 100, withTiming(1, { duration: 320, easing: Easing.out(Easing.cubic) }))
+    translateY.value = withDelay(index * 100, withTiming(0, { duration: 360, easing: Easing.out(Easing.cubic) }))
+  }, [animationSeed, index, opacity, translateY])
+
+  const animatedStyle = useAnimatedStyle(() => {
+    return {
+      opacity: opacity.value,
+      transform: [{ translateY: translateY.value }],
+    }
+  })
+
+  return (
+    <Animated.View style={animatedStyle} className="mb-4 rounded-3xl border-2 border-teal-200 bg-white p-5">
+      <View className="flex-row items-start justify-between">
+        <View className="flex-1 pr-3">
+          <Text className="text-xl font-extrabold text-slate-800">{routine.name}</Text>
+          <View className="mt-2 flex-row">
+            {routine.days.map((dayNum) => (
+              <View key={`${routine.id}-${dayNum}`} className="mr-2 rounded-full bg-teal-200 px-2 py-1">
+                <Text className="text-xs font-bold text-slate-700">{dayMap[dayNum] ?? '?'}</Text>
+              </View>
+            ))}
+          </View>
+          <Text className="mt-2 text-sm font-semibold text-slate-600">
+            {routine.routine_exercises.length} ejercicios • {totalTime}
+          </Text>
+        </View>
+
+        <TouchableOpacity className="h-11 w-11 items-center justify-center rounded-2xl bg-teal-200">
+          <Ionicons name="play" size={18} color="#0d9488" />
+        </TouchableOpacity>
+      </View>
+    </Animated.View>
+  )
+}
+
 export function ExerciseRoutine() {
   const { session } = useSession()
   const [routines, setRoutines] = useState<RoutineWithExercises[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [animationSeed, setAnimationSeed] = useState(0)
+
+  const loadingScale = useSharedValue(1)
+  const createButtonScale = useSharedValue(1)
+
+  const loadingAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ scale: loadingScale.value }],
+    }
+  })
+
+  const createButtonAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ scale: createButtonScale.value }],
+    }
+  })
 
   useEffect(() => {
+    if (loading) {
+      loadingScale.value = withRepeat(
+        withSequence(
+          withTiming(1.06, { duration: 650, easing: Easing.inOut(Easing.quad) }),
+          withTiming(1, { duration: 650, easing: Easing.inOut(Easing.quad) })
+        ),
+        -1,
+        false
+      )
+    } else {
+      loadingScale.value = withTiming(1, { duration: 180 })
+    }
+  }, [loading, loadingScale])
+
+  const loadRoutines = useCallback(async () => {
     const userId = session?.user.id
-    if (!userId) return
-
-    async function loadRoutines() {
-      try {
-        setLoading(true)
-        setError(null)
-
-        const { data, error: supabaseError } = await supabase
-          .from('routines')
-          .select(
-            `*,
-             routine_exercises (
-               id,
-               routine_id,
-               exercise_id,
-               order_index,
-               exercise:exercises (id, name, sets, reps, duration_seconds, notes)
-             )`
-          )
-          .eq('user_id', userId)
-          .order('created_at', { ascending: false })
-
-        if (supabaseError) throw supabaseError
-        setRoutines(data ?? [])
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Error cargando rutinas')
-        setRoutines([])
-      } finally {
-        setLoading(false)
-      }
+    if (!userId) {
+      setRoutines([])
+      setLoading(false)
+      return
     }
 
-    loadRoutines()
+    try {
+      setLoading(true)
+      setError(null)
+
+      const { data, error: supabaseError } = await supabase
+        .from('routines')
+        .select(
+          `*,
+           routine_exercises (
+             id,
+             routine_id,
+             exercise_id,
+             order_index,
+             exercise:exercises (id, name, sets, reps, duration_seconds, notes)
+           )`
+        )
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+
+      if (supabaseError) throw supabaseError
+      setRoutines(data ?? [])
+      setAnimationSeed((prev) => prev + 1)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error cargando rutinas')
+      setRoutines([])
+    } finally {
+      setLoading(false)
+    }
   }, [session?.user.id])
+
+  useFocusEffect(
+    useCallback(() => {
+      void loadRoutines()
+    }, [loadRoutines])
+  )
 
   const handleTotalTime = (routine: RoutineWithExercises): string => {
     const totalSeconds = routine.routine_exercises.reduce((sum, re) => {
@@ -80,7 +181,9 @@ export function ExerciseRoutine() {
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
         {loading ? (
           <View className="flex-1 items-center justify-center py-8">
-            <ActivityIndicator size="large" color="#14b8a6" />
+            <Animated.View style={loadingAnimatedStyle}>
+              <MochiCharacter mood="thinking" size={92} />
+            </Animated.View>
             <Text className="mt-4 text-sm font-semibold text-teal-700">Cargando rutinas...</Text>
           </View>
         ) : error ? (
@@ -90,53 +193,41 @@ export function ExerciseRoutine() {
         ) : routines.length === 0 ? (
           <View className="rounded-3xl border-2 border-teal-200 bg-white p-6">
             <View className="items-center">
-              <Ionicons name="barbell" size={48} color="#7ee8c1" />
-              <Text className="mt-3 text-center text-sm font-semibold text-teal-600">
-                Crea tu primera rutina de ejercicio
-              </Text>
+              <MochiCharacter mood="happy" size={88} />
+              <Text className="mt-3 text-center text-sm font-semibold text-teal-600">Crea tu primera rutina</Text>
             </View>
           </View>
         ) : (
-          routines.map((routine) => (
-            <View
+          routines.map((routine, index) => (
+            <AnimatedRoutineCard
               key={routine.id}
-              className="mb-4 rounded-3xl border-2 border-teal-200 bg-white p-5"
-            >
-              <View className="flex-row items-start justify-between">
-                <View className="flex-1 pr-3">
-                  <Text className="text-xl font-extrabold text-slate-800">{routine.name}</Text>
-                  <View className="mt-2 flex-row">
-                    {routine.days.map((dayNum) => (
-                      <View
-                        key={`${routine.id}-${dayNum}`}
-                        className={`mr-2 rounded-full px-2 py-1 ${'bg-teal-200'}`}
-                      >
-                        <Text className="text-xs font-bold text-slate-700">
-                          {dayMap[dayNum] ?? '?'}
-                        </Text>
-                      </View>
-                    ))}
-                  </View>
-                  <Text className="mt-2 text-sm font-semibold text-slate-600">
-                    {routine.routine_exercises.length} ejercicios • {handleTotalTime(routine)}
-                  </Text>
-                </View>
-
-                <TouchableOpacity className="h-11 w-11 items-center justify-center rounded-2xl bg-teal-200">
-                  <Ionicons name="play" size={18} color="#0d9488" />
-                </TouchableOpacity>
-              </View>
-            </View>
+              routine={routine}
+              index={index}
+              animationSeed={animationSeed}
+              totalTime={handleTotalTime(routine)}
+            />
           ))
         )}
       </ScrollView>
 
-      <TouchableOpacity
-        className="mb-6 mt-4 flex-row items-center justify-center rounded-2xl bg-teal-500 py-4"
-        onPress={() => router.push('/exercise-create')}
-      >
-        <Ionicons name="add" size={20} color="white" />
-        <Text className="ml-2 text-base font-extrabold text-white">Añadir ejercicio</Text>
+      <Animated.View style={createButtonAnimatedStyle}>
+        <TouchableOpacity
+          className="mb-6 mt-4 flex-row items-center justify-center rounded-2xl bg-teal-500 py-4"
+          onPressIn={() => {
+            createButtonScale.value = withSequence(
+              withSpring(1.08, { damping: 8, stiffness: 180 }),
+              withSpring(1, { damping: 10, stiffness: 180 })
+            )
+          }}
+          onPress={() => router.push('/routine-create')}
+        >
+          <Ionicons name="add" size={20} color="white" />
+          <Text className="ml-2 text-base font-extrabold text-white">Nueva rutina</Text>
+        </TouchableOpacity>
+      </Animated.View>
+
+      <TouchableOpacity className="mb-8 items-center" onPress={() => router.push('/exercise-list')}>
+        <Text className="text-sm font-bold text-teal-700">Gestionar ejercicios</Text>
       </TouchableOpacity>
     </View>
   )

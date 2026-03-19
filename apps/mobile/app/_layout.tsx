@@ -1,11 +1,43 @@
 import "../global.css";
 import { useEffect } from "react";
 import { Stack, router } from "expo-router";
-import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native";
+import { Text, TouchableOpacity, View } from "react-native";
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from "react-native-reanimated";
 import { SessionProvider, useSession } from "@/context/SessionContext";
+import { MochiCharacter } from "@/components/MochiCharacter";
 
 function RootLayoutNavigator() {
   const { session, loading, requiresOnboarding, profileError, refreshProfile } = useSession();
+  const loadingScale = useSharedValue(1);
+
+  useEffect(() => {
+    if (loading) {
+      loadingScale.value = withRepeat(
+        withSequence(
+          withTiming(1.06, { duration: 650, easing: Easing.inOut(Easing.quad) }),
+          withTiming(1, { duration: 650, easing: Easing.inOut(Easing.quad) })
+        ),
+        -1,
+        false
+      );
+      return;
+    }
+
+    loadingScale.value = withTiming(1, { duration: 180 });
+  }, [loading, loadingScale]);
+
+  const loadingAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ scale: loadingScale.value }],
+    };
+  });
 
   useEffect(() => {
     if (loading) return;
@@ -26,7 +58,11 @@ function RootLayoutNavigator() {
     return (
       <View className="flex-1 items-center justify-center bg-purple-50 px-6">
         <View className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-sm">
-          <ActivityIndicator size="large" />
+          <View className="items-center">
+            <Animated.View style={loadingAnimatedStyle}>
+              <MochiCharacter mood="thinking" size={90} />
+            </Animated.View>
+          </View>
           <Text className="mt-4 text-center text-base font-semibold text-purple-900">Cargando Mochi...</Text>
         </View>
       </View>

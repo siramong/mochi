@@ -3,6 +3,7 @@ import { ActivityIndicator, Text, TextInput, TouchableOpacity, View } from 'reac
 import { router } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { supabase } from '@/lib/supabase'
+import { MochiCharacter } from '@/components/MochiCharacter'
 
 function isValidTime(value: string) {
   return /^([01]\d|2[0-3]):([0-5]\d)$/.test(value)
@@ -71,6 +72,11 @@ export function OnboardingScreen() {
         <Ionicons name="star" size={22} />
       </View>
 
+      <View className="mb-5 items-center">
+        <MochiCharacter mood="excited" size={90} />
+        <Text className="mt-3 text-sm font-semibold text-teal-700">Estoy lista para acompañarte hoy</Text>
+      </View>
+
       <View className="mb-8">
         <Text className="text-4xl font-extrabold text-teal-900">Bienvenida a Mochi</Text>
         <Text className="mt-2 text-lg font-semibold text-teal-700">Configuremos tu perfil</Text>
@@ -111,7 +117,7 @@ export function OnboardingScreen() {
             <ActivityIndicator />
           ) : (
             <>
-              <Text className="text-base font-extrabold text-white">Let&apos;s Go</Text>
+              <Text className="text-base font-extrabold text-white">Continuar</Text>
               <Ionicons name="arrow-forward" size={18} />
             </>
           )}
