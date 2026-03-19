@@ -217,6 +217,7 @@ export function HabitsScreen() {
       if (deleteError) throw deleteError
       await loadHabits()
     } catch (err) {
+      console.error('handleDeleteHabit error:', err)
       setError(err instanceof Error ? err.message : 'No se pudo eliminar el hábito')
     }
   }

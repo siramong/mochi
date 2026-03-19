@@ -202,19 +202,26 @@ export function StudySchedule() {
         {
           text: 'Eliminar',
           style: 'destructive',
-          onPress: async () => {
-            try {
-              const { error: deleteError } = await supabase
-                .from('study_blocks')
-                .delete()
-                .eq('id', blockId)
-                .eq('user_id', userId)
+          onPress: () => {
+            void (async () => {
+              try {
+                const { error: deleteError } = await supabase
+                  .from('study_blocks')
+                  .delete()
+                  .eq('id', blockId)
+                  .eq('user_id', userId)
 
-              if (deleteError) throw deleteError
-              await loadBlocks()
-            } catch (err) {
-              setError(err instanceof Error ? err.message : 'No se pudo eliminar el bloque')
-            }
+                if (deleteError) {
+                  console.error('Delete error:', JSON.stringify(deleteError))
+                  throw deleteError
+                }
+
+                await loadBlocks()
+              } catch (err) {
+                console.error('handleDeleteBlock caught:', err)
+                setError(err instanceof Error ? err.message : 'No se pudo eliminar el bloque')
+              }
+            })()
           },
         },
       ],
