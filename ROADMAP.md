@@ -1,79 +1,106 @@
-# 🗺️ Mochi — Roadmap
-
-## ✅ Fase 0 — Setup (Completado)
-
-- [x] Monorepo con Turborepo + pnpm
-- [x] App web con React + Vite + TypeScript
-- [x] App mobile con Expo + React Native + TypeScript
-- [x] Tailwind v4 + shadcn/ui en web
-- [x] NativeWind en mobile
-- [x] Expo Router configurado
-- [x] Supabase conectado en ambas apps
-- [x] Auth flow completo (login, registro, sesión persistente, logout)
-- [x] Schema de base de datos inicial
+# Mochi — Roadmap
 
 ---
 
-## 🚧 Fase 1 — Core MVP (En progreso)
+## Phase 0 — Foundation (Done)
 
-### Auth & Perfil
-- [ ] Pantalla de onboarding (nombre, hora de despertar)
-- [ ] Edición de perfil
-
-### Estudio
-- [ ] Vista de horario semanal
-- [ ] Agregar / editar / eliminar bloques de estudio
-- [ ] Vista diaria con los bloques del día
-- [ ] Temporizador de sesión de estudio
-
-### Ejercicio
-- [ ] Crear ejercicios personalizados (nombre, series, reps)
-- [ ] Crear rutinas con días asignados
-- [ ] Vista de rutina del día
-- [ ] Marcar rutina como completada
-- [ ] Historial de rutinas completadas
-
-### Rutina diaria
-- [ ] Vista "Mi día" con resumen de estudio y ejercicio
-- [ ] Progreso del día (% completado)
+- [x] Monorepo setup with Turborepo + pnpm
+- [x] Web: React + Vite + TypeScript + Tailwind v4 + shadcn/ui
+- [x] Mobile: Expo + React Native + TypeScript + NativeWind
+- [x] Shared Supabase package (`@mochi/supabase`)
+- [x] Auth flow (login, register, persistent session, logout) — web & mobile
+- [x] Database schema with RLS policies and grants
+- [x] Auto profile creation on signup
+- [x] Gamification schema (achievements, streaks, rewards, points)
+- [x] 11 base achievements seeded
 
 ---
 
-## 🎨 Fase 2 — Diseño & UX
+## Phase 1 — Core Features (Current)
 
-- [ ] Implementar paleta Mochi (amarillo, rosado, morado, verde pastel, azul pastel)
-- [ ] Cards estilo Pinterest con bordes redondeados y sombras suaves
-- [ ] Animaciones con Framer Motion (web) y Reanimated (mobile)
-- [ ] React Kawaii para estados vacíos y logros
-- [ ] Splash screen y ícono personalizados
-- [ ] Dark mode opcional
+### Onboarding
+- [ ] Welcome screen with name and wake-up time input
+- [ ] Module selection on first launch
 
----
+### Study Module
+- [ ] Weekly schedule grid view (by day and time)
+- [ ] Add / edit / delete study blocks
+- [ ] 1.5h session countdown timer
+- [ ] Exam result logging (grade input)
+- [ ] Daily study streak tracking
 
-## 🔔 Fase 3 — Notificaciones & Recordatorios
-
-- [ ] Notificaciones push para bloques de estudio
-- [ ] Recordatorio de rutina de ejercicio
-- [ ] Notificación de "buenos días" con el resumen del día
-- [ ] Configuración de notificaciones por el usuario
-
----
-
-## 📊 Fase 4 — Estadísticas & Gamificación
-
-- [ ] Racha de días estudiando
-- [ ] Racha de días haciendo ejercicio
-- [ ] Gráficas semanales de progreso
-- [ ] Sistema de logros / badges
-- [ ] Resumen semanal
+### Exercise Module
+- [ ] Create custom exercises (sets, reps or duration)
+- [ ] Build weekly routines (assign exercises to days)
+- [ ] Step-by-step routine player with rest timers
+- [ ] Mark routine as completed
+- [ ] Exercise streak tracking
 
 ---
 
-## 🌐 Fase 5 — Deploy & Publicación
+## Phase 2 — Gamification
 
-- [ ] Deploy web en Vercel
-- [ ] Configurar dominio personalizado
-- [ ] Build de Expo para Android (EAS Build)
-- [ ] Publicar en Google Play Store
-- [ ] Landing page pública
-- [ ] Sistema multiusuario (registro abierto)
+### Points & Achievements
+- [ ] Award points on routine completion, study block completion and exam logging
+- [ ] Auto-unlock achievements based on activity
+- [ ] Profile screen with total points and unlocked achievements
+- [ ] Daily streak display (Duolingo-style)
+- [ ] Secret achievements that surprise the user
+
+### Voucher System (Rewards)
+- [ ] Generate redeemable vouchers with accumulated points
+- [ ] Shareable voucher (screenshot or link) to send to a partner
+- [ ] Predefined editable voucher templates
+- [ ] Public users: visual recognition only (achievements, streaks, badges)
+
+---
+
+## Phase 3 — AI Integration
+
+Primary: Google Gemini 2.0 Flash (free tier)
+Fallback: OpenRouter free models (Llama 3, Mistral, etc.)
+
+- [ ] Shared `@mochi/ai` package with provider abstraction and automatic fallback
+- [ ] Daily personalized motivational message based on schedule
+- [ ] Study block suggestions based on schedule gaps
+- [ ] Auto-generate exercise routines based on available days
+- [ ] Smart streak analysis and nudges
+- [ ] Auto-generate exercise descriptions from name
+- [ ] Creative routine name suggestions
+
+---
+
+## Phase 4 — Optional Modules
+
+Each module can be toggled on/off from settings.
+
+- [ ] **Habits** — daily custom habits (drink water, read, meditate, etc.)
+- [ ] **Goals** — weekly/monthly goals with visual progress
+- [ ] **Quick Notes** — lightweight notes per subject
+- [ ] **Mood Tracker** — daily emotional check-in (no diagnostics)
+- [ ] **Gratitude Journal** — daily gratitude log (3 things)
+
+> Period tracker intentionally excluded — use Flo or similar dedicated apps.
+
+---
+
+## Phase 5 — Polish & Launch
+
+- [ ] Push notifications for study blocks and exercise reminders
+- [ ] Full pastel theme applied across all screens
+- [ ] React Kawaii empty states and completion celebrations
+- [ ] Framer Motion animations on web
+- [ ] Vercel deploy for web
+- [ ] EAS Build for Android APK
+- [ ] User settings screen (name, wake-up time, active modules)
+- [ ] Superuser dashboard (Doménica) for managing vouchers and users
+
+---
+
+## Phase 6 — Future
+
+- [ ] Public multi-user launch
+- [ ] Google Calendar sync
+- [ ] iOS support
+- [ ] Unlockable visual themes with points
+- [ ] Export weekly report as PDF

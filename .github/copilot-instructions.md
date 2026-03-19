@@ -1,68 +1,108 @@
-# Mochi — Copilot Instructions
+# Mochi — GitHub Copilot Instructions
 
-## Proyecto
+## Project Overview
 
-Mochi es una app de productividad personal (estudio + ejercicio + rutina diaria) con una estética colorida y adorable inspirada en Pinterest. Monorepo con web y mobile.
+Mochi is a personal productivity app designed 100% for women students. It combines study scheduling, exercise routines, gamification, and AI assistance. It is a monorepo with a React web app and an Expo mobile app sharing a Supabase backend.
 
-## Stack
+---
 
-- **Monorepo**: Turborepo + pnpm workspaces
-- **Web**: React + Vite + TypeScript + Tailwind v4 + shadcn/ui
-- **Mobile**: Expo + React Native + TypeScript + NativeWind (Tailwind v3)
-- **Backend**: Supabase (Auth + PostgreSQL con RLS)
-- **Paquete compartido**: `@mochi/supabase` en `packages/supabase`
-
-## Estructura de carpetas
+## Monorepo Structure
 
 ```
-apps/web/src/
-  components/    # Componentes React (UI en /ui, features fuera)
-  hooks/         # Custom hooks (useSession, etc.)
-  lib/           # Utilidades y cliente supabase
-  pages/         # Vistas principales (cuando se agregue router)
-
-apps/mobile/
-  app/           # Rutas de Expo Router
-  components/    # Componentes React Native
-  hooks/         # Custom hooks compartidos con web cuando sea posible
-  lib/           # Cliente supabase mobile
+mochi/
+├── apps/
+│   ├── web/          # React + Vite + TypeScript + Tailwind v4 + shadcn/ui
+│   └── mobile/       # Expo + React Native + TypeScript + NativeWind
+└── packages/
+    ├── supabase/     # Shared Supabase client — import as @mochi/supabase
+    └── ai/           # Shared AI client — import as @mochi/ai (planned)
 ```
 
-## Convenciones de código
+---
 
-- Siempre TypeScript estricto. Sin `any`.
-- Componentes funcionales con hooks, nunca clases.
-- Imports con alias `@/` en web (apunta a `src/`) y en mobile (apunta a raíz).
-- Paquete compartido importado como `@mochi/supabase`.
-- Variables de entorno: `VITE_` en web, `EXPO_PUBLIC_` en mobile.
-- Estilos con clases de Tailwind/NativeWind. Sin estilos inline salvo casos muy específicos.
-- En mobile, usar `className` con NativeWind en componentes nativos (`View`, `Text`, etc.).
+## Tech Rules
 
-## Base de datos (Supabase)
+### General
+- Always use **TypeScript**. No `.js` files in `apps/`.
+- Use `pnpm` for all package management. Never suggest `npm install` or `yarn`.
+- Add new packages with `pnpm add` in the correct workspace (`--filter mochi-web` or `--filter mochi-mobile`).
+- All UI copy, labels, placeholders, error messages and notifications must be in **Spanish**.
+- No emojis anywhere in the UI. Use **Ionicons** (mobile) or **Lucide** (web) for all icons.
 
-Todas las tablas tienen RLS. Las queries siempre son del usuario autenticado (`auth.uid()`).
+### Web (`apps/web`)
+- Use **Tailwind v4** with CSS variables. Do NOT use `tailwind.config.js`.
+- Use **shadcn/ui** components from `@/components/ui`.
+- Path alias `@/` for all imports from `src/`.
+- Use **Framer Motion** for animations.
+- Use **React Kawaii** for empty states and completion screens.
 
-Tablas principales:
-- `profiles(id, full_name, wake_up_time)`
-- `study_blocks(id, user_id, subject, day_of_week, start_time, end_time, color)`
-- `exercises(id, user_id, name, sets, reps, duration_seconds, notes)`
-- `routines(id, user_id, name, days)`
-- `routine_exercises(id, routine_id, exercise_id, order_index)`
-- `routine_logs(id, user_id, routine_id, completed_at)`
+### Mobile (`apps/mobile`)
+- Use **NativeWind** (Tailwind v3 syntax) for all styling. Never `StyleSheet.create`.
+- Use **Expo Router** for navigation. All screens go in `apps/mobile/app/`.
+- Path alias `@/` for all imports from the root of `apps/mobile/`.
+- Always import React Native primitives from `react-native`.
 
-## Diseño
+### Supabase
+- Always use the shared client from `@mochi/supabase/client`.
+- Web env vars: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`.
+- Mobile env vars: `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`.
+- All queries must respect RLS. Never use service role from client code.
+- New tables must have RLS enabled with user-scoped policies and explicit GRANT to `authenticated`.
 
-- Paleta: amarillo, rosado, morado, verde pastel, azul pastel.
-- Estética tipo Pinterest: cards redondeadas, sombras suaves, masonry grid.
-- React Kawaii para estados vacíos y logros.
-- Animaciones con Framer Motion (web) y React Native Reanimated (mobile).
-- NO usar diseño plano ni minimalista extremo. La app debe verse colorida y alegre.
-- Jamás usar emojis, preferir iconos de librerias.
+### AI
+- Primary provider: **Google Gemini 2.0 Flash** (free tier) via `@google/generative-ai`
+- Fallback: **OpenRouter** free models (Llama 3, Mistral) via fetch to `https://openrouter.ai/api/v1`
+- All AI calls go through `@mochi/ai` shared package with automatic fallback logic
+- Web env vars: `VITE_GEMINI_API_KEY`, `VITE_OPENROUTER_API_KEY`
+- Mobile env vars: `EXPO_PUBLIC_GEMINI_API_KEY`, `EXPO_PUBLIC_OPENROUTER_API_KEY`
+- AI responses must always be in Spanish
 
-## Lo que Copilot debe evitar
+---
 
-- No usar `npm` ni `yarn`. Siempre `pnpm`.
-- No crear estilos en archivos `.css` separados salvo `index.css` en web.
-- No usar `StyleSheet.create` en mobile salvo casos donde NativeWind no sea suficiente.
-- No crear componentes en la raíz de `apps/`. Siempre dentro de `components/`.
-- No hardcodear colores fuera del sistema de tokens de Tailwind.
+## Database Schema
+
+### Core
+- `profiles` (id, full_name, wake_up_time, total_points)
+- `study_blocks` (id, user_id, subject, day_of_week, start_time, end_time, color)
+- `exercises` (id, user_id, name, sets, reps, duration_seconds, notes)
+- `routines` (id, user_id, name, days[])
+- `routine_exercises` (id, routine_id, exercise_id, order_index)
+- `routine_logs` (id, user_id, routine_id, completed_at)
+
+### Gamification
+- `achievements` (id, key, title, description, icon, category, points, is_secret)
+- `user_achievements` (id, user_id, achievement_id, unlocked_at)
+- `streaks` (id, user_id, current_streak, longest_streak, last_activity_date)
+- `rewards` (id, user_id, title, description, points_cost, is_redeemed, redeemed_at)
+
+---
+
+## Gamification Rules
+
+- Completing a routine → add points to `profiles.total_points` + check/unlock achievements
+- Completing a study block → add points + update `streaks`
+- Logging a good exam grade → unlock `exam_ace` achievement
+- Achievements insert into `user_achievements` with `ON CONFLICT DO NOTHING`
+- Rewards (vouchers) are generated when user has enough points
+- Public users: visual recognition only (achievements, streaks, badges)
+
+---
+
+## Design System
+
+- **Palette:** pastel yellow, pink, purple, mint green, baby blue
+- **Style:** colorful, adorable, Pinterest-inspired. Never flat or corporate.
+- **Icons:** Ionicons (mobile), Lucide (web). No emojis.
+- **Language:** 100% Spanish UI copy
+- **Typography:** Geist Variable (web), system font (mobile)
+
+---
+
+## Code Style
+
+- `async/await` only, never `.then()`.
+- Named exports for all components and hooks.
+- Hooks in `hooks/`, utilities in `lib/`.
+- Keep components small — extract logic into custom hooks.
+- Always handle loading, error and empty states.
+- The app targets women — copy must be warm, encouraging and positive.

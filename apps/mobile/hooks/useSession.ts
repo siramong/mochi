@@ -1,10 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Session } from '@supabase/supabase-js'
+import { AuthChangeEvent, Session } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
-
-type ProfileRow = {
-  full_name: string | null
-}
 
 export function useSession() {
   const [session, setSession] = useState<Session | null>(null)
@@ -12,77 +8,59 @@ export function useSession() {
   const [requiresOnboarding, setRequiresOnboarding] = useState(false)
   const [profileError, setProfileError] = useState<string | null>(null)
 
-  async function fetchProfile(userId: string) {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('full_name')
-      .eq('id', userId)
-      .single()
-
-    if (error) {
-      throw error
-    }
-
-    const profile = data as ProfileRow
-    const hasName = Boolean(profile.full_name?.trim())
-    setRequiresOnboarding(!hasName)
-  }
-
   async function refreshProfile() {
     if (!session?.user.id) return
-
     try {
-      setLoading(true)
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', session.user.id)
+        .single()
+      if (error) throw error
+      setRequiresOnboarding(!data?.full_name?.trim())
       setProfileError(null)
-      await fetchProfile(session.user.id)
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'No se pudo cargar el perfil'
-      setProfileError(message)
-    } finally {
-      setLoading(false)
+      setProfileError(error instanceof Error ? error.message : 'Error cargando perfil')
     }
   }
 
   useEffect(() => {
-    let mounted = true
+    console.log('🔵 useEffect iniciado')
 
-    const syncSession = async (nextSession: Session | null) => {
-      if (!mounted) return
-
-      setSession(nextSession)
-
-      if (!nextSession?.user.id) {
-        setRequiresOnboarding(false)
-        setProfileError(null)
-        setLoading(false)
-        return
-      }
-
-      try {
-        setLoading(true)
-        setProfileError(null)
-        await fetchProfile(nextSession.user.id)
-      } catch (error) {
-        if (!mounted) return
-        const message = error instanceof Error ? error.message : 'No se pudo cargar el perfil'
-        setProfileError(message)
-      } finally {
-        if (mounted) {
-          setLoading(false)
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      console.log('🟢 getSession:', session?.user.id ?? 'sin sesión')
+      setSession(session)
+      if (session?.user.id) {
+        try {
+          const { data, error } = await supabase
+            .from('profiles')
+            .select('full_name')
+            .eq('id', session.user.id)
+            .single()
+          console.log('🟡 perfil:', JSON.stringify(data), 'error:', error?.message)
+          if (error) throw error
+          setRequiresOnboarding(!data?.full_name?.trim())
+        } catch (error) {
+          console.log('🔴 error perfil:', error)
+          setProfileError(error instanceof Error ? error.message : 'Error cargando perfil')
         }
       }
-    }
-
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      void syncSession(session)
+      setLoading(false)
     })
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      void syncSession(session)
-    })
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event: AuthChangeEvent, nextSession: Session | null) => {
+        console.log('🟠 onAuthStateChange:', _event, nextSession?.user.id ?? 'null')
+        setSession(nextSession)
+        if (!nextSession) {
+          setRequiresOnboarding(false)
+          setProfileError(null)
+        }
+      }
+    )
 
     return () => {
-      mounted = false
+      console.log('🔴 cleanup')
       subscription.unsubscribe()
     }
   }, [])
