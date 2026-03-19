@@ -43,7 +43,7 @@ async function callOpenRouter(prompt: string): Promise<string> {
 
   try {
     const completion = await openrouter.chat.completions.create({
-      model: 'meta-llama/llama-3-8b-instruct:free',
+      model: 'nvidia/nemotron-3-super-120b-a12b:free',
       messages: [{ role: 'user', content: prompt }],
       max_tokens: 200,
       temperature: 0.7,
