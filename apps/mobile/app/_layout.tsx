@@ -1,5 +1,5 @@
 import "../global.css";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { Stack, router } from "expo-router";
 import { Text, TouchableOpacity, View } from "react-native";
 import Animated, {
@@ -10,12 +10,25 @@ import Animated, {
   withSequence,
   withTiming,
 } from "react-native-reanimated";
+import * as Notifications from "expo-notifications";
 import { SessionProvider, useSession } from "@/context/SessionContext";
 import { MochiCharacter } from "@/components/MochiCharacter";
+
+// Configure how notifications are displayed when the app is in the foreground
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
+});
 
 function RootLayoutNavigator() {
   const { session, loading, requiresOnboarding, profileError, refreshProfile } = useSession();
   const loadingScale = useSharedValue(1);
+  const notificationResponseListener = useRef<Notifications.EventSubscription | null>(null);
 
   useEffect(() => {
     if (loading) {
@@ -53,6 +66,25 @@ function RootLayoutNavigator() {
       router.replace("/");
     }
   }, [session, loading, requiresOnboarding]);
+
+  // Register notification tap handler for deep navigation
+  useEffect(() => {
+    notificationResponseListener.current =
+      Notifications.addNotificationResponseReceivedListener((response) => {
+        const data = response.notification.request.content.data as Record<string, unknown> | null;
+        const screen = typeof data?.screen === "string" ? data.screen : null;
+
+        if (screen === "habits") {
+          router.push("/habits");
+        } else if (screen === "study") {
+          router.push("/");
+        }
+      });
+
+    return () => {
+      notificationResponseListener.current?.remove();
+    };
+  }, []);
 
   if (loading) {
     return (

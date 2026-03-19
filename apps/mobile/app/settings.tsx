@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons'
 import { useCallback, useState } from 'react'
-import { ScrollView, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native'
+import { Linking, ScrollView, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { router } from 'expo-router'
 import { useFocusEffect } from '@react-navigation/native'
 import { SafeAreaView } from 'react-native-safe-area-context'
@@ -9,7 +9,21 @@ import TimePickerModal from '@/components/TimePickerModal'
 import { useCustomAlert } from '@/components/CustomAlert'
 import { useSession } from '@/context/SessionContext'
 import { supabase } from '@/lib/supabase'
-import type { UserSettings } from '@/types/database'
+import {
+  cancelAllNotifications,
+  cancelAllStudyBlockReminders,
+  cancelHabitReminder,
+  cancelMorningReminder,
+  getNotificationPermissionStatus,
+  loadNotificationPrefs,
+  requestNotificationPermissions,
+  saveNotificationPrefs,
+  scheduleHabitReminder,
+  scheduleMorningReminder,
+  scheduleStudyBlockReminders,
+  type NotificationPrefs,
+} from '@/lib/notifications'
+import type { StudyBlock, UserSettings } from '@/types/database'
 
 type ProfileSettings = {
   full_name: string | null
@@ -76,6 +90,19 @@ export function SettingsScreen() {
   const [showTimePicker, setShowTimePicker] = useState(false)
   const [moduleSettings, setModuleSettings] = useState(defaultModuleSettings)
 
+  // Notification state
+  const [notifPrefs, setNotifPrefs] = useState<NotificationPrefs>({
+    enabled: false,
+    morningEnabled: true,
+    studyEnabled: true,
+    habitEnabled: true,
+    habitTime: '21:00',
+  })
+  const [permissionStatus, setPermissionStatus] = useState<string>('undetermined')
+  const [showHabitTimePicker, setShowHabitTimePicker] = useState(false)
+  const [studyBlocks, setStudyBlocks] = useState<StudyBlock[]>([])
+  const [savingNotif, setSavingNotif] = useState(false)
+
   const [loading, setLoading] = useState(true)
   const [savingProfile, setSavingProfile] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -92,7 +119,7 @@ export function SettingsScreen() {
       setLoading(true)
       setError(null)
 
-      const [profileRes, settingsRes] = await Promise.all([
+      const [profileRes, settingsRes, blocksRes, prefs, permStatus] = await Promise.all([
         supabase.from('profiles').select('full_name, wake_up_time').eq('id', userId).single(),
         supabase
           .from('user_settings')
@@ -101,6 +128,12 @@ export function SettingsScreen() {
           )
           .eq('user_id', userId)
           .maybeSingle(),
+        supabase
+          .from('study_blocks')
+          .select('*')
+          .eq('user_id', userId),
+        loadNotificationPrefs(),
+        getNotificationPermissionStatus(),
       ])
 
       if (profileRes.error) throw profileRes.error
@@ -111,6 +144,9 @@ export function SettingsScreen() {
         ...defaultModuleSettings,
         ...((settingsRes.data as Partial<typeof defaultModuleSettings> | null) ?? {}),
       })
+      setStudyBlocks((blocksRes.data as StudyBlock[] | null) ?? [])
+      setNotifPrefs(prefs)
+      setPermissionStatus(permStatus)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudieron cargar los ajustes')
       setProfile({ full_name: '', wake_up_time: '' })
@@ -151,6 +187,11 @@ export function SettingsScreen() {
         .eq('id', userId)
 
       if (updateError) throw updateError
+
+      // Reschedule morning reminder if notifications are active
+      if (notifPrefs.enabled && notifPrefs.morningEnabled) {
+        await scheduleMorningReminder(wakeUpTimeValue)
+      }
 
       showAlert({
         title: 'Perfil actualizado',
@@ -193,6 +234,112 @@ export function SettingsScreen() {
         message: err instanceof Error ? err.message : 'No se pudo guardar el cambio',
         buttons: [{ text: 'Entendido', style: 'destructive' }],
       })
+    }
+  }
+
+  // ─── Notification handlers ───────────────────────────────────────────────
+
+  const handleToggleNotifications = async (value: boolean) => {
+    if (value && permissionStatus !== 'granted') {
+      // Need to request permission first
+      const status = await requestNotificationPermissions()
+      setPermissionStatus(status)
+
+      if (status !== 'granted') {
+        showAlert({
+          title: 'Permiso requerido',
+          message:
+            'Para recibir notificaciones, actívalas en los ajustes de tu dispositivo.',
+          buttons: [
+            { text: 'Cancelar', style: 'cancel' },
+            {
+              text: 'Abrir ajustes',
+              style: 'default',
+              onPress: () => {
+                void Linking.openSettings()
+              },
+            },
+          ],
+        })
+        return
+      }
+    }
+
+    setSavingNotif(true)
+    try {
+      const updated = { ...notifPrefs, enabled: value }
+      setNotifPrefs(updated)
+      await saveNotificationPrefs({ enabled: value })
+
+      if (!value) {
+        await cancelAllNotifications()
+        return
+      }
+
+      // Re-apply current settings
+      const wakeUpTime = profile.wake_up_time ?? '06:00'
+      if (updated.morningEnabled) await scheduleMorningReminder(wakeUpTime)
+      if (updated.studyEnabled) await scheduleStudyBlockReminders(studyBlocks)
+      if (updated.habitEnabled) await scheduleHabitReminder(updated.habitTime)
+    } catch {
+      setNotifPrefs((prev) => ({ ...prev, enabled: !value }))
+    } finally {
+      setSavingNotif(false)
+    }
+  }
+
+  const handleToggleMorning = async (value: boolean) => {
+    const updated = { ...notifPrefs, morningEnabled: value }
+    setNotifPrefs(updated)
+    await saveNotificationPrefs({ morningEnabled: value })
+
+    if (!notifPrefs.enabled) return
+    if (value) {
+      await scheduleMorningReminder(profile.wake_up_time ?? '06:00')
+    } else {
+      await cancelMorningReminder()
+    }
+  }
+
+  const handleToggleStudyReminders = async (value: boolean) => {
+    setSavingNotif(true)
+    try {
+      const updated = { ...notifPrefs, studyEnabled: value }
+      setNotifPrefs(updated)
+      await saveNotificationPrefs({ studyEnabled: value })
+
+      if (!notifPrefs.enabled) return
+      if (value) {
+        await scheduleStudyBlockReminders(studyBlocks)
+      } else {
+        await cancelAllStudyBlockReminders()
+      }
+    } finally {
+      setSavingNotif(false)
+    }
+  }
+
+  const handleToggleHabitReminder = async (value: boolean) => {
+    const updated = { ...notifPrefs, habitEnabled: value }
+    setNotifPrefs(updated)
+    await saveNotificationPrefs({ habitEnabled: value })
+
+    if (!notifPrefs.enabled) return
+    if (value) {
+      await scheduleHabitReminder(notifPrefs.habitTime)
+    } else {
+      await cancelHabitReminder()
+    }
+  }
+
+  const handleHabitTimeConfirm = async (time: string) => {
+    setShowHabitTimePicker(false)
+    const updated = { ...notifPrefs, habitTime: time }
+    setNotifPrefs(updated)
+    await saveNotificationPrefs({ habitTime: time })
+
+    if (notifPrefs.enabled && notifPrefs.habitEnabled) {
+      await scheduleHabitReminder(time)
     }
   }
 
@@ -247,6 +394,7 @@ export function SettingsScreen() {
             </View>
           ) : (
             <>
+              {/* ── Perfil ── */}
               <View className="mt-6 rounded-3xl border-2 border-blue-200 bg-white p-4">
                 <Text className="text-lg font-extrabold text-blue-900">Perfil</Text>
 
@@ -295,6 +443,7 @@ export function SettingsScreen() {
                 onCancel={() => setShowTimePicker(false)}
               />
 
+              {/* ── Módulos ── */}
               <View className="mt-6 rounded-3xl border-2 border-blue-200 bg-white p-4">
                 <Text className="text-lg font-extrabold text-blue-900">Módulos</Text>
 
@@ -327,6 +476,132 @@ export function SettingsScreen() {
                 </View>
               </View>
 
+              {/* ── Notificaciones ── */}
+              <View className="mt-6 rounded-3xl border-2 border-violet-200 bg-white p-4">
+                <View className="flex-row items-center justify-between">
+                  <View className="flex-row items-center gap-2">
+                    <View className="h-9 w-9 items-center justify-center rounded-xl bg-violet-100">
+                      <Ionicons name="notifications-outline" size={18} color="#7c3aed" />
+                    </View>
+                    <Text className="text-lg font-extrabold text-violet-900">Notificaciones</Text>
+                  </View>
+                  <Switch
+                    value={notifPrefs.enabled}
+                    onValueChange={(v) => {
+                      void handleToggleNotifications(v)
+                    }}
+                    disabled={savingNotif}
+                    thumbColor={notifPrefs.enabled ? '#7c3aed' : '#94a3b8'}
+                    trackColor={{ false: '#cbd5e1', true: '#ddd6fe' }}
+                  />
+                </View>
+
+                {permissionStatus === 'denied' && (
+                  <TouchableOpacity
+                    className="mt-3 flex-row items-center gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2"
+                    onPress={() => {
+                      void Linking.openSettings()
+                    }}
+                  >
+                    <Ionicons name="warning-outline" size={14} color="#d97706" />
+                    <Text className="flex-1 text-xs font-semibold text-amber-800">
+                      Permiso denegado. Toca aquí para activar en ajustes del sistema.
+                    </Text>
+                  </TouchableOpacity>
+                )}
+
+                {notifPrefs.enabled && (
+                  <View className="mt-4 gap-3">
+                    {/* Morning reminder */}
+                    <View className="flex-row items-center justify-between rounded-2xl border border-violet-100 bg-violet-50 px-3 py-3">
+                      <View className="flex-1">
+                        <View className="flex-row items-center gap-1.5">
+                          <Ionicons name="sunny-outline" size={15} color="#7c3aed" />
+                          <Text className="text-sm font-bold text-violet-900">Recordatorio matutino</Text>
+                        </View>
+                        <Text className="mt-0.5 text-xs font-semibold text-violet-500">
+                          A las {profile.wake_up_time || '06:00'} (hora de despertar)
+                        </Text>
+                      </View>
+                      <Switch
+                        value={notifPrefs.morningEnabled}
+                        onValueChange={(v) => {
+                          void handleToggleMorning(v)
+                        }}
+                        thumbColor={notifPrefs.morningEnabled ? '#7c3aed' : '#94a3b8'}
+                        trackColor={{ false: '#cbd5e1', true: '#ddd6fe' }}
+                      />
+                    </View>
+
+                    {/* Study reminders */}
+                    <View className="flex-row items-center justify-between rounded-2xl border border-violet-100 bg-violet-50 px-3 py-3">
+                      <View className="flex-1">
+                        <View className="flex-row items-center gap-1.5">
+                          <Ionicons name="book-outline" size={15} color="#7c3aed" />
+                          <Text className="text-sm font-bold text-violet-900">Bloques de estudio</Text>
+                        </View>
+                        <Text className="mt-0.5 text-xs font-semibold text-violet-500">
+                          10 min antes de cada bloque ({studyBlocks.length} bloques)
+                        </Text>
+                      </View>
+                      <Switch
+                        value={notifPrefs.studyEnabled}
+                        onValueChange={(v) => {
+                          void handleToggleStudyReminders(v)
+                        }}
+                        disabled={savingNotif}
+                        thumbColor={notifPrefs.studyEnabled ? '#7c3aed' : '#94a3b8'}
+                        trackColor={{ false: '#cbd5e1', true: '#ddd6fe' }}
+                      />
+                    </View>
+
+                    {/* Habit reminder */}
+                    <View className="rounded-2xl border border-violet-100 bg-violet-50 px-3 py-3">
+                      <View className="flex-row items-center justify-between">
+                        <View className="flex-1">
+                          <View className="flex-row items-center gap-1.5">
+                            <Ionicons name="leaf-outline" size={15} color="#7c3aed" />
+                            <Text className="text-sm font-bold text-violet-900">Recordatorio de hábitos</Text>
+                          </View>
+                          <Text className="mt-0.5 text-xs font-semibold text-violet-500">
+                            Diario a las {notifPrefs.habitTime}
+                          </Text>
+                        </View>
+                        <Switch
+                          value={notifPrefs.habitEnabled}
+                          onValueChange={(v) => {
+                            void handleToggleHabitReminder(v)
+                          }}
+                          thumbColor={notifPrefs.habitEnabled ? '#7c3aed' : '#94a3b8'}
+                          trackColor={{ false: '#cbd5e1', true: '#ddd6fe' }}
+                        />
+                      </View>
+                      {notifPrefs.habitEnabled && (
+                        <TouchableOpacity
+                          className="mt-2 items-center rounded-xl border border-violet-200 bg-white py-2"
+                          onPress={() => setShowHabitTimePicker(true)}
+                        >
+                          <Text className="text-sm font-extrabold text-violet-700">
+                            Cambiar hora: {notifPrefs.habitTime}
+                          </Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  </View>
+                )}
+              </View>
+
+              <TimePickerModal
+                visible={showHabitTimePicker}
+                time={notifPrefs.habitTime}
+                label="Hora del recordatorio de hábitos"
+                onConfirm={(time) => {
+                  void handleHabitTimeConfirm(time)
+                }}
+                onCancel={() => setShowHabitTimePicker(false)}
+              />
+
+              {/* ── Cuenta ── */}
               <View className="mb-12 mt-6 rounded-3xl border-2 border-blue-200 bg-white p-4">
                 <Text className="text-lg font-extrabold text-blue-900">Cuenta</Text>
 
