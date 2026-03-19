@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ScrollView, Text, TouchableOpacity, View } from 'react-native'
 import { router } from 'expo-router'
+import { useFocusEffect } from '@react-navigation/native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import Animated, {
   Easing,
@@ -21,6 +22,58 @@ interface Profile {
   total_points: number
   wake_up_time: string | null
 }
+
+type QuickAccessItem = {
+  label: string
+  route: '/goals' | '/vouchers' | '/mood' | '/gratitude' | '/settings'
+  icon: keyof typeof Ionicons.glyphMap
+  cardClass: string
+  iconColor: string
+  textClass: string
+}
+
+const quickAccessItems: QuickAccessItem[] = [
+  {
+    label: 'Mis metas',
+    route: '/goals',
+    icon: 'flag-outline',
+    cardClass: 'border-pink-200 bg-pink-100',
+    iconColor: '#be185d',
+    textClass: 'text-pink-900',
+  },
+  {
+    label: 'Mis vales',
+    route: '/vouchers',
+    icon: 'ticket-outline',
+    cardClass: 'border-yellow-200 bg-yellow-100',
+    iconColor: '#92400e',
+    textClass: 'text-yellow-900',
+  },
+  {
+    label: 'Estado de ánimo',
+    route: '/mood',
+    icon: 'heart-outline',
+    cardClass: 'border-orange-200 bg-orange-100',
+    iconColor: '#c2410c',
+    textClass: 'text-orange-900',
+  },
+  {
+    label: 'Gratitud',
+    route: '/gratitude',
+    icon: 'flower-outline',
+    cardClass: 'border-emerald-200 bg-emerald-100',
+    iconColor: '#047857',
+    textClass: 'text-emerald-900',
+  },
+  {
+    label: 'Ajustes',
+    route: '/settings',
+    icon: 'settings-outline',
+    cardClass: 'border-blue-200 bg-blue-100',
+    iconColor: '#1d4ed8',
+    textClass: 'text-blue-900',
+  },
+]
 
 export function ProfileScreen() {
   const { session } = useSession()
@@ -52,56 +105,69 @@ export function ProfileScreen() {
     transform: [{ scale: loadingScale.value }],
   }))
 
-  useEffect(() => {
-    async function loadProfile() {
-      const userId = session?.user.id
-      if (!userId) {
-        setLoading(false)
-        return
-      }
-
-      try {
-        setLoading(true)
-        setError(null)
-
-        const [profileRes, streakRes, userAchRes, allAchRes] = await Promise.all([
-          supabase
-            .from('profiles')
-            .select('full_name, total_points, wake_up_time')
-            .eq('id', userId)
-            .single(),
-          supabase
-            .from('streaks')
-            .select('*')
-            .eq('user_id', userId)
-            .single(),
-          supabase
-            .from('user_achievements')
-            .select('*, achievement:achievements(*)')
-            .eq('user_id', userId),
-          supabase.from('achievements').select('*'),
-        ])
-
-        if (profileRes.error && profileRes.error.code !== 'PGRST116') throw profileRes.error
-        if (streakRes.error && streakRes.error.code !== 'PGRST116') throw streakRes.error
-        if (userAchRes.error) throw userAchRes.error
-        if (allAchRes.error) throw allAchRes.error
-
-        setProfile(profileRes.data ?? null)
-        setStreak(streakRes.data ?? null)
-        setUserAchievements(userAchRes.data ?? [])
-        setAllAchievements(allAchRes.data ?? [])
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Error cargando perfil')
-      } finally {
-        setLoading(false)
-      }
+  const loadProfile = useCallback(async () => {
+    const userId = session?.user.id
+    if (!userId) {
+      setProfile(null)
+      setStreak(null)
+      setUserAchievements([])
+      setAllAchievements([])
+      setLoading(false)
+      return
     }
 
-    void loadProfile()
+    try {
+      setLoading(true)
+      setError(null)
+
+      const [profileRes, streakRes, userAchRes, allAchRes] = await Promise.all([
+        supabase
+          .from('profiles')
+          .select('full_name, total_points, wake_up_time')
+          .eq('id', userId)
+          .single(),
+        supabase
+          .from('streaks')
+          .select('*')
+          .eq('user_id', userId)
+          .single(),
+        supabase
+          .from('user_achievements')
+          .select('*, achievement:achievements(*)')
+          .eq('user_id', userId),
+        supabase.from('achievements').select('*'),
+      ])
+
+      if (profileRes.error && profileRes.error.code !== 'PGRST116') throw profileRes.error
+      if (streakRes.error && streakRes.error.code !== 'PGRST116') throw streakRes.error
+      if (userAchRes.error) throw userAchRes.error
+      if (allAchRes.error) throw allAchRes.error
+
+      setProfile(profileRes.data ?? null)
+      setStreak(streakRes.data ?? null)
+      setUserAchievements(userAchRes.data ?? [])
+      setAllAchievements(allAchRes.data ?? [])
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error cargando perfil')
+      setProfile(null)
+      setStreak(null)
+      setUserAchievements([])
+      setAllAchievements([])
+    } finally {
+      setLoading(false)
+    }
   }, [session?.user.id])
 
-  const unlockedIds = new Set(userAchievements.map((ua) => ua.achievement_id))
+  useFocusEffect(
+    useCallback(() => {
+      void loadProfile()
+    }, [loadProfile])
+  )
+
+  const unlockedIds = useMemo(
+    () => new Set(userAchievements.map((ua) => ua.achievement_id)),
+    [userAchievements]
+  )
 
   if (loading) {
     return (
@@ -121,9 +187,9 @@ export function ProfileScreen() {
         <Text className="mt-4 text-center text-sm font-semibold text-red-600">{error}</Text>
         <TouchableOpacity
           className="mt-6 rounded-2xl bg-purple-500 px-6 py-3"
-          onPress={() => router.back()}
+          onPress={() => void loadProfile()}
         >
-          <Text className="font-bold text-white">Volver</Text>
+          <Text className="font-bold text-white">Reintentar</Text>
         </TouchableOpacity>
       </SafeAreaView>
     )
@@ -163,6 +229,26 @@ export function ProfileScreen() {
               Racha más larga: {streak.longest_streak} días
             </Text>
           )}
+        </View>
+
+        <View className="mt-8 rounded-3xl border-2 border-purple-200 bg-white p-4">
+          <Text className="text-lg font-extrabold text-purple-900">Accesos rápidos</Text>
+          <View className="mt-4 flex-row flex-wrap">
+            {quickAccessItems.map((item) => (
+              <TouchableOpacity
+                key={item.route}
+                className="mb-3 w-1/2 pr-3"
+                onPress={() => router.push(item.route)}
+              >
+                <View className={`rounded-2xl border-2 px-3 py-4 ${item.cardClass}`}>
+                  <View className="h-9 w-9 items-center justify-center rounded-xl bg-white">
+                    <Ionicons name={item.icon} size={18} color={item.iconColor} />
+                  </View>
+                  <Text className={`mt-2 text-sm font-extrabold ${item.textClass}`}>{item.label}</Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
 
         <View className="mt-8">
@@ -226,14 +312,6 @@ export function ProfileScreen() {
             </View>
           )}
         </View>
-
-        <TouchableOpacity
-          className="mt-6 flex-row items-center justify-center rounded-2xl border-2 border-purple-200 bg-white px-4 py-4"
-          onPress={() => router.push('/goals')}
-        >
-          <Ionicons name="flag-outline" size={18} color="#7c3aed" />
-          <Text className="ml-2 text-sm font-extrabold text-purple-800">Mis metas</Text>
-        </TouchableOpacity>
 
         <View className="h-16" />
       </ScrollView>

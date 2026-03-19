@@ -99,18 +99,58 @@ export interface Goal {
 export interface MoodLog {
   id: string
   user_id: string
-  mood: string
-  notes: string | null
-  log_date: string
+  mood: number
+  note: string | null
+  logged_date: string
   created_at: string
 }
 
 export interface GratitudeLog {
   id: string
   user_id: string
-  content: string
-  log_date: string
+  entry_1: string
+  entry_2: string | null
+  entry_3: string | null
+  logged_date: string
   created_at: string
+}
+
+export interface VoucherTemplate {
+  id: string
+  title: string
+  description: string
+  points_cost: number
+  icon: string
+  color: string
+  created_at: string
+}
+
+export interface Voucher {
+  id: string
+  user_id: string
+  template_id: string | null
+  title: string
+  description: string
+  points_cost: number
+  icon: string
+  color: string
+  is_redeemed: boolean
+  redeemed_at: string | null
+  created_at: string
+}
+
+export interface UserSettings {
+  id: string
+  user_id: string
+  study_enabled: boolean
+  exercise_enabled: boolean
+  habits_enabled: boolean
+  goals_enabled: boolean
+  mood_enabled: boolean
+  gratitude_enabled: boolean
+  vouchers_enabled: boolean
+  created_at: string
+  updated_at: string
 }
 
 export interface Achievement {

@@ -76,7 +76,7 @@ export function HomeDashboard({ userName, email, onSignOut }: HomeDashboardProps
   const today = todayRaw.charAt(0).toUpperCase() + todayRaw.slice(1)
   const timeOfDay = getTimeOfDay()
   const greetingText = getGreeting(userName)
-  const greetingIcon = getTimeIcon()
+  const greetingIcon = getTimeIcon() as keyof typeof Ionicons.glyphMap
   const greetingBgClass = getTimeColor()
 
   const timeLabelMap: Record<TimeOfDay, string> = {
@@ -223,12 +223,20 @@ export function HomeDashboard({ userName, email, onSignOut }: HomeDashboardProps
             </View>
           </View>
         </View>
-        <TouchableOpacity
-          className="h-10 w-10 items-center justify-center rounded-full bg-blue-200"
-          onPress={() => router.push('/profile')}
-        >
-          <Ionicons name="person" size={18} color="#1e40af" />
-        </TouchableOpacity>
+        <View className="flex-row items-center">
+          <TouchableOpacity
+            className="mr-2 h-10 w-10 items-center justify-center rounded-full bg-blue-200"
+            onPress={() => router.push('/settings')}
+          >
+            <Ionicons name="settings-outline" size={18} color="#1e40af" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            className="h-10 w-10 items-center justify-center rounded-full bg-blue-200"
+            onPress={() => router.push('/profile')}
+          >
+            <Ionicons name="person" size={18} color="#1e40af" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <View className="mt-4">
