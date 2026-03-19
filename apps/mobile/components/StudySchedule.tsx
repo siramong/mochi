@@ -1,8 +1,6 @@
 import { Ionicons } from '@expo/vector-icons'
 import { useEffect, useState } from 'react'
 import { ScrollView, Text, TouchableOpacity, View, ActivityIndicator } from 'react-native'
-import { FadeIn } from 'react-native-reanimated'
-import Animated from 'react-native-reanimated'
 import { router } from 'expo-router'
 import { supabase } from '@/lib/supabase'
 import { useSession } from '@/hooks/useSession'
@@ -114,10 +112,9 @@ export function StudySchedule() {
           </View>
         ) : (
           <View className="rounded-3xl border-2 border-purple-200 bg-white p-4">
-            {blocks.map((item, index) => (
-              <Animated.View
+            {blocks.map((item) => (
+              <View
                 key={item.id}
-                entering={FadeIn.delay(index * 100)}
                 className={`mb-3 rounded-2xl border border-slate-100 p-4 ${colorMap[item.color] || 'bg-purple-200'}`}
               >
                 <View className="flex-row items-center justify-between">
@@ -134,7 +131,7 @@ export function StudySchedule() {
                 <Text className="mt-1 text-sm font-semibold text-slate-700">
                   {item.start_time} - {item.end_time}
                 </Text>
-              </Animated.View>
+              </View>
             ))}
           </View>
         )}

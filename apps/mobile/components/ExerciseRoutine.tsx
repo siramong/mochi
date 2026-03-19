@@ -1,8 +1,6 @@
 import { Ionicons } from '@expo/vector-icons'
 import { useEffect, useState } from 'react'
 import { ScrollView, Text, TouchableOpacity, View, ActivityIndicator } from 'react-native'
-import { FadeIn } from 'react-native-reanimated'
-import Animated from 'react-native-reanimated'
 import { router } from 'expo-router'
 import { supabase } from '@/lib/supabase'
 import { useSession } from '@/hooks/useSession'
@@ -99,10 +97,9 @@ export function ExerciseRoutine() {
             </View>
           </View>
         ) : (
-          routines.map((routine, index) => (
-            <Animated.View
+          routines.map((routine) => (
+            <View
               key={routine.id}
-              entering={FadeIn.delay(index * 100)}
               className="mb-4 rounded-3xl border-2 border-teal-200 bg-white p-5"
             >
               <View className="flex-row items-start justify-between">
@@ -129,7 +126,7 @@ export function ExerciseRoutine() {
                   <Ionicons name="play" size={18} color="#0d9488" />
                 </TouchableOpacity>
               </View>
-            </Animated.View>
+            </View>
           ))
         )}
       </ScrollView>

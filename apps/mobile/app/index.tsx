@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
-import { ActivityIndicator, SafeAreaView, View } from 'react-native'
-import { FadeIn, FadeOut } from 'react-native-reanimated'
-import Animated from 'react-native-reanimated'
+import { ActivityIndicator, View } from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
 import { supabase } from '@/lib/supabase'
 import { useSession } from '@/hooks/useSession'
 import { BottomNav, MobileScreen } from '@/components/BottomNav'
@@ -80,13 +79,9 @@ export function HomeScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-purple-100">
-      <Animated.View
-        key={currentScreen}
-        entering={FadeIn.duration(300)}
-        className="flex-1"
-      >
+      <View key={currentScreen} className="flex-1">
         {renderContent()}
-      </Animated.View>
+      </View>
 
       <BottomNav currentScreen={currentScreen} onNavigate={setCurrentScreen} />
     </SafeAreaView>

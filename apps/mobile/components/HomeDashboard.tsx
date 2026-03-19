@@ -1,8 +1,6 @@
 import { Ionicons } from '@expo/vector-icons'
 import { useEffect, useState } from 'react'
 import { Text, TouchableOpacity, View, ScrollView, ActivityIndicator } from 'react-native'
-import { FadeIn } from 'react-native-reanimated'
-import Animated from 'react-native-reanimated'
 import { supabase } from '@/lib/supabase'
 import type { StudyBlock, RoutineWithExercises } from '@/types/database'
 
@@ -103,13 +101,13 @@ export function HomeDashboard({ userName, email, onSignOut }: HomeDashboardProps
 
   return (
     <ScrollView className="flex-1 bg-blue-100 px-5 pt-12">
-      <Animated.View entering={FadeIn.delay(0)}>
+      <View>
         <Text className="text-3xl font-extrabold text-blue-900">Hola, {userName}</Text>
         <Text className="mt-1 text-sm font-semibold capitalize text-blue-700">{today}</Text>
-      </Animated.View>
+      </View>
 
       {/* Study blocks section */}
-      <Animated.View entering={FadeIn.delay(100)} className="mt-6 rounded-3xl border-2 border-blue-200 bg-white p-5">
+      <View className="mt-6 rounded-3xl border-2 border-blue-200 bg-white p-5">
         <View className="mb-3 flex-row items-center">
           <Ionicons name="book" size={18} color="#1e40af" />
           <Text className="ml-2 text-base font-bold text-blue-900">Bloques de estudio</Text>
@@ -124,10 +122,9 @@ export function HomeDashboard({ userName, email, onSignOut }: HomeDashboardProps
         ) : todayBlocks.length === 0 ? (
           <Text className="text-sm font-semibold text-slate-500">No hay bloques para hoy</Text>
         ) : (
-          todayBlocks.map((block, index) => (
-            <Animated.View
+          todayBlocks.map((block) => (
+            <View
               key={block.id}
-              entering={FadeIn.delay(200 + index * 50)}
               className="mb-3 flex-row items-center justify-between rounded-2xl border border-slate-100 bg-slate-50 p-3"
             >
               <View className="flex-row items-center">
@@ -153,13 +150,13 @@ export function HomeDashboard({ userName, email, onSignOut }: HomeDashboardProps
                   })()}
                 </Text>
               </View>
-            </Animated.View>
+            </View>
           ))
         )}
-      </Animated.View>
+      </View>
 
       {/* Routine section */}
-      <Animated.View entering={FadeIn.delay(200)} className="mt-4 rounded-3xl border-2 border-teal-200 bg-white p-5">
+      <View className="mt-4 rounded-3xl border-2 border-teal-200 bg-white p-5">
         <View className="mb-2 flex-row items-center">
           <Ionicons name="barbell" size={18} color="#0d9488" />
           <Text className="ml-2 text-base font-bold text-blue-900">Rutina de hoy</Text>
@@ -181,15 +178,15 @@ export function HomeDashboard({ userName, email, onSignOut }: HomeDashboardProps
         ) : (
           <Text className="text-sm font-semibold text-slate-500">Sin rutina para hoy</Text>
         )}
-      </Animated.View>
+      </View>
 
       {/* Session info */}
-      <Animated.View entering={FadeIn.delay(300)} className="mb-12 mt-4 rounded-3xl border border-purple-100 bg-white p-4">
+      <View className="mb-12 mt-4 rounded-3xl border border-purple-100 bg-white p-4">
         <Text className="text-xs font-semibold text-purple-800">Sesión activa: {email ?? 'sin correo'}</Text>
         <TouchableOpacity className="mt-3 items-center rounded-2xl bg-purple-200 py-3" onPress={onSignOut}>
           <Text className="font-bold text-purple-900">Cerrar sesión</Text>
         </TouchableOpacity>
-      </Animated.View>
+      </View>
     </ScrollView>
   )
 }

@@ -24,7 +24,7 @@ export function BottomNav({ currentScreen, onNavigate }: BottomNavProps) {
           return (
             <TouchableOpacity
               key={tab.id}
-              className={`h-14 w-20 items-center justify-center rounded-2xl transition-colors duration-300 ${active ? 'bg-purple-100' : ''}`}
+              className={`h-14 w-20 items-center justify-center rounded-2xl ${active ? 'bg-purple-100' : ''}`}
               onPress={() => {
                 onNavigate(tab.id)
               }}
