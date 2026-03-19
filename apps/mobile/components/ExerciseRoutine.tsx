@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { ScrollView, Text, TouchableOpacity, View, ActivityIndicator } from 'react-native'
 import { router } from 'expo-router'
 import { supabase } from '@/lib/supabase'
-import { useSession } from '@/hooks/useSession'
+import { useSession } from '@/context/SessionContext'
 import type { RoutineWithExercises } from '@/types/database'
 
 const colorMap: Record<string, string> = {

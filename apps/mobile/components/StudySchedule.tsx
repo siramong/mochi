@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { ScrollView, Text, TouchableOpacity, View, ActivityIndicator } from 'react-native'
 import { router } from 'expo-router'
 import { supabase } from '@/lib/supabase'
-import { useSession } from '@/hooks/useSession'
+import { useSession } from '@/context/SessionContext'
 import type { StudyBlock } from '@/types/database'
 
 const days = ['L', 'M', 'X', 'J', 'V', 'S', 'D']

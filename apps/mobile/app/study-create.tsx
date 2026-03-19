@@ -3,7 +3,7 @@ import { ActivityIndicator, ScrollView, Text, TextInput, TouchableOpacity, View,
 import { Ionicons } from '@expo/vector-icons'
 import { router } from 'expo-router'
 import { supabase } from '@/lib/supabase'
-import { useSession } from '@/hooks/useSession'
+import { useSession } from '@/context/SessionContext'
 import TimePickerModal from '@/components/TimePickerModal'
 import { suggestStudyDuration } from '@/lib/ai'
 

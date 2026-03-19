@@ -2,9 +2,9 @@ import "../global.css";
 import { useEffect } from "react";
 import { Stack, router } from "expo-router";
 import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native";
-import { useSession } from "@/hooks/useSession";
+import { SessionProvider, useSession } from "@/context/SessionContext";
 
-export function RootLayout() {
+function RootLayoutNavigator() {
   const { session, loading, requiresOnboarding, profileError, refreshProfile } = useSession();
 
   useEffect(() => {
@@ -53,6 +53,14 @@ export function RootLayout() {
   }
 
   return <Stack screenOptions={{ headerShown: false }} />;
+}
+
+export function RootLayout() {
+  return (
+    <SessionProvider>
+      <RootLayoutNavigator />
+    </SessionProvider>
+  );
 }
 
 export default RootLayout;
