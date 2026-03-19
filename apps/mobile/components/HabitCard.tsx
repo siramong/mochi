@@ -13,6 +13,8 @@ type HabitCardProps = {
   isCompleted: boolean
   onToggle: () => void
   onLongPress?: () => void
+  weeklyDots?: boolean[]
+  weeklyDayLabels?: string[]
 }
 
 const colorBorderMap: Record<string, string> = {
@@ -47,7 +49,15 @@ const colorIconMap: Record<string, string> = {
   purple: '#4c1d95',
 }
 
-export function HabitCard({ habit, isCompleted, onToggle, onLongPress }: HabitCardProps) {
+const colorDotMap: Record<string, string> = {
+  pink: '#f9a8d4',
+  yellow: '#fcd34d',
+  blue: '#93c5fd',
+  teal: '#5eead4',
+  purple: '#c4b5fd',
+}
+
+export function HabitCard({ habit, isCompleted, onToggle, onLongPress, weeklyDots, weeklyDayLabels }: HabitCardProps) {
   const scale = useSharedValue(1)
   const isCompletedShared = useDerivedValue(() => isCompleted)
 
@@ -78,7 +88,31 @@ export function HabitCard({ habit, isCompleted, onToggle, onLongPress }: HabitCa
             color={colorIconMap[habit.color] ?? '#4c1d95'}
           />
         </View>
-        <Text className="ml-3 flex-1 text-sm font-bold text-slate-800">{habit.name}</Text>
+        <View className="ml-3 flex-1">
+          <Text className="text-sm font-bold text-slate-800">{habit.name}</Text>
+          {weeklyDots && weeklyDots.length === 7 && (
+            <View className="mt-1.5 flex-row items-center gap-1">
+              {weeklyDots.map((done, i) => (
+                <View
+                  key={i}
+                  style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: 4,
+                    backgroundColor: done
+                      ? (colorDotMap[habit.color] ?? '#c4b5fd')
+                      : '#e5e7eb',
+                  }}
+                />
+              ))}
+              {weeklyDayLabels && (
+                <Text className="ml-1 text-xs font-semibold text-slate-400">
+                  {weeklyDots.filter(Boolean).length}/7
+                </Text>
+              )}
+            </View>
+          )}
+        </View>
         <View
           className={`h-8 w-8 items-center justify-center rounded-full ${isCompleted ? 'bg-green-400' : 'border-2 border-slate-300 bg-white'}`}
         >

@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Modal, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import Animated, {
   Easing,
@@ -19,6 +19,17 @@ import type { Habit } from '@/types/database'
 
 const COLOR_OPTIONS = ['pink', 'yellow', 'blue', 'teal', 'purple'] as const
 const ICON_OPTIONS = ['leaf', 'water', 'book', 'heart', 'fitness'] as const
+
+function getLast7Days(): string[] {
+  const days: string[] = []
+  const today = new Date()
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(today)
+    d.setDate(d.getDate() - i)
+    days.push(d.toISOString().slice(0, 10))
+  }
+  return days
+}
 
 const colorBgMap: Record<string, string> = {
   pink: 'bg-pink-200',
@@ -41,6 +52,7 @@ export function HabitsScreen() {
   const { showAlert, AlertComponent } = useCustomAlert()
   const [habits, setHabits] = useState<Habit[]>([])
   const [completedToday, setCompletedToday] = useState<Set<string>>(new Set())
+  const [weeklyLogs, setWeeklyLogs] = useState<Map<string, Set<string>>>(new Map())
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showModal, setShowModal] = useState(false)
@@ -83,7 +95,8 @@ export function HabitsScreen() {
     transform: [{ scale: celebrationScale.value }],
   }))
 
-  const todayISO = new Date().toISOString().slice(0, 10)
+  const todayISO = useMemo(() => new Date().toISOString().slice(0, 10), [])
+  const last7Days = useMemo(() => getLast7Days(), [])
 
   const loadHabits = useCallback(async () => {
     const userId = session?.user.id
@@ -96,30 +109,50 @@ export function HabitsScreen() {
       setLoading(true)
       setError(null)
 
-      const { data: habitsData, error: habitsError } = await supabase
-        .from('habits')
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: true })
+      const weekStart = last7Days[0]
 
-      if (habitsError) throw habitsError
+      const [habitsRes, todayLogsRes, weekLogsRes] = await Promise.all([
+        supabase
+          .from('habits')
+          .select('*')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: true }),
+        supabase
+          .from('habit_logs')
+          .select('habit_id')
+          .eq('user_id', userId)
+          .eq('log_date', todayISO),
+        supabase
+          .from('habit_logs')
+          .select('habit_id, log_date')
+          .eq('user_id', userId)
+          .gte('log_date', weekStart)
+          .lte('log_date', todayISO),
+      ])
 
-      const { data: logsData, error: logsError } = await supabase
-        .from('habit_logs')
-        .select('habit_id')
-        .eq('user_id', userId)
-        .eq('log_date', todayISO)
+      if (habitsRes.error) throw habitsRes.error
+      if (todayLogsRes.error) throw todayLogsRes.error
+      if (weekLogsRes.error) throw weekLogsRes.error
 
-      if (logsError) throw logsError
+      const weekMap = new Map<string, Set<string>>()
+      for (const log of weekLogsRes.data ?? []) {
+        const existing = weekMap.get(log.habit_id)
+        if (existing) {
+          existing.add(log.log_date)
+        } else {
+          weekMap.set(log.habit_id, new Set([log.log_date]))
+        }
+      }
 
-      setHabits(habitsData ?? [])
-      setCompletedToday(new Set(logsData?.map((l) => l.habit_id) ?? []))
+      setHabits(habitsRes.data ?? [])
+      setCompletedToday(new Set(todayLogsRes.data?.map((l) => l.habit_id) ?? []))
+      setWeeklyLogs(weekMap)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error cargando hábitos')
     } finally {
       setLoading(false)
     }
-  }, [session?.user.id, todayISO])
+  }, [session?.user.id, todayISO, last7Days])
 
   useFocusEffect(
     useCallback(() => {
@@ -260,6 +293,8 @@ export function HabitsScreen() {
                 key={habit.id}
                 habit={habit}
                 isCompleted={completedToday.has(habit.id)}
+                weeklyDots={last7Days.map((d) => weeklyLogs.get(habit.id)?.has(d) ?? false)}
+                weeklyDayLabels={last7Days}
                 onToggle={() => void handleToggle(habit.id)}
                 onLongPress={() => {
                   showAlert({

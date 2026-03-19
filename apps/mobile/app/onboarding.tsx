@@ -5,6 +5,11 @@ import { Ionicons } from '@expo/vector-icons'
 import { supabase } from '@/lib/supabase'
 import { MochiCharacter } from '@/components/MochiCharacter'
 import TimePickerModal from '@/components/TimePickerModal'
+import {
+  requestNotificationPermissions,
+  saveNotificationPrefs,
+  scheduleMorningReminder,
+} from '@/lib/notifications'
 
 export function OnboardingScreen() {
   const [fullName, setFullName] = useState('')
@@ -48,6 +53,18 @@ export function OnboardingScreen() {
 
       if (updateError) {
         throw updateError
+      }
+
+      // Request notification permission and schedule morning reminder
+      const permissionStatus = await requestNotificationPermissions()
+      if (permissionStatus === 'granted') {
+        await saveNotificationPrefs({
+          enabled: true,
+          morningEnabled: true,
+          studyEnabled: true,
+          habitEnabled: true,
+        })
+        await scheduleMorningReminder(wakeUpTime)
       }
 
       router.replace('/')

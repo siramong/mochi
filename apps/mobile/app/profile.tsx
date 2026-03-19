@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ScrollView, Text, TouchableOpacity, View } from 'react-native'
+import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native'
 import { router } from 'expo-router'
 import { useFocusEffect } from '@react-navigation/native'
 import { SafeAreaView } from 'react-native-safe-area-context'
@@ -25,7 +25,7 @@ interface Profile {
 
 type QuickAccessItem = {
   label: string
-  route: '/goals' | '/vouchers' | '/mood' | '/gratitude' | '/settings'
+  route: '/goals' | '/vouchers' | '/mood' | '/gratitude' | '/settings' | '/study-history'
   icon: keyof typeof Ionicons.glyphMap
   cardClass: string
   iconColor: string
@@ -48,6 +48,14 @@ const quickAccessItems: QuickAccessItem[] = [
     cardClass: 'border-yellow-200 bg-yellow-100',
     iconColor: '#92400e',
     textClass: 'text-yellow-900',
+  },
+  {
+    label: 'Historial de estudio',
+    route: '/study-history',
+    icon: 'time-outline',
+    cardClass: 'border-indigo-200 bg-indigo-100',
+    iconColor: '#3730a3',
+    textClass: 'text-indigo-900',
   },
   {
     label: 'Estado de ánimo',
@@ -169,7 +177,7 @@ export function ProfileScreen() {
     [userAchievements]
   )
 
-  if (loading) {
+  if (loading && !profile) {
     return (
       <SafeAreaView className="flex-1 items-center justify-center bg-purple-50">
         <Animated.View style={loadingAnimatedStyle}>
@@ -211,7 +219,11 @@ export function ProfileScreen() {
 
           <View className="mt-3 flex-row items-center">
             <View className="mr-3 flex-row items-center rounded-full bg-yellow-200 px-4 py-2">
-              <Ionicons name="star" size={14} color="#92400e" />
+              {loading ? (
+                <ActivityIndicator size="small" color="#92400e" />
+              ) : (
+                <Ionicons name="star" size={14} color="#92400e" />
+              )}
               <Text className="ml-1 font-extrabold text-yellow-900">
                 {profile?.total_points ?? 0} puntos
               </Text>
