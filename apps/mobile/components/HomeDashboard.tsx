@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons'
 import { useEffect, useState } from 'react'
 import { Text, TouchableOpacity, View, ScrollView } from 'react-native'
+import { router } from 'expo-router'
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -13,6 +14,7 @@ import Animated, {
 import { supabase } from '@/lib/supabase'
 import type { StudyBlock, RoutineWithExercises } from '@/types/database'
 import { MochiCharacter } from '@/components/MochiCharacter'
+import { DailyMotivation } from '@/components/DailyMotivation'
 
 type HomeDashboardProps = {
   userName: string
@@ -171,9 +173,25 @@ export function HomeDashboard({ userName, email, onSignOut }: HomeDashboardProps
 
   return (
     <ScrollView className="flex-1 bg-blue-100 px-5 pt-12">
-      <View>
-        <Text className="text-3xl font-extrabold text-blue-900">Hola, {userName}</Text>
-        <Text className="mt-1 text-sm font-semibold capitalize text-blue-700">{today}</Text>
+      <View className="flex-row items-start justify-between">
+        <View>
+          <Text className="text-3xl font-extrabold text-blue-900">Hola, {userName}</Text>
+          <Text className="mt-1 text-sm font-semibold capitalize text-blue-700">{today}</Text>
+        </View>
+        <TouchableOpacity
+          className="h-10 w-10 items-center justify-center rounded-full bg-blue-200"
+          onPress={() => router.push('/profile')}
+        >
+          <Ionicons name="person" size={18} color="#1e40af" />
+        </TouchableOpacity>
+      </View>
+
+      <View className="mt-4">
+        <DailyMotivation
+          userName={userName}
+          studyBlockCount={todayBlocks.length}
+          hasRoutine={!!todayRoutine}
+        />
       </View>
 
       <AnimatedDashboardCard
@@ -202,9 +220,10 @@ export function HomeDashboard({ userName, email, onSignOut }: HomeDashboardProps
           </View>
         ) : (
           todayBlocks.map((block) => (
-            <View
+            <TouchableOpacity
               key={block.id}
               className="mb-3 flex-row items-center justify-between rounded-2xl border border-slate-100 bg-slate-50 p-3"
+              onPress={() => router.push(`/study-timer?blockId=${block.id}`)}
             >
               <View className="flex-row items-center">
                 <View
@@ -229,10 +248,18 @@ export function HomeDashboard({ userName, email, onSignOut }: HomeDashboardProps
                   })()}
                 </Text>
               </View>
-            </View>
+            </TouchableOpacity>
           ))
         )}
       </AnimatedDashboardCard>
+
+      <TouchableOpacity
+        className="mt-4 flex-row items-center justify-center rounded-2xl border-2 border-pink-300 bg-pink-200 py-4"
+        onPress={() => router.push('/exam-log')}
+      >
+        <Ionicons name="document-text" size={18} color="#9d174d" />
+        <Text className="ml-2 font-bold text-pink-900">Registrar examen</Text>
+      </TouchableOpacity>
 
       <AnimatedDashboardCard
         delay={100}
@@ -256,7 +283,10 @@ export function HomeDashboard({ userName, email, onSignOut }: HomeDashboardProps
             <Text className="mt-1 text-xs font-semibold text-teal-700">
               {todayRoutine.routine_exercises.length} ejercicios • {handleTotalTime(todayRoutine)}
             </Text>
-            <TouchableOpacity className="mt-3 items-center rounded-2xl border border-teal-200 bg-teal-100 py-3">
+            <TouchableOpacity
+              className="mt-3 items-center rounded-2xl border border-teal-200 bg-teal-100 py-3"
+              onPress={() => router.push(`/routine-player?routineId=${todayRoutine.id}`)}
+            >
               <Text className="font-bold text-teal-800">Iniciar rutina</Text>
             </TouchableOpacity>
           </>

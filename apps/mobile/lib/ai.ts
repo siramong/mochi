@@ -116,3 +116,28 @@ export async function suggestStudyDuration(subject: string): Promise<number> {
   const duration = parseInt(response.trim())
   return isNaN(duration) ? 90 : Math.max(30, Math.min(180, duration))
 }
+
+export async function getDailyMotivation(
+  userName: string,
+  studyBlockCount: number,
+  hasRoutine: boolean
+): Promise<string> {
+  const today = new Date().toISOString().slice(0, 10)
+  const cacheKey = `daily-motivation-${today}`
+
+  try {
+    const cached = await AsyncStorage.getItem(cacheKey)
+    if (cached) return cached
+  } catch {}
+
+  const prompt = `Eres Mochi, una asistente de estudio adorable y motivadora. Saluda a ${userName} de forma breve y motivadora (máximo 2 oraciones) considerando que hoy tiene ${studyBlockCount} bloques de estudio${hasRoutine ? ' y una rutina de ejercicio' : ''}. Responde solo el mensaje, sin comillas ni explicaciones.`
+
+  const response = await callAI(prompt)
+  const message = response || `¡Hola ${userName}! Hoy es un gran día para alcanzar tus metas.`
+
+  try {
+    await AsyncStorage.setItem(cacheKey, message)
+  } catch {}
+
+  return message
+}

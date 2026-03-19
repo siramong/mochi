@@ -1,0 +1,341 @@
+import { Ionicons } from '@expo/vector-icons'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { Modal, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native'
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated'
+import { useFocusEffect } from '@react-navigation/native'
+import { supabase } from '@/lib/supabase'
+import { useSession } from '@/context/SessionContext'
+import { MochiCharacter } from '@/components/MochiCharacter'
+import { HabitCard } from '@/components/HabitCard'
+import type { Habit } from '@/types/database'
+
+const COLOR_OPTIONS = ['pink', 'yellow', 'blue', 'teal', 'purple'] as const
+const ICON_OPTIONS = ['leaf', 'water', 'book', 'heart', 'fitness'] as const
+
+const colorBgMap: Record<string, string> = {
+  pink: 'bg-pink-200',
+  yellow: 'bg-yellow-200',
+  blue: 'bg-blue-200',
+  teal: 'bg-teal-200',
+  purple: 'bg-purple-200',
+}
+
+const colorBorderMap: Record<string, string> = {
+  pink: 'border-pink-300',
+  yellow: 'border-yellow-300',
+  blue: 'border-blue-300',
+  teal: 'border-teal-300',
+  purple: 'border-purple-300',
+}
+
+export function HabitsScreen() {
+  const { session } = useSession()
+  const [habits, setHabits] = useState<Habit[]>([])
+  const [completedToday, setCompletedToday] = useState<Set<string>>(new Set())
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [showModal, setShowModal] = useState(false)
+  const [showCelebration, setShowCelebration] = useState(false)
+  const [newHabitName, setNewHabitName] = useState('')
+  const [selectedColor, setSelectedColor] = useState<string>('pink')
+  const [selectedIcon, setSelectedIcon] = useState<string>('leaf')
+  const [saving, setSaving] = useState(false)
+  const celebrationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const loadingScale = useSharedValue(1)
+  const celebrationScale = useSharedValue(0)
+
+  useEffect(() => {
+    if (loading) {
+      loadingScale.value = withRepeat(
+        withSequence(
+          withTiming(1.06, { duration: 650, easing: Easing.inOut(Easing.quad) }),
+          withTiming(1, { duration: 650, easing: Easing.inOut(Easing.quad) })
+        ),
+        -1,
+        false
+      )
+    } else {
+      loadingScale.value = withTiming(1, { duration: 180 })
+    }
+  }, [loading, loadingScale])
+
+  useEffect(() => {
+    return () => {
+      if (celebrationTimerRef.current) clearTimeout(celebrationTimerRef.current)
+    }
+  }, [])
+
+  const loadingAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: loadingScale.value }],
+  }))
+
+  const celebrationAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: celebrationScale.value }],
+  }))
+
+  const todayISO = new Date().toISOString().slice(0, 10)
+
+  const loadHabits = useCallback(async () => {
+    const userId = session?.user.id
+    if (!userId) {
+      setLoading(false)
+      return
+    }
+
+    try {
+      setLoading(true)
+      setError(null)
+
+      const { data: habitsData, error: habitsError } = await supabase
+        .from('habits')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: true })
+
+      if (habitsError) throw habitsError
+
+      const { data: logsData, error: logsError } = await supabase
+        .from('habit_logs')
+        .select('habit_id')
+        .eq('user_id', userId)
+        .eq('log_date', todayISO)
+
+      if (logsError) throw logsError
+
+      setHabits(habitsData ?? [])
+      setCompletedToday(new Set(logsData?.map((l) => l.habit_id) ?? []))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error cargando hábitos')
+    } finally {
+      setLoading(false)
+    }
+  }, [session?.user.id, todayISO])
+
+  useFocusEffect(
+    useCallback(() => {
+      void loadHabits()
+    }, [loadHabits])
+  )
+
+  async function handleToggle(habitId: string) {
+    const userId = session?.user.id
+    if (!userId) return
+
+    const isCompleted = completedToday.has(habitId)
+
+    if (isCompleted) {
+      const { error: deleteError } = await supabase
+        .from('habit_logs')
+        .delete()
+        .eq('user_id', userId)
+        .eq('habit_id', habitId)
+        .eq('log_date', todayISO)
+      if (deleteError) {
+        console.error('Error removing habit log:', deleteError)
+        return
+      }
+      setCompletedToday((prev) => {
+        const next = new Set(prev)
+        next.delete(habitId)
+        return next
+      })
+    } else {
+      const { error: insertError } = await supabase.from('habit_logs').insert({
+        user_id: userId,
+        habit_id: habitId,
+        log_date: todayISO,
+      })
+      if (insertError) {
+        console.error('Error adding habit log:', insertError)
+        return
+      }
+      setCompletedToday((prev) => {
+        const next = new Set(prev)
+        next.add(habitId)
+        return next
+      })
+
+      const newSize = completedToday.size + 1
+      if (habits.length > 0 && newSize === habits.length) {
+        celebrationScale.value = withSequence(
+          withTiming(1.1, { duration: 300, easing: Easing.out(Easing.cubic) }),
+          withTiming(1, { duration: 200 })
+        )
+        setShowCelebration(true)
+        if (celebrationTimerRef.current) clearTimeout(celebrationTimerRef.current)
+        celebrationTimerRef.current = setTimeout(() => setShowCelebration(false), 3000)
+      }
+    }
+  }
+
+  async function handleCreateHabit() {
+    const userId = session?.user.id
+    if (!userId || !newHabitName.trim()) return
+
+    setSaving(true)
+    try {
+      const { error: sbError } = await supabase.from('habits').insert({
+        user_id: userId,
+        name: newHabitName.trim(),
+        color: selectedColor,
+        icon: selectedIcon,
+      })
+      if (sbError) throw sbError
+      setNewHabitName('')
+      setSelectedColor('pink')
+      setSelectedIcon('leaf')
+      setShowModal(false)
+      await loadHabits()
+    } catch (err) {
+      console.error('Error creating habit:', err)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <View className="flex-1 bg-purple-50">
+      <ScrollView className="flex-1 px-5 pt-12" showsVerticalScrollIndicator={false}>
+        <View className="mb-6 flex-row items-center">
+          <Ionicons name="leaf" size={20} color="#7c3aed" />
+          <Text className="ml-2 text-2xl font-extrabold text-purple-900">Mis hábitos</Text>
+        </View>
+
+        {loading ? (
+          <View className="flex-1 items-center justify-center py-12">
+            <Animated.View style={loadingAnimatedStyle}>
+              <MochiCharacter mood="thinking" size={92} />
+            </Animated.View>
+            <Text className="mt-4 text-sm font-semibold text-purple-700">Cargando hábitos...</Text>
+          </View>
+        ) : error ? (
+          <View className="rounded-3xl border-2 border-red-200 bg-red-50 p-4">
+            <Text className="text-sm font-semibold text-red-700">{error}</Text>
+          </View>
+        ) : habits.length === 0 ? (
+          <View className="items-center rounded-3xl border-2 border-purple-200 bg-white p-8">
+            <MochiCharacter mood="happy" size={88} />
+            <Text className="mt-3 text-center text-sm font-semibold text-purple-600">
+              Crea tu primer hábito usando el botón de abajo
+            </Text>
+          </View>
+        ) : (
+          <>
+            <View className="mb-4 flex-row items-center justify-between">
+              <Text className="text-sm font-semibold text-purple-500">
+                {completedToday.size}/{habits.length} completados hoy
+              </Text>
+            </View>
+            {habits.map((habit) => (
+              <HabitCard
+                key={habit.id}
+                habit={habit}
+                isCompleted={completedToday.has(habit.id)}
+                onToggle={() => void handleToggle(habit.id)}
+              />
+            ))}
+          </>
+        )}
+
+        <View className="h-24" />
+      </ScrollView>
+
+      {/* Celebration overlay */}
+      {showCelebration && (
+        <View className="absolute inset-0 items-center justify-center bg-black/30">
+          <Animated.View
+            style={celebrationAnimatedStyle}
+            className="items-center rounded-3xl bg-white p-8"
+          >
+            <MochiCharacter mood="excited" size={96} />
+            <Text className="mt-4 text-xl font-extrabold text-purple-900">
+              ¡Todos los hábitos completados!
+            </Text>
+            <Text className="mt-2 text-sm font-semibold text-purple-500">
+              ¡Eres increíble, sigue así!
+            </Text>
+          </Animated.View>
+        </View>
+      )}
+
+      {/* FAB */}
+      <TouchableOpacity
+        className="absolute bottom-8 right-6 h-14 w-14 items-center justify-center rounded-full border-4 border-white bg-purple-500"
+        onPress={() => setShowModal(true)}
+      >
+        <Ionicons name="add" size={26} color="white" />
+      </TouchableOpacity>
+
+      {/* Create Habit Modal */}
+      <Modal visible={showModal} transparent animationType="slide">
+        <View className="flex-1 justify-end bg-black/30">
+          <View className="rounded-t-3xl bg-white px-6 pb-10 pt-6">
+            <View className="mb-4 flex-row items-center justify-between">
+              <Text className="text-lg font-extrabold text-purple-900">Nuevo hábito</Text>
+              <TouchableOpacity onPress={() => setShowModal(false)}>
+                <Ionicons name="close" size={22} color="#7c3aed" />
+              </TouchableOpacity>
+            </View>
+
+            <Text className="mb-2 text-sm font-bold text-purple-800">Nombre</Text>
+            <TextInput
+              className="rounded-2xl border-2 border-purple-200 bg-purple-50 px-4 py-3 text-sm font-semibold text-slate-800"
+              placeholder="Ej. Leer 20 minutos, Meditar..."
+              placeholderTextColor="#c4b5fd"
+              value={newHabitName}
+              onChangeText={setNewHabitName}
+            />
+
+            <Text className="mb-2 mt-4 text-sm font-bold text-purple-800">Color</Text>
+            <View className="flex-row">
+              {COLOR_OPTIONS.map((color) => (
+                <TouchableOpacity
+                  key={color}
+                  className={`mr-2 h-9 w-9 rounded-full border-2 ${colorBgMap[color]} ${selectedColor === color ? 'border-purple-500' : 'border-transparent'}`}
+                  onPress={() => setSelectedColor(color)}
+                />
+              ))}
+            </View>
+
+            <Text className="mb-2 mt-4 text-sm font-bold text-purple-800">Icono</Text>
+            <View className="flex-row">
+              {ICON_OPTIONS.map((icon) => (
+                <TouchableOpacity
+                  key={icon}
+                  className={`mr-2 h-10 w-10 items-center justify-center rounded-xl border-2 ${selectedIcon === icon ? 'border-purple-500 bg-purple-100' : 'border-purple-200 bg-purple-50'}`}
+                  onPress={() => setSelectedIcon(icon)}
+                >
+                  <Ionicons
+                    name={icon as keyof typeof Ionicons.glyphMap}
+                    size={18}
+                    color={selectedIcon === icon ? '#7c3aed' : '#a78bfa'}
+                  />
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <TouchableOpacity
+              className={`mt-6 items-center rounded-2xl py-4 ${saving || !newHabitName.trim() ? 'bg-purple-300' : 'bg-purple-500'}`}
+              onPress={() => void handleCreateHabit()}
+              disabled={saving || !newHabitName.trim()}
+            >
+              <Text className="font-extrabold text-white">
+                {saving ? 'Creando...' : 'Crear hábito'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+    </View>
+  )
+}
+
+export default HabitsScreen
