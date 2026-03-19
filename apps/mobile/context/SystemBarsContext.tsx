@@ -1,9 +1,8 @@
-// context/SystemBarsContext.tsx
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react'
 
 type SystemBarsTheme = {
-  backgroundColor: string
   statusBarStyle: 'light' | 'dark'
+  navigationBarStyle: 'light' | 'dark'
 }
 
 type SystemBarsContextValue = {
@@ -12,8 +11,8 @@ type SystemBarsContextValue = {
 }
 
 const defaultTheme: SystemBarsTheme = {
-  backgroundColor: '#f3e8ff',
   statusBarStyle: 'dark',
+  navigationBarStyle: 'dark',
 }
 
 const SystemBarsContext = createContext<SystemBarsContextValue>({
@@ -23,10 +22,7 @@ const SystemBarsContext = createContext<SystemBarsContextValue>({
 
 export function SystemBarsProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<SystemBarsTheme>(defaultTheme)
-
-  const setTheme = useCallback((next: SystemBarsTheme) => {
-    setThemeState(next)
-  }, [])
+  const setTheme = useCallback((next: SystemBarsTheme) => setThemeState(next), [])
 
   return (
     <SystemBarsContext.Provider value={{ theme, setTheme }}>

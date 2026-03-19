@@ -17,14 +17,6 @@
     },
     "android": {
       "package": "com.siramong.mochi",
-      "androidStatusBar": {
-        "backgroundColor": "#f3e8ff",
-        "barStyle": "dark-content"
-      },
-      "androidNavigationBar": {
-        "backgroundColor": "#f3e8ff",
-        "barStyle": "dark-content"
-      },
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -38,6 +30,15 @@
       "bundler": "metro"
     },
     "plugins": [
+      [
+        "react-native-edge-to-edge",
+        {
+          "android": {
+            "parentTheme": "Default",
+            "enforceNavigationBarContrast": false
+          }
+        }
+      ],
       [
         "expo-notifications",
         {

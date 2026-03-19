@@ -19,11 +19,11 @@ import { StudySchedule } from '@/components/StudySchedule'
 import { MochiCharacter } from '@/components/MochiCharacter'
 import { HabitsScreen } from '@/app/habits'
 
-const screenThemes: Record<MobileScreen, { backgroundColor: string; statusBarStyle: 'light' | 'dark' }> = {
-  home:     { backgroundColor: '#f3e8ff', statusBarStyle: 'dark' },
-  study:    { backgroundColor: '#ede9fe', statusBarStyle: 'dark' },
-  exercise: { backgroundColor: '#ecfeff', statusBarStyle: 'dark' },
-  habits:   { backgroundColor: '#ecfdf5', statusBarStyle: 'dark' },
+const screenThemes: Record<MobileScreen, { statusBarStyle: 'light' | 'dark'; navigationBarStyle: 'light' | 'dark' }> = {
+  home:     { statusBarStyle: 'dark', navigationBarStyle: 'dark' },
+  study:    { statusBarStyle: 'dark', navigationBarStyle: 'dark' },
+  exercise: { statusBarStyle: 'dark', navigationBarStyle: 'dark' },
+  habits:   { statusBarStyle: 'dark', navigationBarStyle: 'dark' },
 }
 
 export function HomeScreen() {

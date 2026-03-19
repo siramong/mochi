@@ -1,7 +1,7 @@
 import "../global.css";
 import { useEffect, useRef } from "react";
 import { Stack, router } from "expo-router";
-import { Platform, Text, TouchableOpacity, View } from "react-native";
+import { Text, TouchableOpacity, View } from "react-native";
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -11,13 +11,11 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import * as Notifications from "expo-notifications";
-import * as NavigationBar from "expo-navigation-bar";
-import { StatusBar } from "expo-status-bar";
+import { SystemBars } from "react-native-edge-to-edge";
 import { SessionProvider, useSession } from "@/context/SessionContext";
 import { SystemBarsProvider, useSystemBars } from "@/context/SystemBarsContext";
 import { MochiCharacter } from "@/components/MochiCharacter";
 
-// Configure how notifications are displayed when the app is in the foreground
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
@@ -31,7 +29,6 @@ Notifications.setNotificationHandler({
 function RootLayoutNavigator() {
   const { session, loading, requiresOnboarding, profileError, refreshProfile } = useSession();
   const { theme } = useSystemBars();
-  const { backgroundColor, statusBarStyle } = theme;
   const loadingScale = useSharedValue(1);
   const notificationResponseListener = useRef<Notifications.EventSubscription | null>(null);
 
@@ -47,73 +44,43 @@ function RootLayoutNavigator() {
       );
       return;
     }
-
     loadingScale.value = withTiming(1, { duration: 180 });
   }, [loading, loadingScale]);
 
-  const loadingAnimatedStyle = useAnimatedStyle(() => {
-    return {
-      transform: [{ scale: loadingScale.value }],
-    };
-  });
+  const loadingAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: loadingScale.value }],
+  }));
 
   useEffect(() => {
     if (loading) return;
-
-    if (!session) {
-      router.replace("/login");
-      return;
-    }
-
-    if (requiresOnboarding) {
-      router.replace("/onboarding");
-    } else {
-      router.replace("/");
-    }
+    if (!session) { router.replace("/login"); return; }
+    router.replace(requiresOnboarding ? "/onboarding" : "/");
   }, [session, loading, requiresOnboarding]);
 
-  // Register notification tap handler for deep navigation
   useEffect(() => {
     notificationResponseListener.current =
       Notifications.addNotificationResponseReceivedListener((response) => {
         const data = response.notification.request.content.data as Record<string, unknown> | null;
         const screen = typeof data?.screen === "string" ? data.screen : null;
-
-        if (screen === "habits") {
-          router.push("/habits");
-        } else if (screen === "study") {
-          router.push("/");
-        }
+        if (screen === "habits") router.push("/habits");
+        else if (screen === "study") router.push("/");
       });
-
-    return () => {
-      notificationResponseListener.current?.remove();
-    };
+    return () => { notificationResponseListener.current?.remove(); };
   }, []);
-
-  useEffect(() => {
-    if (Platform.OS !== "android") {
-      return;
-    }
-
-    async function syncAndroidSystemBars() {
-      await NavigationBar.setBackgroundColorAsync(backgroundColor);
-      await NavigationBar.setButtonStyleAsync(statusBarStyle);
-    }
-
-    void syncAndroidSystemBars();
-  }, [backgroundColor, statusBarStyle]);
 
   if (loading) {
     return (
       <View className="flex-1 items-center justify-center bg-purple-50 px-6">
+        <SystemBars style={{ statusBar: "dark", navigationBar: "dark" }} />
         <View className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-sm">
           <View className="items-center">
             <Animated.View style={loadingAnimatedStyle}>
               <MochiCharacter mood="thinking" size={90} />
             </Animated.View>
           </View>
-          <Text className="mt-4 text-center text-base font-semibold text-purple-900">Cargando Mochi...</Text>
+          <Text className="mt-4 text-center text-base font-semibold text-purple-900">
+            Cargando Mochi...
+          </Text>
         </View>
       </View>
     );
@@ -122,14 +89,15 @@ function RootLayoutNavigator() {
   if (profileError && session) {
     return (
       <View className="flex-1 items-center justify-center bg-yellow-50 px-6">
+        <SystemBars style={{ statusBar: "dark", navigationBar: "dark" }} />
         <View className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-sm">
-          <Text className="text-center text-lg font-semibold text-purple-900">Ups, no pudimos cargar tu perfil</Text>
+          <Text className="text-center text-lg font-semibold text-purple-900">
+            Ups, no pudimos cargar tu perfil
+          </Text>
           <Text className="mt-2 text-center text-sm text-purple-800">{profileError}</Text>
           <TouchableOpacity
             className="mt-5 rounded-2xl bg-yellow-300 px-4 py-3"
-            onPress={() => {
-              void refreshProfile();
-            }}
+            onPress={() => { void refreshProfile(); }}
           >
             <Text className="text-center text-base font-semibold text-purple-900">Reintentar</Text>
           </TouchableOpacity>
@@ -140,7 +108,12 @@ function RootLayoutNavigator() {
 
   return (
     <>
-      <StatusBar style={statusBarStyle} backgroundColor={backgroundColor} translucent={false} />
+      <SystemBars
+        style={{
+          statusBar: theme.statusBarStyle,
+          navigationBar: theme.navigationBarStyle,
+        }}
+      />
       <Stack screenOptions={{ headerShown: false }} />
     </>
   );
