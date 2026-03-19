@@ -1,11 +1,12 @@
 import { useState } from 'react'
-import { ActivityIndicator, ScrollView, Text, TextInput, TouchableOpacity, View, Alert } from 'react-native'
+import { ActivityIndicator, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { router } from 'expo-router'
 import { supabase } from '@/lib/supabase'
 import { useSession } from '@/context/SessionContext'
 import TimePickerModal from '@/components/TimePickerModal'
 import { suggestStudyDuration } from '@/lib/ai'
+import { useCustomAlert } from '@/components/CustomAlert'
 
 const daysOfWeek = [
   { value: 0, label: 'Domingo' },
@@ -28,6 +29,7 @@ const colors = [
 
 export function CreateStudyBlockScreen() {
   const { session } = useSession()
+  const { showAlert, AlertComponent } = useCustomAlert()
   const [subject, setSubject] = useState('')
   const [dayOfWeek, setDayOfWeek] = useState(1)
   const [startTime, setStartTime] = useState('09:00')
@@ -40,7 +42,11 @@ export function CreateStudyBlockScreen() {
 
   const handleAISuggestDuration = async () => {
     if (!subject.trim()) {
-      Alert.alert('Por favor', 'Primero ingresa la materia')
+      showAlert({
+        title: 'Por favor',
+        message: 'Primero ingresa la materia',
+        buttons: [{ text: 'Aceptar' }],
+      })
       return
     }
 
@@ -61,12 +67,20 @@ export function CreateStudyBlockScreen() {
 
   const handleCreate = async () => {
     if (!subject.trim()) {
-      Alert.alert('Error', 'Por favor ingresa la materia')
+      showAlert({
+        title: 'Error',
+        message: 'Por favor ingresa la materia',
+        buttons: [{ text: 'Aceptar', style: 'cancel' }],
+      })
       return
     }
 
     if (!session?.user.id) {
-      Alert.alert('Error', 'Sesión no encontrada')
+      showAlert({
+        title: 'Error',
+        message: 'Sesión no encontrada',
+        buttons: [{ text: 'Aceptar', style: 'cancel' }],
+      })
       return
     }
 
@@ -83,22 +97,31 @@ export function CreateStudyBlockScreen() {
 
       if (error) throw error
 
-      Alert.alert('¡Éxito!', 'Bloque de estudio creado', [
-        {
-          text: 'OK',
-          onPress: () => router.back(),
-        },
-      ])
+      showAlert({
+        title: '¡Éxito!',
+        message: 'Bloque de estudio creado',
+        buttons: [
+          {
+            text: 'OK',
+            onPress: () => router.back(),
+          },
+        ],
+      })
     } catch (error) {
-      Alert.alert('Error', error instanceof Error ? error.message : 'No se pudo crear el bloque')
+      showAlert({
+        title: 'Error',
+        message: error instanceof Error ? error.message : 'No se pudo crear el bloque',
+        buttons: [{ text: 'Entendido', style: 'destructive' }],
+      })
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <ScrollView className="flex-1 bg-purple-100">
-      <View className="px-5 py-6">
+    <>
+      <ScrollView className="flex-1 bg-purple-100">
+        <View className="px-5 py-6">
         {/* Header */}
         <TouchableOpacity onPress={() => router.back()} className="mb-4 flex-row items-center">
           <Ionicons name="chevron-back" size={24} color="#7c3aed" />
@@ -210,42 +233,44 @@ export function CreateStudyBlockScreen() {
         </View>
 
         {/* Create button */}
-        <TouchableOpacity
-          className="mt-8 rounded-2xl bg-purple-600 py-4 disabled:opacity-60"
-          onPress={handleCreate}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator size="large" color="white" />
-          ) : (
-            <Text className="text-center text-lg font-extrabold text-white">Crear bloque de estudio</Text>
-          )}
-        </TouchableOpacity>
-      </View>
+          <TouchableOpacity
+            className="mt-8 rounded-2xl bg-purple-600 py-4 disabled:opacity-60"
+            onPress={handleCreate}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator size="large" color="white" />
+            ) : (
+              <Text className="text-center text-lg font-extrabold text-white">Crear bloque de estudio</Text>
+            )}
+          </TouchableOpacity>
+        </View>
 
-      {/* Time pickers */}
-      <TimePickerModal
-        visible={showStartPicker}
-        time={startTime}
-        label="Hora de inicio"
-        onConfirm={(time) => {
-          setStartTime(time)
-          setShowStartPicker(false)
-        }}
-        onCancel={() => setShowStartPicker(false)}
-      />
+        {/* Time pickers */}
+        <TimePickerModal
+          visible={showStartPicker}
+          time={startTime}
+          label="Hora de inicio"
+          onConfirm={(time) => {
+            setStartTime(time)
+            setShowStartPicker(false)
+          }}
+          onCancel={() => setShowStartPicker(false)}
+        />
 
-      <TimePickerModal
-        visible={showEndPicker}
-        time={endTime}
-        label="Hora de fin"
-        onConfirm={(time) => {
-          setEndTime(time)
-          setShowEndPicker(false)
-        }}
-        onCancel={() => setShowEndPicker(false)}
-      />
-    </ScrollView>
+        <TimePickerModal
+          visible={showEndPicker}
+          time={endTime}
+          label="Hora de fin"
+          onConfirm={(time) => {
+            setEndTime(time)
+            setShowEndPicker(false)
+          }}
+          onCancel={() => setShowEndPicker(false)}
+        />
+      </ScrollView>
+      {AlertComponent}
+    </>
   )
 }
 

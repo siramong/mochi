@@ -1,13 +1,15 @@
 import { useState } from 'react'
-import { ActivityIndicator, ScrollView, Text, TextInput, TouchableOpacity, View, Alert } from 'react-native'
+import { ActivityIndicator, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { router, useLocalSearchParams } from 'expo-router'
 import { supabase } from '@/lib/supabase'
 import { useSession } from '@/context/SessionContext'
 import { suggestExerciseDescription } from '@/lib/ai'
+import { useCustomAlert } from '@/components/CustomAlert'
 
 export function CreateExerciseScreen() {
   const { session } = useSession()
+  const { showAlert, AlertComponent } = useCustomAlert()
   const params = useLocalSearchParams<{ returnTo?: string | string[] }>()
   const [name, setName] = useState('')
   const [sets, setSets] = useState('3')
@@ -31,7 +33,11 @@ export function CreateExerciseScreen() {
 
   const handleAISuggest = async () => {
     if (!name.trim()) {
-      Alert.alert('Por favor', 'Primero ingresa el nombre del ejercicio')
+      showAlert({
+        title: 'Por favor',
+        message: 'Primero ingresa el nombre del ejercicio',
+        buttons: [{ text: 'Aceptar' }],
+      })
       return
     }
 
@@ -50,12 +56,20 @@ export function CreateExerciseScreen() {
 
   const handleCreate = async () => {
     if (!name.trim()) {
-      Alert.alert('Error', 'Por favor ingresa el nombre del ejercicio')
+      showAlert({
+        title: 'Error',
+        message: 'Por favor ingresa el nombre del ejercicio',
+        buttons: [{ text: 'Aceptar', style: 'cancel' }],
+      })
       return
     }
 
     if (!session?.user.id) {
-      Alert.alert('Error', 'Sesión no encontrada')
+      showAlert({
+        title: 'Error',
+        message: 'Sesión no encontrada',
+        buttons: [{ text: 'Aceptar', style: 'cancel' }],
+      })
       return
     }
 
@@ -72,22 +86,31 @@ export function CreateExerciseScreen() {
 
       if (error) throw error
 
-      Alert.alert('¡Éxito!', 'Ejercicio creado', [
-        {
-          text: 'OK',
-          onPress: handleGoBack,
-        },
-      ])
+      showAlert({
+        title: '¡Éxito!',
+        message: 'Ejercicio creado',
+        buttons: [
+          {
+            text: 'OK',
+            onPress: handleGoBack,
+          },
+        ],
+      })
     } catch (error) {
-      Alert.alert('Error', error instanceof Error ? error.message : 'No se pudo crear el ejercicio')
+      showAlert({
+        title: 'Error',
+        message: error instanceof Error ? error.message : 'No se pudo crear el ejercicio',
+        buttons: [{ text: 'Entendido', style: 'destructive' }],
+      })
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <ScrollView className="flex-1 bg-teal-100">
-      <View className="px-5 py-6">
+    <>
+      <ScrollView className="flex-1 bg-teal-100">
+        <View className="px-5 py-6">
         {/* Header */}
         <TouchableOpacity onPress={handleGoBack} className="mb-4 flex-row items-center">
           <Ionicons name="chevron-back" size={24} color="#0d9488" />
@@ -201,19 +224,21 @@ export function CreateExerciseScreen() {
         </View>
 
         {/* Create button */}
-        <TouchableOpacity
-          className="mt-8 rounded-2xl bg-teal-600 py-4 disabled:opacity-60"
-          onPress={handleCreate}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator size="large" color="white" />
-          ) : (
-            <Text className="text-center text-lg font-extrabold text-white">Crear ejercicio</Text>
-          )}
-        </TouchableOpacity>
-      </View>
-    </ScrollView>
+          <TouchableOpacity
+            className="mt-8 rounded-2xl bg-teal-600 py-4 disabled:opacity-60"
+            onPress={handleCreate}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator size="large" color="white" />
+            ) : (
+              <Text className="text-center text-lg font-extrabold text-white">Crear ejercicio</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+      {AlertComponent}
+    </>
   )
 }
 

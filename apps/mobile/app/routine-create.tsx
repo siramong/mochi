@@ -1,11 +1,12 @@
 import { useCallback, useState } from 'react'
-import { Alert, ScrollView, Text, TextInput, TouchableOpacity, View, ActivityIndicator } from 'react-native'
+import { ScrollView, Text, TextInput, TouchableOpacity, View, ActivityIndicator } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { router } from 'expo-router'
 import { useFocusEffect } from '@react-navigation/native'
 import { supabase } from '@/lib/supabase'
 import { useSession } from '@/context/SessionContext'
 import type { Exercise } from '@/types/database'
+import { useCustomAlert } from '@/components/CustomAlert'
 
 const days = [
   { id: 1, short: 'L', label: 'Lunes' },
@@ -19,6 +20,7 @@ const days = [
 
 export function RoutineCreateScreen() {
   const { session } = useSession()
+  const { showAlert, AlertComponent } = useCustomAlert()
   const [routineName, setRoutineName] = useState('')
   const [selectedDays, setSelectedDays] = useState<number[]>([])
   const [exercises, setExercises] = useState<Exercise[]>([])
@@ -77,22 +79,38 @@ export function RoutineCreateScreen() {
 
   const handleCreateRoutine = async () => {
     if (!session?.user.id) {
-      Alert.alert('Error', 'Sesión no encontrada')
+      showAlert({
+        title: 'Error',
+        message: 'Sesión no encontrada',
+        buttons: [{ text: 'Aceptar', style: 'cancel' }],
+      })
       return
     }
 
     if (!routineName.trim()) {
-      Alert.alert('Falta información', 'Escribe un nombre para la rutina')
+      showAlert({
+        title: 'Falta información',
+        message: 'Escribe un nombre para la rutina',
+        buttons: [{ text: 'Entendido', style: 'cancel' }],
+      })
       return
     }
 
     if (selectedDays.length === 0) {
-      Alert.alert('Falta información', 'Selecciona al menos un día')
+      showAlert({
+        title: 'Falta información',
+        message: 'Selecciona al menos un día',
+        buttons: [{ text: 'Entendido', style: 'cancel' }],
+      })
       return
     }
 
     if (selectedExerciseIds.length === 0) {
-      Alert.alert('Falta información', 'Selecciona al menos un ejercicio')
+      showAlert({
+        title: 'Falta información',
+        message: 'Selecciona al menos un ejercicio',
+        buttons: [{ text: 'Entendido', style: 'cancel' }],
+      })
       return
     }
 
@@ -125,22 +143,31 @@ export function RoutineCreateScreen() {
 
       if (routineExercisesError) throw routineExercisesError
 
-      Alert.alert('Rutina creada', 'Tu rutina se guardó correctamente', [
-        {
-          text: 'Continuar',
-          onPress: () => router.back(),
-        },
-      ])
+      showAlert({
+        title: 'Rutina creada',
+        message: 'Tu rutina se guardó correctamente',
+        buttons: [
+          {
+            text: 'Continuar',
+            onPress: () => router.back(),
+          },
+        ],
+      })
     } catch (err) {
-      Alert.alert('Error', err instanceof Error ? err.message : 'No se pudo crear la rutina')
+      showAlert({
+        title: 'Error',
+        message: err instanceof Error ? err.message : 'No se pudo crear la rutina',
+        buttons: [{ text: 'Entendido', style: 'destructive' }],
+      })
     } finally {
       setSaving(false)
     }
   }
 
   return (
-    <ScrollView className="flex-1 bg-teal-100">
-      <View className="px-5 py-6">
+    <>
+      <ScrollView className="flex-1 bg-teal-100">
+        <View className="px-5 py-6">
         <TouchableOpacity onPress={() => router.back()} className="mb-4 flex-row items-center">
           <Ionicons name="chevron-back" size={24} color="#0d9488" />
           <Text className="ml-2 text-lg font-bold text-teal-700">Volver</Text>
@@ -244,19 +271,21 @@ export function RoutineCreateScreen() {
           )}
         </View>
 
-        <TouchableOpacity
-          className="mb-10 mt-8 rounded-2xl bg-teal-600 py-4 disabled:opacity-60"
-          onPress={handleCreateRoutine}
-          disabled={saving || loadingExercises}
-        >
-          {saving ? (
-            <ActivityIndicator size="large" color="white" />
-          ) : (
-            <Text className="text-center text-lg font-extrabold text-white">Guardar rutina</Text>
-          )}
-        </TouchableOpacity>
-      </View>
-    </ScrollView>
+          <TouchableOpacity
+            className="mb-10 mt-8 rounded-2xl bg-teal-600 py-4 disabled:opacity-60"
+            onPress={handleCreateRoutine}
+            disabled={saving || loadingExercises}
+          >
+            {saving ? (
+              <ActivityIndicator size="large" color="white" />
+            ) : (
+              <Text className="text-center text-lg font-extrabold text-white">Guardar rutina</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+      {AlertComponent}
+    </>
   )
 }
 
