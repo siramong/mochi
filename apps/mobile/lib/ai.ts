@@ -1,4 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import { GoogleGenerativeAI } from '@google/generative-ai'
+import OpenAI from 'openai'
 
 export interface AISuggestion {
   description: string
@@ -9,52 +11,49 @@ export interface AISuggestion {
 const API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY || ''
 const OPENROUTER_KEY = process.env.EXPO_PUBLIC_OPENROUTER_API_KEY || ''
 
-async function callGemini(prompt: string): Promise<string> {
-  try {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${API_KEY}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { maxOutputTokens: 200, temperature: 0.7 },
-        }),
-      }
-    )
+const genAI = new GoogleGenerativeAI(API_KEY)
 
-    if (!response.ok) throw new Error('Gemini API error')
-    const data = await response.json()
-    return data.candidates[0]?.content?.parts[0]?.text || ''
+const openrouter = new OpenAI({
+  baseURL: 'https://openrouter.ai/api/v1',
+  apiKey: OPENROUTER_KEY,
+  defaultHeaders: {
+    'HTTP-Referer': 'mochi.app',
+    'X-Title': 'Mochi',
+  },
+  dangerouslyAllowBrowser: true,
+})
+
+async function callGemini(prompt: string): Promise<string> {
+  if (!API_KEY) return ''
+
+  try {
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' })
+    const result = await model.generateContent(prompt)
+    const text = result.response.text()
+    console.log('🟢 Gemini OK:', text.slice(0, 80))
+    return text
   } catch (error) {
-    console.error('Gemini error:', error)
+    console.error('🔴 Gemini error:', error)
     return ''
   }
 }
 
 async function callOpenRouter(prompt: string): Promise<string> {
+  if (!OPENROUTER_KEY) return ''
+
   try {
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${OPENROUTER_KEY}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': 'mochi.app',
-        'X-Title': 'Mochi',
-      },
-      body: JSON.stringify({
-        model: 'meta-llama/llama-3-8b-instruct:free',
-        messages: [{ role: 'user', content: prompt }],
-        max_tokens: 200,
-        temperature: 0.7,
-      }),
+    const completion = await openrouter.chat.completions.create({
+      model: 'meta-llama/llama-3-8b-instruct:free',
+      messages: [{ role: 'user', content: prompt }],
+      max_tokens: 200,
+      temperature: 0.7,
     })
 
-    if (!response.ok) throw new Error('OpenRouter error')
-    const data = await response.json()
-    return data.choices[0]?.message?.content || ''
+    const text = completion.choices[0]?.message?.content ?? ''
+    console.log('🟢 OpenRouter OK:', text.slice(0, 80))
+    return text
   } catch (error) {
-    console.error('OpenRouter error:', error)
+    console.error('🔴 OpenRouter error:', error)
     return ''
   }
 }
@@ -120,17 +119,27 @@ export async function suggestStudyDuration(subject: string): Promise<number> {
 export async function getDailyMotivation(
   userName: string,
   studyBlockCount: number,
-  hasRoutine: boolean
+  hasRoutine: boolean,
+  timeOfDay: string
 ): Promise<string> {
   const today = new Date().toISOString().slice(0, 10)
-  const cacheKey = `daily-motivation-${today}`
+  const cacheKey = `daily-motivation-${today}-${timeOfDay}`
 
   try {
     const cached = await AsyncStorage.getItem(cacheKey)
     if (cached) return cached
   } catch {}
 
-  const prompt = `Eres Mochi, una asistente de estudio adorable y motivadora. Saluda a ${userName} de forma breve y motivadora (máximo 2 oraciones) considerando que hoy tiene ${studyBlockCount} bloques de estudio${hasRoutine ? ' y una rutina de ejercicio' : ''}. Responde solo el mensaje, sin comillas ni explicaciones.`
+  const timeText =
+    timeOfDay === 'dawn'
+      ? 'la madrugada'
+      : timeOfDay === 'morning'
+        ? 'la mañana'
+        : timeOfDay === 'afternoon'
+          ? 'la tarde'
+          : 'la noche'
+
+  const prompt = `Eres Mochi, una asistente adorable. Es ${timeText}. Saluda a ${userName} de forma breve y motivadora (máximo 2 oraciones) considerando que hoy tiene ${studyBlockCount} bloques de estudio${hasRoutine ? ' y una rutina de ejercicio' : ''}. Responde solo el mensaje, sin comillas.`
 
   const response = await callAI(prompt)
   const message = response || `¡Hola ${userName}! Hoy es un gran día para alcanzar tus metas.`

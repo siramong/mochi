@@ -15,9 +15,10 @@ type DailyMotivationProps = {
   userName: string
   studyBlockCount: number
   hasRoutine: boolean
+  timeOfDay: string
 }
 
-export function DailyMotivation({ userName, studyBlockCount, hasRoutine }: DailyMotivationProps) {
+export function DailyMotivation({ userName, studyBlockCount, hasRoutine, timeOfDay }: DailyMotivationProps) {
   const [message, setMessage] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const shimmerOpacity = useSharedValue(1)
@@ -40,7 +41,7 @@ export function DailyMotivation({ userName, studyBlockCount, hasRoutine }: Daily
   useEffect(() => {
     let mounted = true
     async function load() {
-      const msg = await getDailyMotivation(userName, studyBlockCount, hasRoutine)
+      const msg = await getDailyMotivation(userName, studyBlockCount, hasRoutine, timeOfDay)
       if (mounted) {
         setMessage(msg)
         setLoading(false)
@@ -51,7 +52,7 @@ export function DailyMotivation({ userName, studyBlockCount, hasRoutine }: Daily
     return () => {
       mounted = false
     }
-  }, [userName, studyBlockCount, hasRoutine, shimmerOpacity])
+  }, [userName, studyBlockCount, hasRoutine, timeOfDay, shimmerOpacity])
 
   return (
     <View className="rounded-3xl border-2 border-yellow-200 bg-yellow-50 p-4 flex-row items-center">

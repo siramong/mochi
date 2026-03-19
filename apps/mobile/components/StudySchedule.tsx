@@ -19,14 +19,16 @@ import { MochiCharacter } from '@/components/MochiCharacter'
 
 const days = ['L', 'M', 'X', 'J', 'V', 'S', 'D']
 const dayOfWeekMap: Record<string, number> = {
-  L: 0,
-  M: 1,
-  X: 2,
-  J: 3,
-  V: 4,
-  S: 5,
-  D: 6,
+  L: 1,
+  M: 2,
+  X: 3,
+  J: 4,
+  V: 5,
+  S: 6,
+  D: 0,
 }
+
+const dayLettersByGetDay = ['D', 'L', 'M', 'X', 'J', 'V', 'S']
 
 const colorMap: Record<string, string> = {
   pink: 'bg-pink-200',
@@ -92,7 +94,7 @@ function AnimatedStudyCard({ block, index, animationSeed }: AnimatedStudyCardPro
 
 export function StudySchedule() {
   const { session } = useSession()
-  const [selectedDay, setSelectedDay] = useState('X')
+  const [selectedDay, setSelectedDay] = useState(dayLettersByGetDay[new Date().getDay()] ?? 'X')
   const [blocks, setBlocks] = useState<StudyBlock[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -138,7 +140,7 @@ export function StudySchedule() {
         setLoading(true)
         setError(null)
 
-        const dayNum = dayOfWeekMap[selectedDay] ?? 2
+        const dayNum = dayOfWeekMap[selectedDay] ?? 3
 
         const { data, error: supabaseError } = await supabase
           .from('study_blocks')

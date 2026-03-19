@@ -12,9 +12,11 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated'
 import { supabase } from '@/lib/supabase'
+import { useSession } from '@/context/SessionContext'
 import type { StudyBlock, RoutineWithExercises } from '@/types/database'
 import { MochiCharacter } from '@/components/MochiCharacter'
 import { DailyMotivation } from '@/components/DailyMotivation'
+import { getGreeting, getTimeColor, getTimeIcon, getTimeOfDay, type TimeOfDay } from '@/lib/timeContext'
 
 type HomeDashboardProps = {
   userName: string
@@ -30,8 +32,6 @@ const colorMap: Record<string, string> = {
   purple: 'bg-purple-200',
   green: 'bg-green-200',
 }
-
-const dayMap = ['D', 'L', 'M', 'X', 'J', 'V', 'S']
 
 type AnimatedDashboardCardProps = {
   children: React.ReactNode
@@ -67,14 +67,30 @@ function AnimatedDashboardCard({ children, delay, animationSeed, className }: An
 }
 
 export function HomeDashboard({ userName, email, onSignOut }: HomeDashboardProps) {
-  const today = new Date().toLocaleDateString('es-ES', {
+  const { session } = useSession()
+  const todayRaw = new Date().toLocaleDateString('es-ES', {
     weekday: 'long',
     day: 'numeric',
-    month: 'short',
+    month: 'long',
   })
+  const today = todayRaw.charAt(0).toUpperCase() + todayRaw.slice(1)
+  const timeOfDay = getTimeOfDay()
+  const greetingText = getGreeting(userName)
+  const greetingIcon = getTimeIcon()
+  const greetingBgClass = getTimeColor()
+
+  const timeLabelMap: Record<TimeOfDay, string> = {
+    dawn: 'Madrugada',
+    morning: 'Mañana',
+    afternoon: 'Tarde',
+    evening: 'Noche',
+    night: 'Noche',
+  }
 
   const [todayBlocks, setTodayBlocks] = useState<StudyBlock[]>([])
-  const [todayRoutine, setTodayRoutine] = useState<RoutineWithExercises | null>(null)
+  const [todayRoutines, setTodayRoutines] = useState<RoutineWithExercises[]>([])
+  const [habitCount, setHabitCount] = useState(0)
+  const [habitLogsCount, setHabitLogsCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [animationSeed, setAnimationSeed] = useState(0)
@@ -104,16 +120,20 @@ export function HomeDashboard({ userName, email, onSignOut }: HomeDashboardProps
   })
 
   useEffect(() => {
+    const userId = session?.user.id
+    if (!userId) {
+      setLoading(false)
+      return
+    }
+
     async function loadTodayData() {
       try {
         setLoading(true)
         setError(null)
 
-        const session = await supabase.auth.getSession()
-        if (!session.data.session?.user.id) return
-
-        const userId = session.data.session.user.id
+        // JS Date.getDay() devuelve 0=domingo ... 6=sábado.
         const todayDayOfWeek = new Date().getDay()
+        const todayISO = new Date().toISOString().slice(0, 10)
 
         // Load today's study blocks
         const { data: blocksData, error: blocksError } = await supabase
@@ -126,7 +146,7 @@ export function HomeDashboard({ userName, email, onSignOut }: HomeDashboardProps
         if (blocksError) throw blocksError
         setTodayBlocks(blocksData ?? [])
 
-        // Load today's routine
+        // Load all routines and filter by today's day.
         const { data: routinesData, error: routinesError } = await supabase
           .from('routines')
           .select(
@@ -140,28 +160,44 @@ export function HomeDashboard({ userName, email, onSignOut }: HomeDashboardProps
              )`
           )
           .eq('user_id', userId)
-          .limit(1)
 
         if (routinesError) throw routinesError
+        const filteredRoutines = (routinesData ?? []).filter((routine) => routine.days.includes(todayDayOfWeek))
+        setTodayRoutines(filteredRoutines)
 
-        if (routinesData && routinesData.length > 0) {
-          const routine = routinesData[0]
-          // Check if routine is for today
-          if (routine.days.includes(todayDayOfWeek)) {
-            setTodayRoutine(routine)
-          }
-        }
+        const { count: totalHabits, error: habitsError } = await supabase
+          .from('habits')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', userId)
+
+        if (habitsError) throw habitsError
+
+        // Count today's logs to render X/Y summary for habits.
+        const { count: completedHabits, error: logsError } = await supabase
+          .from('habit_logs')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', userId)
+          .eq('log_date', todayISO)
+
+        if (logsError) throw logsError
+
+        setHabitCount(totalHabits ?? 0)
+        setHabitLogsCount(completedHabits ?? 0)
 
         setAnimationSeed((prev) => prev + 1)
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Error cargando datos')
+        setTodayBlocks([])
+        setTodayRoutines([])
+        setHabitCount(0)
+        setHabitLogsCount(0)
       } finally {
         setLoading(false)
       }
     }
 
-    loadTodayData()
-  }, [])
+    void loadTodayData()
+  }, [session?.user.id])
 
   const handleTotalTime = (routine: RoutineWithExercises): string => {
     const totalSeconds = routine.routine_exercises.reduce((sum, re) => {
@@ -174,9 +210,18 @@ export function HomeDashboard({ userName, email, onSignOut }: HomeDashboardProps
   return (
     <ScrollView className="flex-1 bg-blue-100 px-5 pt-12">
       <View className="flex-row items-start justify-between">
-        <View>
-          <Text className="text-3xl font-extrabold text-blue-900">Hola, {userName}</Text>
-          <Text className="mt-1 text-sm font-semibold capitalize text-blue-700">{today}</Text>
+        <View className={`flex-1 mr-3 rounded-3xl border-2 border-blue-200 px-4 py-3 ${greetingBgClass}`}>
+          <View className="flex-row items-center">
+            <Ionicons name={greetingIcon} size={18} color="#1e40af" />
+            <Text className="ml-2 text-2xl font-extrabold text-blue-900">{greetingText}</Text>
+          </View>
+          <Text className="mt-1 text-sm font-semibold text-blue-700">{today}</Text>
+          <View className="mt-3 self-start rounded-full border border-blue-200 bg-white/80 px-3 py-1">
+            <View className="flex-row items-center">
+              <Ionicons name={greetingIcon} size={12} color="#1e40af" />
+              <Text className="ml-1 text-xs font-bold text-blue-800">{timeLabelMap[timeOfDay]}</Text>
+            </View>
+          </View>
         </View>
         <TouchableOpacity
           className="h-10 w-10 items-center justify-center rounded-full bg-blue-200"
@@ -190,9 +235,30 @@ export function HomeDashboard({ userName, email, onSignOut }: HomeDashboardProps
         <DailyMotivation
           userName={userName}
           studyBlockCount={todayBlocks.length}
-          hasRoutine={!!todayRoutine}
+          hasRoutine={todayRoutines.length > 0}
+          timeOfDay={timeOfDay}
         />
       </View>
+
+      <TouchableOpacity
+        className="mt-4 rounded-3xl border-2 border-green-200 bg-white p-4"
+        onPress={() => router.push('/habits')}
+      >
+        <View className="flex-row items-center justify-between">
+          <View className="flex-row items-center">
+            <Ionicons name="leaf" size={18} color="#15803d" />
+            <Text className="ml-2 text-base font-bold text-green-900">Hábitos de hoy</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color="#166534" />
+        </View>
+        {loading ? (
+          <Text className="mt-2 text-sm font-semibold text-green-700">Cargando hábitos...</Text>
+        ) : (
+          <Text className="mt-2 text-sm font-semibold text-green-700">
+            {habitLogsCount}/{habitCount} hábitos completados hoy
+          </Text>
+        )}
+      </TouchableOpacity>
 
       <AnimatedDashboardCard
         delay={0}
@@ -268,7 +334,7 @@ export function HomeDashboard({ userName, email, onSignOut }: HomeDashboardProps
       >
         <View className="mb-2 flex-row items-center">
           <Ionicons name="barbell" size={18} color="#0d9488" />
-          <Text className="ml-2 text-base font-bold text-blue-900">Rutina de hoy</Text>
+          <Text className="ml-2 text-base font-bold text-blue-900">Rutinas de hoy</Text>
         </View>
         {loading ? (
           <View className="items-center py-6">
@@ -277,19 +343,24 @@ export function HomeDashboard({ userName, email, onSignOut }: HomeDashboardProps
             </Animated.View>
             <Text className="mt-3 text-sm font-semibold text-teal-700">Preparando tus rutinas...</Text>
           </View>
-        ) : todayRoutine ? (
-          <>
-            <Text className="text-sm font-bold text-slate-800">{todayRoutine.name}</Text>
-            <Text className="mt-1 text-xs font-semibold text-teal-700">
-              {todayRoutine.routine_exercises.length} ejercicios • {handleTotalTime(todayRoutine)}
-            </Text>
-            <TouchableOpacity
-              className="mt-3 items-center rounded-2xl border border-teal-200 bg-teal-100 py-3"
-              onPress={() => router.push(`/routine-player?routineId=${todayRoutine.id}`)}
-            >
-              <Text className="font-bold text-teal-800">Iniciar rutina</Text>
-            </TouchableOpacity>
-          </>
+        ) : todayRoutines.length > 0 ? (
+          <View>
+            {todayRoutines.map((routine) => (
+              <TouchableOpacity
+                key={routine.id}
+                className="mb-3 rounded-2xl border border-teal-200 bg-teal-50 p-3"
+                onPress={() => router.push(`/routine-player?routineId=${routine.id}`)}
+              >
+                <Text className="text-sm font-bold text-slate-800">{routine.name}</Text>
+                <Text className="mt-1 text-xs font-semibold text-teal-700">
+                  {routine.routine_exercises.length} ejercicios • {handleTotalTime(routine)}
+                </Text>
+                <View className="mt-2 self-start rounded-xl border border-teal-200 bg-white px-3 py-1">
+                  <Text className="text-xs font-bold text-teal-800">Iniciar rutina</Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </View>
         ) : (
           <View className="items-center py-2">
             <MochiCharacter mood="happy" size={78} />

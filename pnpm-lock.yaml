@@ -20,6 +20,9 @@ importers:
 
   apps/mobile:
     dependencies:
+      '@google/generative-ai':
+        specifier: ^0.24.1
+        version: 0.24.1
       '@mochi/supabase':
         specifier: workspace:*
         version: link:../../packages/supabase
@@ -44,6 +47,9 @@ importers:
       nativewind:
         specifier: ^4.2.3
         version: 4.2.3(react-native-reanimated@4.2.2(react-native-worklets@0.7.4(@babel/core@7.29.0)(react-native@0.83.2(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.0))(react@19.2.0))(react-native@0.83.2(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.0))(react@19.2.0))(react-native-safe-area-context@5.7.0(react-native@0.83.2(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.0))(react@19.2.0))(react-native@0.83.2(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.0))(react@19.2.0)(tailwindcss@3.4.19(yaml@2.8.2))
+      openai:
+        specifier: ^6.32.0
+        version: 6.32.0(ws@8.19.0)(zod@4.3.6)
       react:
         specifier: 19.2.0
         version: 19.2.0
@@ -1043,6 +1049,10 @@ packages:
 
   '@fontsource-variable/geist@5.2.8':
     resolution: {integrity: sha512-cJ6m9e+8MQ5dCYJsLylfZrgBh6KkG4bOLckB35Tr9J/EqdkEM6QllH5PxqP1dhTvFup+HtMRPuz9xOjxXJggxw==}
+
+  '@google/generative-ai@0.24.1':
+    resolution: {integrity: sha512-MqO+MLfM6kjxcKoy0p1wRzG3b4ZZXtPI+z2IE26UogS2Cm/XHO+7gGRBh6gcJsOiIVoH93UwKvW4HdgiOZCy9Q==}
+    engines: {node: '>=18.0.0'}
 
   '@hono/node-server@1.19.11':
     resolution: {integrity: sha512-dr8/3zEaB+p0D2n/IUrlPF1HZm586qgJNXK1a9fhg/PzdtkK7Ksd5l312tJX2yBuALqDYBlG20QEbayqPyxn+g==}
@@ -4862,6 +4872,18 @@ packages:
     resolution: {integrity: sha512-7x81NCL719oNbsq/3mh+hVrAWmFuEYUqrq/Iw3kUzH8ReypT9QQ0BLoJS7/G9k6N81XjW4qHWtjWwe/9eLy1EQ==}
     engines: {node: '>=12'}
 
+  openai@6.32.0:
+    resolution: {integrity: sha512-j3k+BjydAf8yQlcOI7WUQMQTbbF5GEIMAE2iZYCOzwwB3S2pCheaWYp+XZRNAch4jWVc52PMDGRRjutao3lLCg==}
+    hasBin: true
+    peerDependencies:
+      ws: ^8.18.0
+      zod: ^3.25 || ^4.0
+    peerDependenciesMeta:
+      ws:
+        optional: true
+      zod:
+        optional: true
+
   optionator@0.9.4:
     resolution: {integrity: sha512-6IpQ7mKUxRcZNLIObR0hz7lxsapSSIYNZJwXPGeF0mTVqGKFIXj1DQcMoT22S3ROcLyY/rz0PWaWZ9ayWmad9g==}
     engines: {node: '>= 0.8.0'}
@@ -7369,6 +7391,8 @@ snapshots:
   '@floating-ui/utils@0.2.11': {}
 
   '@fontsource-variable/geist@5.2.8': {}
+
+  '@google/generative-ai@0.24.1': {}
 
   '@hono/node-server@1.19.11(hono@4.12.8)':
     dependencies:
@@ -11959,6 +11983,11 @@ snapshots:
       define-lazy-prop: 2.0.0
       is-docker: 2.2.1
       is-wsl: 2.2.0
+
+  openai@6.32.0(ws@8.19.0)(zod@4.3.6):
+    optionalDependencies:
+      ws: 8.19.0
+      zod: 4.3.6
 
   optionator@0.9.4:
     dependencies:
