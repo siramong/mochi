@@ -16,6 +16,7 @@ import { ExerciseRoutine } from '@/components/ExerciseRoutine'
 import { HomeDashboard } from '@/components/HomeDashboard'
 import { StudySchedule } from '@/components/StudySchedule'
 import { MochiCharacter } from '@/components/MochiCharacter'
+import { HabitsScreen } from '@/app/habits'
 
 export function HomeScreen() {
   const { session } = useSession()
@@ -96,6 +97,8 @@ export function HomeScreen() {
         return <StudySchedule />
       case 'exercise':
         return <ExerciseRoutine />
+      case 'habits':
+        return <HabitsScreen />
       default:
         return null
     }

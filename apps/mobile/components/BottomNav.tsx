@@ -9,7 +9,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated'
 
-export type MobileScreen = 'home' | 'study' | 'exercise'
+export type MobileScreen = 'home' | 'study' | 'exercise' | 'habits'
 
 type BottomNavProps = {
   currentScreen: MobileScreen
@@ -20,6 +20,7 @@ const tabs: Array<{ id: MobileScreen; label: string; icon: keyof typeof Ionicons
   { id: 'home', label: 'Inicio', icon: 'home' },
   { id: 'study', label: 'Estudio', icon: 'book' },
   { id: 'exercise', label: 'Ejercicio', icon: 'barbell' },
+  { id: 'habits', label: 'Hábitos', icon: 'leaf' },
 ]
 
 type BottomTabItemProps = {

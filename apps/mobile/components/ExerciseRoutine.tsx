@@ -72,7 +72,10 @@ function AnimatedRoutineCard({ routine, index, animationSeed, totalTime }: Anima
           </Text>
         </View>
 
-        <TouchableOpacity className="h-11 w-11 items-center justify-center rounded-2xl bg-teal-200">
+        <TouchableOpacity
+          className="h-11 w-11 items-center justify-center rounded-2xl bg-teal-200"
+          onPress={() => router.push(`/routine-player?routineId=${routine.id}`)}
+        >
           <Ionicons name="play" size={18} color="#0d9488" />
         </TouchableOpacity>
       </View>

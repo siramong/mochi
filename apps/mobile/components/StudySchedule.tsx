@@ -63,25 +63,30 @@ function AnimatedStudyCard({ block, index, animationSeed }: AnimatedStudyCardPro
   })
 
   return (
-    <Animated.View
-      style={animatedStyle}
-      className={`mb-3 rounded-2xl border border-slate-100 p-4 ${colorMap[block.color] || 'bg-purple-200'}`}
-    >
-      <View className="flex-row items-center justify-between">
-        <Text className="text-base font-extrabold text-slate-800">{block.subject}</Text>
-        <Text className="text-xs font-bold text-slate-600">
-          {(() => {
-            const start = parseInt(block.start_time.split(':')[0])
-            const end = parseInt(block.end_time.split(':')[0])
-            const duration = end - start
-            return `${duration}h`
-          })()}
+    <TouchableOpacity onPress={() => router.push(`/study-timer?blockId=${block.id}`)}>
+      <Animated.View
+        style={animatedStyle}
+        className={`mb-3 rounded-2xl border border-slate-100 p-4 ${colorMap[block.color] || 'bg-purple-200'}`}
+      >
+        <View className="flex-row items-center justify-between">
+          <Text className="text-base font-extrabold text-slate-800">{block.subject}</Text>
+          <View className="flex-row items-center">
+            <Text className="mr-2 text-xs font-bold text-slate-600">
+              {(() => {
+                const start = parseInt(block.start_time.split(':')[0])
+                const end = parseInt(block.end_time.split(':')[0])
+                const duration = end - start
+                return `${duration}h`
+              })()}
+            </Text>
+            <Ionicons name="play-circle" size={18} color="#7c3aed" />
+          </View>
+        </View>
+        <Text className="mt-1 text-sm font-semibold text-slate-700">
+          {block.start_time} - {block.end_time}
         </Text>
-      </View>
-      <Text className="mt-1 text-sm font-semibold text-slate-700">
-        {block.start_time} - {block.end_time}
-      </Text>
-    </Animated.View>
+      </Animated.View>
+    </TouchableOpacity>
   )
 }
 
