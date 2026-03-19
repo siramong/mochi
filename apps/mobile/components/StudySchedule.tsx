@@ -1,8 +1,9 @@
 import { Ionicons } from '@expo/vector-icons'
 import { useEffect, useState } from 'react'
 import { ScrollView, Text, TouchableOpacity, View, ActivityIndicator } from 'react-native'
-import { useSharedValue, useAnimatedStyle, withDelay, withTiming, FadeIn, SlideInUp } from 'react-native-reanimated'
+import { FadeIn } from 'react-native-reanimated'
 import Animated from 'react-native-reanimated'
+import { router } from 'expo-router'
 import { supabase } from '@/lib/supabase'
 import { useSession } from '@/hooks/useSession'
 import type { StudyBlock } from '@/types/database'
@@ -72,7 +73,6 @@ export function StudySchedule() {
         <Text className="ml-2 text-2xl font-extrabold text-purple-900">Horario de estudio</Text>
       </View>
 
-      {/* Day selector */}
       <View className="mb-4 flex-row justify-between rounded-3xl border-2 border-purple-200 bg-white p-2">
         {days.map((day) => {
           const active = day === selectedDay
@@ -93,7 +93,6 @@ export function StudySchedule() {
         })}
       </View>
 
-      {/* Content */}
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
         {loading ? (
           <View className="flex-1 items-center justify-center py-8">
@@ -141,7 +140,10 @@ export function StudySchedule() {
         )}
       </ScrollView>
 
-      <TouchableOpacity className="absolute bottom-28 right-6 h-14 w-14 items-center justify-center rounded-full border-4 border-white bg-purple-500">
+      <TouchableOpacity
+        className="absolute bottom-28 right-6 h-14 w-14 items-center justify-center rounded-full border-4 border-white bg-purple-500"
+        onPress={() => router.push('/study-create')}
+      >
         <Ionicons name="add" size={26} color="white" />
       </TouchableOpacity>
     </View>

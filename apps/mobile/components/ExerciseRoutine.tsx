@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { ScrollView, Text, TouchableOpacity, View, ActivityIndicator } from 'react-native'
 import { FadeIn } from 'react-native-reanimated'
 import Animated from 'react-native-reanimated'
+import { router } from 'expo-router'
 import { supabase } from '@/lib/supabase'
 import { useSession } from '@/hooks/useSession'
 import type { RoutineWithExercises } from '@/types/database'
@@ -133,9 +134,12 @@ export function ExerciseRoutine() {
         )}
       </ScrollView>
 
-      <TouchableOpacity className="mb-6 mt-4 flex-row items-center justify-center rounded-2xl bg-teal-500 py-4">
+      <TouchableOpacity
+        className="mb-6 mt-4 flex-row items-center justify-center rounded-2xl bg-teal-500 py-4"
+        onPress={() => router.push('/exercise-create')}
+      >
         <Ionicons name="add" size={20} color="white" />
-        <Text className="ml-2 text-base font-extrabold text-white">Crear rutina</Text>
+        <Text className="ml-2 text-base font-extrabold text-white">Añadir ejercicio</Text>
       </TouchableOpacity>
     </View>
   )
