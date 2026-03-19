@@ -49,6 +49,21 @@ type AnimatedStudyCardProps = {
   onEdit: (blockId: string) => void
 }
 
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof Error) {
+    return error.message
+  }
+
+  if (typeof error === 'object' && error !== null && 'message' in error) {
+    const maybeMessage = (error as { message?: unknown }).message
+    if (typeof maybeMessage === 'string' && maybeMessage.trim().length > 0) {
+      return maybeMessage
+    }
+  }
+
+  return fallback
+}
+
 function AnimatedStudyCard({ block, index, animationSeed, onDelete, onEdit }: AnimatedStudyCardProps) {
   const opacity = useSharedValue(0)
   const translateY = useSharedValue(16)
@@ -205,9 +220,21 @@ export function StudySchedule() {
           onPress: () => {
             void (async () => {
               try {
-                const { error: deleteError } = await supabase
+                // Preserve previous study history while allowing the block to be removed.
+                const { error: detachError } = await supabase
+                  .from('study_sessions')
+                  .update({ study_block_id: null })
+                  .eq('study_block_id', blockId)
+                  .eq('user_id', userId)
+
+                if (detachError) {
+                  throw detachError
+                }
+
+                const { data: deletedRows, error: deleteError } = await supabase
                   .from('study_blocks')
                   .delete()
+                  .select('id')
                   .eq('id', blockId)
                   .eq('user_id', userId)
 
@@ -216,10 +243,14 @@ export function StudySchedule() {
                   throw deleteError
                 }
 
+                if (!deletedRows || deletedRows.length === 0) {
+                  throw new Error('No se pudo eliminar el bloque. Verifica permisos de tu cuenta e inténtalo de nuevo.')
+                }
+
                 await loadBlocks()
               } catch (err) {
                 console.error('handleDeleteBlock caught:', err)
-                setError(err instanceof Error ? err.message : 'No se pudo eliminar el bloque')
+                setError(getErrorMessage(err, 'No se pudo eliminar el bloque'))
               }
             })()
           },
