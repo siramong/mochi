@@ -100,20 +100,33 @@ All tables have Row Level Security enabled.
 
 ---
 
-## Modules
+## Features
 
-Users can enable or disable modules from settings:
+### Completed modules
 
 | Module | Description |
 |---|---|
 | Study | Weekly schedule, 1.5h blocks, session timer, exam logging |
 | Exercise | Home workouts, custom exercises, routine player |
 | Gamification | Points, achievements, streaks, redeemable vouchers |
-| Habits | Daily custom habits — planned |
-| Goals | Weekly/monthly goals with progress — planned |
+| Habits | Daily custom habits with completion tracking |
+| Goals | Weekly/monthly goals with progress cards |
+| Mood Tracker | Daily emotional check-in screen |
+| Gratitude Journal | Daily gratitude entries screen |
+| Vouchers | Rewards and voucher management screen |
+| Settings | Profile editing, module toggles, and sign-out flow with confirmation |
+
+### Current app polish
+
+- Profile hub with quick access grid for core and optional modules
+- Quick access row in HomeDashboard for goals, vouchers, mood, and gratitude
+- Consistent TimePickerModal usage in onboarding, settings, and study creation flows
+
+### Planned modules
+
+| Module | Description |
+|---|---|
 | Quick Notes | Lightweight notes per subject — planned |
-| Mood Tracker | Daily emotional check-in — planned |
-| Gratitude Journal | Daily gratitude log — planned |
 
 > Period tracker is intentionally excluded — use Flo or similar dedicated apps instead.
 

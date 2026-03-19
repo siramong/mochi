@@ -42,6 +42,16 @@ mochi/
 - Path alias `@/` for all imports from the root of `apps/mobile/`.
 - Always import React Native primitives from `react-native`.
 
+#### Mobile Screens (Implemented)
+- `app/vouchers.tsx` — gestión de vales y recompensas canjeables
+- `app/mood.tsx` — registro diario de estado de ánimo
+- `app/gratitude.tsx` — diario de gratitud
+- `app/settings.tsx` — ajustes de perfil, módulos y cierre de sesión con confirmación
+
+#### Current Component Notes
+- `HomeDashboard` no longer accepts an `onSignOut` prop.
+- `TimePickerModal` is used in onboarding, settings, and study-create flows.
+
 ### Supabase
 - Always use the shared client from `@mochi/supabase/client`.
 - Web env vars: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`.

@@ -20,8 +20,6 @@ import { getGreeting, getTimeColor, getTimeIcon, getTimeOfDay, type TimeOfDay } 
 
 type HomeDashboardProps = {
   userName: string
-  email: string | undefined
-  onSignOut: () => void
 }
 
 type QuickAccessItem = {
@@ -110,7 +108,7 @@ function AnimatedDashboardCard({ children, delay, animationSeed, className }: An
   )
 }
 
-export function HomeDashboard({ userName, email, onSignOut }: HomeDashboardProps) {
+export function HomeDashboard({ userName }: HomeDashboardProps) {
   const { session } = useSession()
   const todayRaw = new Date().toLocaleDateString('es-ES', {
     weekday: 'long',
@@ -441,16 +439,7 @@ export function HomeDashboard({ userName, email, onSignOut }: HomeDashboardProps
         )}
       </AnimatedDashboardCard>
 
-      <AnimatedDashboardCard
-        delay={200}
-        animationSeed={animationSeed}
-        className="mb-12 mt-4 rounded-3xl border border-purple-100 bg-white p-4"
-      >
-        <Text className="text-xs font-semibold text-purple-800">Sesión activa: {email ?? 'sin correo'}</Text>
-        <TouchableOpacity className="mt-3 items-center rounded-2xl bg-purple-200 py-3" onPress={onSignOut}>
-          <Text className="font-bold text-purple-900">Cerrar sesión</Text>
-        </TouchableOpacity>
-      </AnimatedDashboardCard>
+      <View className="mb-12" />
     </ScrollView>
   )
 }

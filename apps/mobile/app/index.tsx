@@ -84,15 +84,7 @@ export function HomeScreen() {
   const renderContent = () => {
     switch (currentScreen) {
       case 'home':
-        return (
-          <HomeDashboard
-            userName={userName}
-            email={session?.user.email}
-            onSignOut={() => {
-              void supabase.auth.signOut()
-            }}
-          />
-        )
+        return <HomeDashboard userName={userName} />
       case 'study':
         return <StudySchedule />
       case 'exercise':

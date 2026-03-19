@@ -4,31 +4,24 @@ import { router } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { supabase } from '@/lib/supabase'
 import { MochiCharacter } from '@/components/MochiCharacter'
-
-function isValidTime(value: string) {
-  return /^([01]\d|2[0-3]):([0-5]\d)$/.test(value)
-}
+import TimePickerModal from '@/components/TimePickerModal'
 
 export function OnboardingScreen() {
   const [fullName, setFullName] = useState('')
   const [wakeUpTime, setWakeUpTime] = useState('05:20')
+  const [showTimePicker, setShowTimePicker] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const formIsValid = useMemo(() => {
-    return fullName.trim().length > 1 && isValidTime(wakeUpTime)
-  }, [fullName, wakeUpTime])
+    return fullName.trim().length > 1
+  }, [fullName])
 
   async function handleConfirm() {
     const trimmedName = fullName.trim()
 
     if (trimmedName.length < 2) {
       setError('Escribe tu nombre completo para continuar')
-      return
-    }
-
-    if (!isValidTime(wakeUpTime)) {
-      setError('La hora debe tener formato HH:MM (ejemplo 05:20)')
       return
     }
 
@@ -94,15 +87,13 @@ export function OnboardingScreen() {
         />
 
         <Text className="mt-4 text-sm font-bold text-teal-900">¿A qué hora despiertas?</Text>
-        <TextInput
-          className="mt-2 rounded-3xl border-2 border-teal-200 bg-white px-4 py-4 text-base text-teal-900"
-          placeholder="07:00"
-          value={wakeUpTime}
-          onChangeText={setWakeUpTime}
-          keyboardType="numbers-and-punctuation"
-          editable={!loading}
-          maxLength={5}
-        />
+        <TouchableOpacity
+          className="mt-2 rounded-3xl border-2 border-teal-200 bg-white px-4 py-4"
+          onPress={() => setShowTimePicker(true)}
+          disabled={loading}
+        >
+          <Text className="text-center text-2xl font-extrabold text-teal-900">{wakeUpTime}</Text>
+        </TouchableOpacity>
 
         {error ? <Text className="mt-3 text-sm text-purple-900">{error}</Text> : null}
 
@@ -129,6 +120,17 @@ export function OnboardingScreen() {
           Puedes cambiar estos datos luego desde tu perfil.
         </Text>
       </View>
+
+      <TimePickerModal
+        visible={showTimePicker}
+        time={wakeUpTime}
+        label="Hora de despertar"
+        onConfirm={(time) => {
+          setWakeUpTime(time)
+          setShowTimePicker(false)
+        }}
+        onCancel={() => setShowTimePicker(false)}
+      />
     </View>
   )
 }

@@ -55,7 +55,7 @@
 
 ---
 
-## Phase 3 — AI Integration
+## Backlog — AI Integration
 
 Primary: Google Gemini 2.0 Flash (free tier)
 Fallback: OpenRouter free models (Llama 3, Mistral, etc.)
@@ -70,17 +70,23 @@ Fallback: OpenRouter free models (Llama 3, Mistral, etc.)
 
 ---
 
-## Phase 4 — Optional Modules
+## Phase 3 — Módulos opcionales (Done)
 
-Each module can be toggled on/off from settings.
+- [x] **Vales (vouchers)**
+- [x] **Estado de ánimo (mood)**
+- [x] **Gratitud (gratitude)**
+- [x] **Ajustes (settings)**
+- [x] Profile hub with quick access grid
+- [x] Quick access row in HomeDashboard
+- [x] TimePickerModal consistency across all screens
 
-- [ ] **Habits** — daily custom habits (drink water, read, meditate, etc.)
-- [ ] **Goals** — weekly/monthly goals with visual progress
-- [ ] **Quick Notes** — lightweight notes per subject
-- [ ] **Mood Tracker** — daily emotional check-in (no diagnostics)
-- [ ] **Gratitude Journal** — daily gratitude log (3 things)
+---
 
-> Period tracker intentionally excluded — use Flo or similar dedicated apps.
+## Phase 4 — Planned
+
+- [ ] Push notifications (`expo-notifications`) — study block reminders and habit reminders
+- [ ] Web app (React + Vite) — dashboard, study schedule, profile
+- [ ] EAS Build — APK for Android distribution
 
 ---
 
@@ -92,7 +98,7 @@ Each module can be toggled on/off from settings.
 - [ ] Framer Motion animations on web
 - [ ] Vercel deploy for web
 - [ ] EAS Build for Android APK
-- [ ] User settings screen (name, wake-up time, active modules)
+- [x] User settings screen (name, wake-up time, active modules)
 - [ ] Superuser dashboard (Doménica) for managing vouchers and users
 
 ---
