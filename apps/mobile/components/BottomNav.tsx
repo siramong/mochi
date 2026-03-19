@@ -9,9 +9,9 @@ type BottomNavProps = {
 }
 
 const tabs: Array<{ id: MobileScreen; label: string; icon: keyof typeof Ionicons.glyphMap }> = [
-  { id: 'home', label: 'Home', icon: 'home' },
-  { id: 'study', label: 'Study', icon: 'book' },
-  { id: 'exercise', label: 'Exercise', icon: 'barbell' },
+  { id: 'home', label: 'Inicio', icon: 'home' },
+  { id: 'study', label: 'Estudio', icon: 'book' },
+  { id: 'exercise', label: 'Ejercicio', icon: 'barbell' },
 ]
 
 export function BottomNav({ currentScreen, onNavigate }: BottomNavProps) {
@@ -24,12 +24,12 @@ export function BottomNav({ currentScreen, onNavigate }: BottomNavProps) {
           return (
             <TouchableOpacity
               key={tab.id}
-              className={`h-14 w-20 items-center justify-center rounded-2xl ${active ? 'bg-purple-100' : ''}`}
+              className={`h-14 w-20 items-center justify-center rounded-2xl transition-colors duration-300 ${active ? 'bg-purple-100' : ''}`}
               onPress={() => {
                 onNavigate(tab.id)
               }}
             >
-              <Ionicons name={tab.icon} size={20} />
+              <Ionicons name={tab.icon} size={20} color={active ? '#a855f7' : '#d8b4fe'} />
               <Text className={`mt-1 text-xs font-bold ${active ? 'text-purple-700' : 'text-purple-400'}`}>
                 {tab.label}
               </Text>

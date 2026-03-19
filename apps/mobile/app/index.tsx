@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ActivityIndicator, SafeAreaView, View } from 'react-native'
+import { FadeIn, FadeOut } from 'react-native-reanimated'
+import Animated from 'react-native-reanimated'
 import { supabase } from '@/lib/supabase'
 import { useSession } from '@/hooks/useSession'
 import { BottomNav, MobileScreen } from '@/components/BottomNav'
@@ -47,19 +49,26 @@ export function HomeScreen() {
     }
   }, [session?.user.id])
 
-  const content = {
-    home: (
-      <HomeDashboard
-        userName={userName}
-        email={session?.user.email}
-        onSignOut={() => {
-          void supabase.auth.signOut()
-        }}
-      />
-    ),
-    study: <StudySchedule />,
-    exercise: <ExerciseRoutine />,
-  }[currentScreen]
+  const renderContent = () => {
+    switch (currentScreen) {
+      case 'home':
+        return (
+          <HomeDashboard
+            userName={userName}
+            email={session?.user.email}
+            onSignOut={() => {
+              void supabase.auth.signOut()
+            }}
+          />
+        )
+      case 'study':
+        return <StudySchedule />
+      case 'exercise':
+        return <ExerciseRoutine />
+      default:
+        return null
+    }
+  }
 
   if (loadingName) {
     return (
@@ -71,9 +80,13 @@ export function HomeScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-purple-100">
-      <View className="flex-1">
-        {content}
-      </View>
+      <Animated.View
+        key={currentScreen}
+        entering={FadeIn.duration(300)}
+        className="flex-1"
+      >
+        {renderContent()}
+      </Animated.View>
 
       <BottomNav currentScreen={currentScreen} onNavigate={setCurrentScreen} />
     </SafeAreaView>

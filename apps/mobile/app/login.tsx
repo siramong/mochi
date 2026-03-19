@@ -53,13 +53,13 @@ export function LoginScreen() {
             <Ionicons name="planet" size={36} />
           </View>
           <Text className="text-5xl font-extrabold text-purple-800">Mochi</Text>
-          <Text className="mt-2 text-lg font-semibold text-purple-700">Tu cute study buddy</Text>
+          <Text className="mt-2 text-lg font-semibold text-purple-700">Tu asistente de estudio adorable</Text>
         </View>
 
         <View className="mt-8">
           <TextInput
             className="rounded-3xl border-2 border-purple-200 bg-white px-5 py-4 text-base text-purple-900"
-            placeholder="Email address"
+            placeholder="Correo electrónico"
             value={email}
             onChangeText={setEmail}
             autoCapitalize="none"
@@ -69,7 +69,7 @@ export function LoginScreen() {
 
           <TextInput
             className="mt-4 rounded-3xl border-2 border-purple-200 bg-white px-5 py-4 text-base text-purple-900"
-            placeholder="Password"
+            placeholder="Contraseña"
             value={password}
             onChangeText={setPassword}
             secureTextEntry
@@ -88,7 +88,7 @@ export function LoginScreen() {
             {loading ? (
               <ActivityIndicator />
             ) : (
-              <Text className="text-lg font-extrabold text-white">Log In</Text>
+              <Text className="text-lg font-extrabold text-white">Iniciar sesión</Text>
             )}
           </TouchableOpacity>
 
@@ -99,7 +99,7 @@ export function LoginScreen() {
             }}
             disabled={loading}
           >
-            <Text className="text-lg font-extrabold text-purple-700">Create Account</Text>
+            <Text className="text-lg font-extrabold text-purple-700">Crear cuenta</Text>
           </TouchableOpacity>
         </View>
       </View>

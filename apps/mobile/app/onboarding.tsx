@@ -72,22 +72,22 @@ export function OnboardingScreen() {
       </View>
 
       <View className="mb-8">
-        <Text className="text-4xl font-extrabold text-teal-900">Welcome to Mochi</Text>
-        <Text className="mt-2 text-lg font-semibold text-teal-700">Let's set up your profile</Text>
+        <Text className="text-4xl font-extrabold text-teal-900">Bienvenida a Mochi</Text>
+        <Text className="mt-2 text-lg font-semibold text-teal-700">Configuremos tu perfil</Text>
       </View>
 
       <View className="rounded-3xl border-2 border-teal-200 bg-white/80 p-5">
-        <Text className="text-sm font-bold text-teal-900">What should we call you?</Text>
+        <Text className="text-sm font-bold text-teal-900">¿Cuál es tu nombre?</Text>
         <TextInput
           className="mt-2 rounded-3xl border-2 border-teal-200 bg-white px-4 py-4 text-base text-teal-900"
-          placeholder="Your cute name"
+          placeholder="Tu nombre bonito"
           value={fullName}
           onChangeText={setFullName}
           editable={!loading}
           maxLength={60}
         />
 
-        <Text className="mt-4 text-sm font-bold text-teal-900">Usual wake-up time?</Text>
+        <Text className="mt-4 text-sm font-bold text-teal-900">¿A qué hora despiertas?</Text>
         <TextInput
           className="mt-2 rounded-3xl border-2 border-teal-200 bg-white px-4 py-4 text-base text-teal-900"
           placeholder="07:00"
