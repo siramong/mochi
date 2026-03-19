@@ -25,7 +25,7 @@ interface Profile {
 
 type QuickAccessItem = {
   label: string
-  route: '/goals' | '/vouchers' | '/mood' | '/gratitude' | '/settings'
+  route: '/goals' | '/vouchers' | '/mood' | '/gratitude' | '/settings' | '/study-history'
   icon: keyof typeof Ionicons.glyphMap
   cardClass: string
   iconColor: string
@@ -48,6 +48,14 @@ const quickAccessItems: QuickAccessItem[] = [
     cardClass: 'border-yellow-200 bg-yellow-100',
     iconColor: '#92400e',
     textClass: 'text-yellow-900',
+  },
+  {
+    label: 'Historial de estudio',
+    route: '/study-history',
+    icon: 'time-outline',
+    cardClass: 'border-indigo-200 bg-indigo-100',
+    iconColor: '#3730a3',
+    textClass: 'text-indigo-900',
   },
   {
     label: 'Estado de ánimo',

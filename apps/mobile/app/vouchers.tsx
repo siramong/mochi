@@ -1,9 +1,11 @@
 import { Ionicons } from '@expo/vector-icons'
-import { useCallback, useMemo, useState } from 'react'
-import { ScrollView, Text, TouchableOpacity, View } from 'react-native'
+import { useCallback, useMemo, useRef, useState } from 'react'
+import { Modal, ScrollView, Share, Text, TouchableOpacity, View } from 'react-native'
 import { router } from 'expo-router'
 import { useFocusEffect } from '@react-navigation/native'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { captureRef } from 'react-native-view-shot'
+import * as Sharing from 'expo-sharing'
 import { MochiCharacter } from '@/components/MochiCharacter'
 import { useCustomAlert } from '@/components/CustomAlert'
 import { useSession } from '@/context/SessionContext'
@@ -70,6 +72,9 @@ export function VouchersScreen() {
   const [error, setError] = useState<string | null>(null)
   const [generatingId, setGeneratingId] = useState<string | null>(null)
   const [redeemingId, setRedeemingId] = useState<string | null>(null)
+  const [shareVoucher, setShareVoucher] = useState<Voucher | null>(null)
+  const [sharing, setSharing] = useState(false)
+  const shareCardRef = useRef<View>(null)
 
   const userId = session?.user.id
 
@@ -233,6 +238,40 @@ export function VouchersScreen() {
     })
   }
 
+  const handleShareVoucher = async () => {
+    if (!shareVoucher) return
+    setSharing(true)
+    try {
+      const canShare = await Sharing.isAvailableAsync()
+      if (canShare && shareCardRef.current) {
+        const uri = await captureRef(shareCardRef, {
+          format: 'png',
+          quality: 1,
+          result: 'tmpfile',
+        })
+        await Sharing.shareAsync(uri, {
+          mimeType: 'image/png',
+          dialogTitle: shareVoucher.title,
+        })
+      } else {
+        await Share.share({
+          message: `${shareVoucher.title}\n${shareVoucher.description}\n\nGenerado con Mochi`,
+          title: shareVoucher.title,
+        })
+      }
+    } catch (err) {
+      if (err instanceof Error && err.message !== 'User did not share') {
+        showAlert({
+          title: 'Error al compartir',
+          message: 'No se pudo compartir el vale',
+          buttons: [{ text: 'Entendido', style: 'cancel' }],
+        })
+      }
+    } finally {
+      setSharing(false)
+    }
+  }
+
   return (
     <>
       <SafeAreaView className="flex-1 bg-yellow-50">
@@ -295,7 +334,7 @@ export function VouchersScreen() {
                           delayLongPress={250}
                         >
                           <View className="flex-row items-center justify-between">
-                            <View className="flex-row items-center">
+                            <View className="flex-row items-center flex-1 mr-2">
                               <View className="h-10 w-10 items-center justify-center rounded-xl bg-yellow-100">
                                 <Ionicons
                                   name={(voucher.icon as keyof typeof Ionicons.glyphMap) || 'ticket-outline'}
@@ -303,15 +342,24 @@ export function VouchersScreen() {
                                   color="#92400e"
                                 />
                               </View>
-                              <View className="ml-3">
+                              <View className="ml-3 flex-1">
                                 <Text className="text-base font-extrabold text-yellow-950">{voucher.title}</Text>
                                 <Text className="mt-1 text-xs font-semibold text-yellow-800">
                                   {formatDate(voucher.created_at)}
                                 </Text>
                               </View>
                             </View>
-                            <View className={`rounded-full px-3 py-1 ${status.className}`}>
-                              <Text className={`text-xs font-extrabold ${status.textClass}`}>{status.label}</Text>
+                            <View className="flex-row items-center gap-2">
+                              <TouchableOpacity
+                                className="h-8 w-8 items-center justify-center rounded-full bg-yellow-100"
+                                onPress={() => setShareVoucher(voucher)}
+                                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                              >
+                                <Ionicons name="share-outline" size={16} color="#92400e" />
+                              </TouchableOpacity>
+                              <View className={`rounded-full px-3 py-1 ${status.className}`}>
+                                <Text className={`text-xs font-extrabold ${status.textClass}`}>{status.label}</Text>
+                              </View>
                             </View>
                           </View>
 
@@ -386,6 +434,111 @@ export function VouchersScreen() {
         </ScrollView>
       </SafeAreaView>
       {AlertComponent}
+
+      {/* Share Voucher Modal */}
+      <Modal visible={shareVoucher !== null} transparent animationType="fade">
+        <View className="flex-1 items-center justify-center bg-black/50 px-6">
+          <View className="w-full max-w-sm rounded-3xl bg-white pb-6 pt-5">
+            <View className="mb-4 flex-row items-center justify-between px-5">
+              <Text className="text-base font-extrabold text-slate-800">Compartir vale</Text>
+              <TouchableOpacity onPress={() => setShareVoucher(null)}>
+                <Ionicons name="close" size={22} color="#64748b" />
+              </TouchableOpacity>
+            </View>
+
+            {shareVoucher && (
+              <>
+                {/* Capturable card */}
+                <View
+                  ref={shareCardRef}
+                  collapsable={false}
+                  className="mx-5 overflow-hidden rounded-2xl"
+                  style={{ backgroundColor: '#fffbeb' }}
+                >
+                  <View
+                    style={{
+                      padding: 24,
+                      alignItems: 'center',
+                      borderWidth: 2,
+                      borderColor: '#fde68a',
+                      borderRadius: 16,
+                    }}
+                  >
+                    <View
+                      style={{
+                        width: 64,
+                        height: 64,
+                        borderRadius: 20,
+                        backgroundColor: '#fef3c7',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        marginBottom: 12,
+                      }}
+                    >
+                      <Ionicons
+                        name={(shareVoucher.icon as keyof typeof Ionicons.glyphMap) || 'ticket-outline'}
+                        size={30}
+                        color="#92400e"
+                      />
+                    </View>
+                    <Text
+                      style={{
+                        fontSize: 18,
+                        fontWeight: '800',
+                        color: '#78350f',
+                        textAlign: 'center',
+                        marginBottom: 8,
+                      }}
+                    >
+                      {shareVoucher.title}
+                    </Text>
+                    <Text
+                      style={{
+                        fontSize: 13,
+                        fontWeight: '600',
+                        color: '#92400e',
+                        textAlign: 'center',
+                        marginBottom: 16,
+                      }}
+                    >
+                      {shareVoucher.description}
+                    </Text>
+                    <View
+                      style={{
+                        backgroundColor: '#fcd34d',
+                        borderRadius: 999,
+                        paddingHorizontal: 14,
+                        paddingVertical: 4,
+                        marginBottom: 16,
+                      }}
+                    >
+                      <Text style={{ fontSize: 12, fontWeight: '800', color: '#78350f' }}>
+                        {shareVoucher.points_cost} puntos
+                      </Text>
+                    </View>
+                    <Text style={{ fontSize: 11, color: '#b45309', fontWeight: '600' }}>
+                      Generado con Mochi
+                    </Text>
+                  </View>
+                </View>
+
+                <TouchableOpacity
+                  className={`mx-5 mt-5 items-center rounded-2xl py-4 ${sharing ? 'bg-yellow-300' : 'bg-yellow-500'}`}
+                  onPress={() => void handleShareVoucher()}
+                  disabled={sharing}
+                >
+                  <View className="flex-row items-center gap-2">
+                    <Ionicons name="share-outline" size={18} color="white" />
+                    <Text className="font-extrabold text-white">
+                      {sharing ? 'Compartiendo...' : 'Compartir imagen'}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
     </>
   )
 }
