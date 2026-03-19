@@ -50,7 +50,7 @@ export interface RoutineLog {
 export interface StudySession {
   id: string
   user_id: string
-  study_block_id: string
+  study_block_id: string | null
   subject: string
   duration_seconds: number
   completed_at: string

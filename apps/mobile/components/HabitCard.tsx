@@ -1,8 +1,8 @@
 import { Ionicons } from '@expo/vector-icons'
-import { useEffect } from 'react'
 import { Text, TouchableOpacity, View } from 'react-native'
 import Animated, {
   useAnimatedStyle,
+  useDerivedValue,
   useSharedValue,
   withSpring,
 } from 'react-native-reanimated'
@@ -48,10 +48,11 @@ const colorIconMap: Record<string, string> = {
 
 export function HabitCard({ habit, isCompleted, onToggle }: HabitCardProps) {
   const scale = useSharedValue(1)
+  const isCompletedShared = useDerivedValue(() => isCompleted)
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
-    opacity: isCompleted ? 0.6 : 1,
+    opacity: isCompletedShared.value ? 0.6 : 1,
   }))
 
   function handlePress() {

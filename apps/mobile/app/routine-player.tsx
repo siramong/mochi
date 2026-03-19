@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons'
 import { useEffect, useRef, useState } from 'react'
-import { ScrollView, Text, TouchableOpacity, View } from 'react-native'
+import { Text, TouchableOpacity, View } from 'react-native'
 import { router, useLocalSearchParams } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import Animated, {
@@ -104,7 +104,7 @@ export function RoutinePlayerScreen() {
     if (!routine) return
     const total = routine.routine_exercises.length
     if (total === 0) return
-    progress.value = withTiming(currentExerciseIndex / total, {
+    progress.value = withTiming((currentExerciseIndex + 1) / total, {
       duration: 400,
       easing: Easing.out(Easing.cubic),
     })

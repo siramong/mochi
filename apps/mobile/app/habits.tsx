@@ -1,7 +1,6 @@
 import { Ionicons } from '@expo/vector-icons'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Modal, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -15,7 +14,7 @@ import { supabase } from '@/lib/supabase'
 import { useSession } from '@/context/SessionContext'
 import { MochiCharacter } from '@/components/MochiCharacter'
 import { HabitCard } from '@/components/HabitCard'
-import type { Habit, HabitLog } from '@/types/database'
+import type { Habit } from '@/types/database'
 
 const COLOR_OPTIONS = ['pink', 'yellow', 'blue', 'teal', 'purple'] as const
 const ICON_OPTIONS = ['leaf', 'water', 'book', 'heart', 'fitness'] as const
@@ -48,6 +47,7 @@ export function HabitsScreen() {
   const [selectedColor, setSelectedColor] = useState<string>('pink')
   const [selectedIcon, setSelectedIcon] = useState<string>('leaf')
   const [saving, setSaving] = useState(false)
+  const celebrationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const loadingScale = useSharedValue(1)
   const celebrationScale = useSharedValue(0)
@@ -66,6 +66,12 @@ export function HabitsScreen() {
       loadingScale.value = withTiming(1, { duration: 180 })
     }
   }, [loading, loadingScale])
+
+  useEffect(() => {
+    return () => {
+      if (celebrationTimerRef.current) clearTimeout(celebrationTimerRef.current)
+    }
+  }, [])
 
   const loadingAnimatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: loadingScale.value }],
@@ -126,34 +132,46 @@ export function HabitsScreen() {
     const isCompleted = completedToday.has(habitId)
 
     if (isCompleted) {
-      await supabase
+      const { error: deleteError } = await supabase
         .from('habit_logs')
         .delete()
         .eq('user_id', userId)
         .eq('habit_id', habitId)
         .eq('log_date', todayISO)
+      if (deleteError) {
+        console.error('Error removing habit log:', deleteError)
+        return
+      }
       setCompletedToday((prev) => {
         const next = new Set(prev)
         next.delete(habitId)
         return next
       })
     } else {
-      await supabase.from('habit_logs').insert({
+      const { error: insertError } = await supabase.from('habit_logs').insert({
         user_id: userId,
         habit_id: habitId,
         log_date: todayISO,
       })
-      const newCompleted = new Set(completedToday)
-      newCompleted.add(habitId)
-      setCompletedToday(newCompleted)
+      if (insertError) {
+        console.error('Error adding habit log:', insertError)
+        return
+      }
+      setCompletedToday((prev) => {
+        const next = new Set(prev)
+        next.add(habitId)
+        return next
+      })
 
-      if (habits.length > 0 && newCompleted.size === habits.length) {
+      const newSize = completedToday.size + 1
+      if (habits.length > 0 && newSize === habits.length) {
         celebrationScale.value = withSequence(
           withTiming(1.1, { duration: 300, easing: Easing.out(Easing.cubic) }),
           withTiming(1, { duration: 200 })
         )
         setShowCelebration(true)
-        setTimeout(() => setShowCelebration(false), 3000)
+        if (celebrationTimerRef.current) clearTimeout(celebrationTimerRef.current)
+        celebrationTimerRef.current = setTimeout(() => setShowCelebration(false), 3000)
       }
     }
   }

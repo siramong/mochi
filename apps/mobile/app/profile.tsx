@@ -83,6 +83,7 @@ export function ProfileScreen() {
         ])
 
         if (profileRes.error && profileRes.error.code !== 'PGRST116') throw profileRes.error
+        if (streakRes.error && streakRes.error.code !== 'PGRST116') throw streakRes.error
         if (userAchRes.error) throw userAchRes.error
         if (allAchRes.error) throw allAchRes.error
 

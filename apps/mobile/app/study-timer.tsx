@@ -56,6 +56,7 @@ export function StudyTimerScreen() {
   const [timeLeft, setTimeLeft] = useState(0)
   const [isRunning, setIsRunning] = useState(false)
   const [completed, setCompleted] = useState(false)
+  const [isCompleting, setIsCompleting] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -120,24 +121,32 @@ export function StudyTimerScreen() {
   }, [timeLeft, totalSeconds, progress])
 
   async function handleComplete() {
+    if (isCompleting || completed) return
+    setIsCompleting(true)
     setIsRunning(false)
-    if (!session?.user.id || !block) return
+    if (!session?.user.id || !block) {
+      setIsCompleting(false)
+      return
+    }
     try {
-      await supabase.from('study_sessions').insert({
+      const { error: insertError } = await supabase.from('study_sessions').insert({
         user_id: session.user.id,
         study_block_id: block.id,
         subject: block.subject,
         duration_seconds: totalSeconds,
         completed_at: new Date().toISOString(),
       })
+      if (insertError) throw insertError
       await addPoints(session.user.id, 5)
       await updateStreak(session.user.id)
       await checkStudyAchievements(session.user.id)
       await checkStreakAchievements(session.user.id)
+      setCompleted(true)
     } catch (err) {
       console.error('Error completing study session:', err)
+    } finally {
+      setIsCompleting(false)
     }
-    setCompleted(true)
   }
 
   const progressStyle = useAnimatedStyle(() => ({
@@ -237,10 +246,13 @@ export function StudyTimerScreen() {
       </View>
 
       <TouchableOpacity
-        className="mt-8 items-center rounded-2xl border-2 border-purple-200 bg-white py-3"
+        className={`mt-8 items-center rounded-2xl border-2 border-purple-200 py-3 ${isCompleting ? 'bg-purple-100' : 'bg-white'}`}
         onPress={() => void handleComplete()}
+        disabled={isCompleting}
       >
-        <Text className="font-bold text-purple-700">Marcar como completado</Text>
+        <Text className="font-bold text-purple-700">
+          {isCompleting ? 'Guardando...' : 'Marcar como completado'}
+        </Text>
       </TouchableOpacity>
     </SafeAreaView>
   )

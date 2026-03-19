@@ -1,16 +1,7 @@
 import { supabase } from '@/lib/supabase'
 
 export async function addPoints(userId: string, points: number): Promise<void> {
-  const { data } = await supabase
-    .from('profiles')
-    .select('total_points')
-    .eq('id', userId)
-    .single()
-  const currentPoints = data?.total_points ?? 0
-  await supabase
-    .from('profiles')
-    .update({ total_points: currentPoints + points })
-    .eq('id', userId)
+  await supabase.rpc('increment_points', { user_id: userId, points })
 }
 
 export async function unlockAchievement(userId: string, achievementKey: string): Promise<void> {
@@ -22,9 +13,10 @@ export async function unlockAchievement(userId: string, achievementKey: string):
   if (!achievement) return
   await supabase
     .from('user_achievements')
-    .insert({ user_id: userId, achievement_id: achievement.id })
-    .select()
-    // ON CONFLICT DO NOTHING is handled by catching errors silently
+    .upsert(
+      { user_id: userId, achievement_id: achievement.id },
+      { onConflict: 'user_id,achievement_id', ignoreDuplicates: true }
+    )
 }
 
 export async function checkStudyAchievements(userId: string): Promise<void> {
