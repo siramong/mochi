@@ -11,6 +11,7 @@ import Animated, {
 } from 'react-native-reanimated'
 import { supabase } from '@/lib/supabase'
 import { useSession } from '@/context/SessionContext'
+import { useScreenTheme } from '@/hooks/useScreenTheme'
 import { BottomNav, MobileScreen } from '@/components/BottomNav'
 import { ExerciseRoutine } from '@/components/ExerciseRoutine'
 import { HomeDashboard } from '@/components/HomeDashboard'
@@ -18,12 +19,21 @@ import { StudySchedule } from '@/components/StudySchedule'
 import { MochiCharacter } from '@/components/MochiCharacter'
 import { HabitsScreen } from '@/app/habits'
 
+const screenThemes: Record<MobileScreen, { backgroundColor: string; statusBarStyle: 'light' | 'dark' }> = {
+  home:     { backgroundColor: '#f3e8ff', statusBarStyle: 'dark' },
+  study:    { backgroundColor: '#ede9fe', statusBarStyle: 'dark' },
+  exercise: { backgroundColor: '#ecfeff', statusBarStyle: 'dark' },
+  habits:   { backgroundColor: '#ecfdf5', statusBarStyle: 'dark' },
+}
+
 export function HomeScreen() {
   const { session } = useSession()
   const [currentScreen, setCurrentScreen] = useState<MobileScreen>('home')
   const [userName, setUserName] = useState('Student')
   const [loadingName, setLoadingName] = useState(true)
   const loadingScale = useSharedValue(1)
+
+  useScreenTheme(screenThemes[currentScreen])
 
   useEffect(() => {
     if (loadingName) {

@@ -1,6 +1,6 @@
 import "../global.css";
 import { useEffect, useRef } from "react";
-import { Stack, router, usePathname } from "expo-router";
+import { Stack, router } from "expo-router";
 import { Platform, Text, TouchableOpacity, View } from "react-native";
 import Animated, {
   Easing,
@@ -14,54 +14,8 @@ import * as Notifications from "expo-notifications";
 import * as NavigationBar from "expo-navigation-bar";
 import { StatusBar } from "expo-status-bar";
 import { SessionProvider, useSession } from "@/context/SessionContext";
+import { SystemBarsProvider, useSystemBars } from "@/context/SystemBarsContext";
 import { MochiCharacter } from "@/components/MochiCharacter";
-
-type SystemBarsTheme = {
-  backgroundColor: string;
-  statusBarStyle: "light" | "dark";
-};
-
-function getSystemBarsTheme(pathname: string): SystemBarsTheme {
-  if (pathname.startsWith("/login")) {
-    return {
-      backgroundColor: "#f3e8ff",
-      statusBarStyle: "dark",
-    };
-  }
-
-  if (pathname.startsWith("/onboarding")) {
-    return {
-      backgroundColor: "#f5f3ff",
-      statusBarStyle: "dark",
-    };
-  }
-
-  if (pathname.startsWith("/study") || pathname.startsWith("/exam-log")) {
-    return {
-      backgroundColor: "#ede9fe",
-      statusBarStyle: "dark",
-    };
-  }
-
-  if (pathname.startsWith("/exercise") || pathname.startsWith("/routine")) {
-    return {
-      backgroundColor: "#ecfeff",
-      statusBarStyle: "dark",
-    };
-  }
-
-  if (pathname.startsWith("/habits") || pathname.startsWith("/gratitude") || pathname.startsWith("/mood")) {
-    return {
-      backgroundColor: "#ecfdf5",
-      statusBarStyle: "dark",
-    };
-  }
-
-  return {
-    backgroundColor: "#f3e8ff",
-    statusBarStyle: "dark",
-  };
-}
 
 // Configure how notifications are displayed when the app is in the foreground
 Notifications.setNotificationHandler({
@@ -75,11 +29,11 @@ Notifications.setNotificationHandler({
 });
 
 function RootLayoutNavigator() {
-  const pathname = usePathname();
   const { session, loading, requiresOnboarding, profileError, refreshProfile } = useSession();
+  const { theme } = useSystemBars();
+  const { backgroundColor, statusBarStyle } = theme;
   const loadingScale = useSharedValue(1);
   const notificationResponseListener = useRef<Notifications.EventSubscription | null>(null);
-  const { backgroundColor, statusBarStyle } = getSystemBarsTheme(pathname);
 
   useEffect(() => {
     if (loading) {
@@ -194,9 +148,11 @@ function RootLayoutNavigator() {
 
 export function RootLayout() {
   return (
-    <SessionProvider>
-      <RootLayoutNavigator />
-    </SessionProvider>
+    <SystemBarsProvider>
+      <SessionProvider>
+        <RootLayoutNavigator />
+      </SessionProvider>
+    </SystemBarsProvider>
   );
 }
 
