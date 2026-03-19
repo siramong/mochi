@@ -89,6 +89,8 @@ export interface Goal {
   user_id: string
   title: string
   description: string | null
+  progress: number
+  color: string | null
   target_date: string | null
   is_completed: boolean
   created_at: string

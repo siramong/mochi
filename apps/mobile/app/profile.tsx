@@ -227,6 +227,14 @@ export function ProfileScreen() {
           )}
         </View>
 
+        <TouchableOpacity
+          className="mt-6 flex-row items-center justify-center rounded-2xl border-2 border-purple-200 bg-white px-4 py-4"
+          onPress={() => router.push('/goals')}
+        >
+          <Ionicons name="flag-outline" size={18} color="#7c3aed" />
+          <Text className="ml-2 text-sm font-extrabold text-purple-800">Mis metas</Text>
+        </TouchableOpacity>
+
         <View className="h-16" />
       </ScrollView>
     </SafeAreaView>
