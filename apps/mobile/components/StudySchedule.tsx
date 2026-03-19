@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { ScrollView, Text, TouchableOpacity, View } from 'react-native'
 import { router } from 'expo-router'
+import { useFocusEffect } from '@react-navigation/native'
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -16,6 +17,7 @@ import { supabase } from '@/lib/supabase'
 import { useSession } from '@/context/SessionContext'
 import type { StudyBlock } from '@/types/database'
 import { MochiCharacter } from '@/components/MochiCharacter'
+import { useCustomAlert } from '@/components/CustomAlert'
 
 const days = ['L', 'M', 'X', 'J', 'V', 'S', 'D']
 const dayOfWeekMap: Record<string, number> = {
@@ -43,9 +45,11 @@ type AnimatedStudyCardProps = {
   block: StudyBlock
   index: number
   animationSeed: number
+  onDelete: (blockId: string) => void
+  onEdit: (blockId: string) => void
 }
 
-function AnimatedStudyCard({ block, index, animationSeed }: AnimatedStudyCardProps) {
+function AnimatedStudyCard({ block, index, animationSeed, onDelete, onEdit }: AnimatedStudyCardProps) {
   const opacity = useSharedValue(0)
   const translateY = useSharedValue(16)
 
@@ -65,35 +69,52 @@ function AnimatedStudyCard({ block, index, animationSeed }: AnimatedStudyCardPro
   })
 
   return (
-    <TouchableOpacity onPress={() => router.push(`/study-timer?blockId=${block.id}`)}>
-      <Animated.View
-        style={animatedStyle}
-        className={`mb-3 rounded-2xl border border-slate-100 p-4 ${colorMap[block.color] || 'bg-purple-200'}`}
-      >
-        <View className="flex-row items-center justify-between">
+    <Animated.View
+      style={animatedStyle}
+      className={`mb-3 rounded-2xl border border-slate-100 p-4 ${colorMap[block.color] || 'bg-purple-200'}`}
+    >
+      <View className="flex-row items-center justify-between">
+        <TouchableOpacity
+          className="flex-1"
+          onPress={() => router.push(`/study-timer?blockId=${block.id}`)}
+          activeOpacity={0.85}
+        >
           <Text className="text-base font-extrabold text-slate-800">{block.subject}</Text>
-          <View className="flex-row items-center">
-            <Text className="mr-2 text-xs font-bold text-slate-600">
-              {(() => {
-                const start = parseInt(block.start_time.split(':')[0])
-                const end = parseInt(block.end_time.split(':')[0])
-                const duration = end - start
-                return `${duration}h`
-              })()}
-            </Text>
+          <Text className="mt-1 text-sm font-semibold text-slate-700">
+            {block.start_time} - {block.end_time}
+          </Text>
+        </TouchableOpacity>
+
+        <View className="ml-3 flex-row items-center">
+          <Text className="mr-2 text-xs font-bold text-slate-600">
+            {(() => {
+              const start = parseInt(block.start_time.split(':')[0])
+              const end = parseInt(block.end_time.split(':')[0])
+              const duration = end - start
+              return `${duration}h`
+            })()}
+          </Text>
+
+          <TouchableOpacity className="mr-2" onPress={() => onEdit(block.id)}>
+            <Ionicons name="create-outline" size={18} color="#7c3aed" />
+          </TouchableOpacity>
+
+          <TouchableOpacity className="mr-2" onPress={() => onDelete(block.id)}>
+            <Ionicons name="trash-outline" size={18} color="#7c3aed" />
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={() => router.push(`/study-timer?blockId=${block.id}`)}>
             <Ionicons name="play-circle" size={18} color="#7c3aed" />
-          </View>
+          </TouchableOpacity>
         </View>
-        <Text className="mt-1 text-sm font-semibold text-slate-700">
-          {block.start_time} - {block.end_time}
-        </Text>
-      </Animated.View>
-    </TouchableOpacity>
+      </View>
+    </Animated.View>
   )
 }
 
 export function StudySchedule() {
   const { session } = useSession()
+  const { showAlert, AlertComponent } = useCustomAlert()
   const [selectedDay, setSelectedDay] = useState(dayLettersByGetDay[new Date().getDay()] ?? 'X')
   const [blocks, setBlocks] = useState<StudyBlock[]>([])
   const [loading, setLoading] = useState(true)
@@ -131,40 +152,78 @@ export function StudySchedule() {
     }
   })
 
-  useEffect(() => {
+  const loadBlocks = useCallback(async () => {
+    const userId = session?.user.id
+    if (!userId) {
+      setBlocks([])
+      setLoading(false)
+      return
+    }
+
+    try {
+      setLoading(true)
+      setError(null)
+
+      const dayNum = dayOfWeekMap[selectedDay] ?? 3
+
+      const { data, error: supabaseError } = await supabase
+        .from('study_blocks')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('day_of_week', dayNum)
+        .order('start_time', { ascending: true })
+
+      if (supabaseError) throw supabaseError
+      setBlocks(data ?? [])
+      setAnimationSeed((prev) => prev + 1)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error cargando bloques')
+      setBlocks([])
+    } finally {
+      setLoading(false)
+    }
+  }, [selectedDay, session?.user.id])
+
+  useFocusEffect(
+    useCallback(() => {
+      void loadBlocks()
+    }, [loadBlocks])
+  )
+
+  const handleDeleteBlock = (blockId: string) => {
     const userId = session?.user.id
     if (!userId) return
 
-    async function loadBlocks() {
-      try {
-        setLoading(true)
-        setError(null)
+    showAlert({
+      title: 'Eliminar bloque',
+      message: '¿Eliminar este bloque de estudio?',
+      buttons: [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const { error: deleteError } = await supabase
+                .from('study_blocks')
+                .delete()
+                .eq('id', blockId)
+                .eq('user_id', userId)
 
-        const dayNum = dayOfWeekMap[selectedDay] ?? 3
-
-        const { data, error: supabaseError } = await supabase
-          .from('study_blocks')
-          .select('*')
-          .eq('user_id', userId)
-          .eq('day_of_week', dayNum)
-          .order('start_time', { ascending: true })
-
-        if (supabaseError) throw supabaseError
-        setBlocks(data ?? [])
-        setAnimationSeed((prev) => prev + 1)
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Error cargando bloques')
-        setBlocks([])
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    loadBlocks()
-  }, [session?.user.id, selectedDay])
+              if (deleteError) throw deleteError
+              await loadBlocks()
+            } catch (err) {
+              setError(err instanceof Error ? err.message : 'No se pudo eliminar el bloque')
+            }
+          },
+        },
+      ],
+    })
+  }
 
   return (
-    <View className="flex-1 bg-purple-100 px-5 pt-12">
+    <>
+      <View className="flex-1 bg-purple-100 px-5 pt-12">
       <View className="mb-6 flex-row items-center">
         <Ionicons name="calendar" size={20} color="#6b21a8" />
         <Text className="ml-2 text-2xl font-extrabold text-purple-900">Horario de estudio</Text>
@@ -219,6 +278,8 @@ export function StudySchedule() {
                 block={item}
                 index={index}
                 animationSeed={animationSeed}
+                onDelete={handleDeleteBlock}
+                onEdit={(blockId) => router.push(`/study-edit?blockId=${blockId}`)}
               />
             ))}
           </View>
@@ -239,7 +300,9 @@ export function StudySchedule() {
           <Ionicons name="add" size={26} color="white" />
         </TouchableOpacity>
       </Animated.View>
-    </View>
+      </View>
+      {AlertComponent}
+    </>
   )
 }
 

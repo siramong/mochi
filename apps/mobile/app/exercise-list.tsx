@@ -5,10 +5,12 @@ import { router } from 'expo-router'
 import { useFocusEffect } from '@react-navigation/native'
 import { supabase } from '@/lib/supabase'
 import { useSession } from '@/context/SessionContext'
+import { useCustomAlert } from '@/components/CustomAlert'
 import type { Exercise } from '@/types/database'
 
 export function ExerciseListScreen() {
   const { session } = useSession()
+  const { showAlert, AlertComponent } = useCustomAlert()
   const [exercises, setExercises] = useState<Exercise[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -47,9 +49,28 @@ export function ExerciseListScreen() {
     }, [loadExercises])
   )
 
+  async function handleDeleteExercise(exerciseId: string) {
+    const userId = session?.user.id
+    if (!userId) return
+
+    try {
+      const { error: deleteError } = await supabase
+        .from('exercises')
+        .delete()
+        .eq('id', exerciseId)
+        .eq('user_id', userId)
+
+      if (deleteError) throw deleteError
+      await loadExercises()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo eliminar el ejercicio')
+    }
+  }
+
   return (
-    <ScrollView className="flex-1 bg-teal-100">
-      <View className="px-5 py-6">
+    <>
+      <ScrollView className="flex-1 bg-teal-100">
+        <View className="px-5 py-6">
         <TouchableOpacity onPress={() => router.back()} className="mb-4 flex-row items-center">
           <Ionicons name="chevron-back" size={24} color="#0d9488" />
           <Text className="ml-2 text-lg font-bold text-teal-700">Volver</Text>
@@ -98,23 +119,44 @@ export function ExerciseListScreen() {
         ) : (
           <View className="mt-6">
             {exercises.map((exercise) => (
-              <View
+              <TouchableOpacity
                 key={exercise.id}
-                className="mb-3 rounded-3xl border border-teal-200 bg-white p-4"
+                activeOpacity={0.9}
+                onLongPress={() => {
+                  showAlert({
+                    title: 'Eliminar ejercicio',
+                    message:
+                      '¿Quieres eliminar este ejercicio? Se eliminará de todas las rutinas que lo usen.',
+                    buttons: [
+                      { text: 'Cancelar', style: 'cancel' },
+                      {
+                        text: 'Eliminar',
+                        style: 'destructive',
+                        onPress: () => {
+                          void handleDeleteExercise(exercise.id)
+                        },
+                      },
+                    ],
+                  })
+                }}
               >
-                <Text className="text-base font-extrabold text-slate-800">{exercise.name}</Text>
-                <Text className="mt-1 text-xs font-semibold text-slate-600">
-                  {exercise.sets} series • {exercise.reps} repeticiones • {Math.ceil(exercise.duration_seconds / 60)} min
-                </Text>
-                {exercise.notes ? (
-                  <Text className="mt-2 text-xs font-semibold text-teal-700">{exercise.notes}</Text>
-                ) : null}
-              </View>
+                <View className="mb-3 rounded-3xl border border-teal-200 bg-white p-4">
+                  <Text className="text-base font-extrabold text-slate-800">{exercise.name}</Text>
+                  <Text className="mt-1 text-xs font-semibold text-slate-600">
+                    {exercise.sets} series • {exercise.reps} repeticiones • {Math.ceil(exercise.duration_seconds / 60)} min
+                  </Text>
+                  {exercise.notes ? (
+                    <Text className="mt-2 text-xs font-semibold text-teal-700">{exercise.notes}</Text>
+                  ) : null}
+                </View>
+              </TouchableOpacity>
             ))}
           </View>
         )}
-      </View>
-    </ScrollView>
+        </View>
+      </ScrollView>
+      {AlertComponent}
+    </>
   )
 }
 

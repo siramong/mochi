@@ -12,6 +12,7 @@ import Animated, {
 import { useFocusEffect } from '@react-navigation/native'
 import { supabase } from '@/lib/supabase'
 import { useSession } from '@/context/SessionContext'
+import { useCustomAlert } from '@/components/CustomAlert'
 import { MochiCharacter } from '@/components/MochiCharacter'
 import { HabitCard } from '@/components/HabitCard'
 import type { Habit } from '@/types/database'
@@ -37,6 +38,7 @@ const colorBorderMap: Record<string, string> = {
 
 export function HabitsScreen() {
   const { session } = useSession()
+  const { showAlert, AlertComponent } = useCustomAlert()
   const [habits, setHabits] = useState<Habit[]>([])
   const [completedToday, setCompletedToday] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
@@ -201,6 +203,24 @@ export function HabitsScreen() {
     }
   }
 
+  async function handleDeleteHabit(habitId: string) {
+    const userId = session?.user.id
+    if (!userId) return
+
+    try {
+      const { error: deleteError } = await supabase
+        .from('habits')
+        .delete()
+        .eq('id', habitId)
+        .eq('user_id', userId)
+
+      if (deleteError) throw deleteError
+      await loadHabits()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo eliminar el hábito')
+    }
+  }
+
   return (
     <View className="flex-1 bg-purple-50">
       <ScrollView className="flex-1 px-5 pt-12" showsVerticalScrollIndicator={false}>
@@ -235,12 +255,32 @@ export function HabitsScreen() {
               </Text>
             </View>
             {habits.map((habit) => (
-              <HabitCard
+              <TouchableOpacity
                 key={habit.id}
-                habit={habit}
-                isCompleted={completedToday.has(habit.id)}
-                onToggle={() => void handleToggle(habit.id)}
-              />
+                activeOpacity={1}
+                onLongPress={() => {
+                  showAlert({
+                    title: 'Eliminar hábito',
+                    message: '¿Quieres eliminar este hábito? Esta acción no se puede deshacer.',
+                    buttons: [
+                      { text: 'Cancelar', style: 'cancel' },
+                      {
+                        text: 'Eliminar',
+                        style: 'destructive',
+                        onPress: () => {
+                          void handleDeleteHabit(habit.id)
+                        },
+                      },
+                    ],
+                  })
+                }}
+              >
+                <HabitCard
+                  habit={habit}
+                  isCompleted={completedToday.has(habit.id)}
+                  onToggle={() => void handleToggle(habit.id)}
+                />
+              </TouchableOpacity>
             ))}
           </>
         )}
@@ -334,6 +374,7 @@ export function HabitsScreen() {
           </View>
         </View>
       </Modal>
+      {AlertComponent}
     </View>
   )
 }

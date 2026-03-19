@@ -64,6 +64,10 @@ export function GoalsScreen() {
 
   const [selectedGoal, setSelectedGoal] = useState<Goal | null>(null)
   const [showEditSheet, setShowEditSheet] = useState(false)
+  const [editTitle, setEditTitle] = useState('')
+  const [editDescription, setEditDescription] = useState('')
+  const [editTargetDate, setEditTargetDate] = useState(new Date().toISOString().slice(0, 10))
+  const [editColor, setEditColor] = useState('purple')
   const [editProgress, setEditProgress] = useState(0)
   const [editCompleted, setEditCompleted] = useState(false)
   const [savingEdit, setSavingEdit] = useState(false)
@@ -116,6 +120,10 @@ export function GoalsScreen() {
 
   const openEditSheet = (goal: Goal) => {
     setSelectedGoal(goal)
+    setEditTitle(goal.title)
+    setEditDescription(goal.description ?? '')
+    setEditTargetDate(goal.target_date ?? '')
+    setEditColor(goal.color ?? 'purple')
     setEditProgress(clampProgress(goal.progress ?? 0))
     setEditCompleted(goal.is_completed)
     setShowEditSheet(true)
@@ -129,6 +137,10 @@ export function GoalsScreen() {
   const closeEditSheet = () => {
     setShowEditSheet(false)
     setSelectedGoal(null)
+    setEditTitle('')
+    setEditDescription('')
+    setEditTargetDate(new Date().toISOString().slice(0, 10))
+    setEditColor('purple')
     setEditProgress(0)
     setEditCompleted(false)
   }
@@ -184,6 +196,15 @@ export function GoalsScreen() {
   const handleSaveGoalEdit = async () => {
     if (!userId || !selectedGoal) return
 
+    if (!editTitle.trim()) {
+      showAlert({
+        title: 'Falta información',
+        message: 'El título de la meta es obligatorio',
+        buttons: [{ text: 'Entendido', style: 'cancel' }],
+      })
+      return
+    }
+
     const normalizedProgress = clampProgress(editProgress)
     const shouldComplete = editCompleted || normalizedProgress >= 100
     const alreadyCompleted = selectedGoal.is_completed
@@ -194,6 +215,10 @@ export function GoalsScreen() {
       const { error: updateError } = await supabase
         .from('goals')
         .update({
+          title: editTitle.trim(),
+          description: editDescription.trim() || null,
+          target_date: editTargetDate.trim() || null,
+          color: editColor,
           progress: shouldComplete ? 100 : normalizedProgress,
           is_completed: shouldComplete,
         })
@@ -218,6 +243,42 @@ export function GoalsScreen() {
     } finally {
       setSavingEdit(false)
     }
+  }
+
+  const handleDeleteGoal = async (goalId: string) => {
+    if (!userId) return
+
+    showAlert({
+      title: 'Eliminar meta',
+      message: '¿Seguro que deseas eliminar esta meta? Esta acción no se puede deshacer.',
+      buttons: [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const { error: deleteError } = await supabase
+                .from('goals')
+                .delete()
+                .eq('id', goalId)
+                .eq('user_id', userId)
+
+              if (deleteError) throw deleteError
+
+              closeEditSheet()
+              await loadGoals()
+            } catch (err) {
+              showAlert({
+                title: 'Error',
+                message: err instanceof Error ? err.message : 'No se pudo eliminar la meta',
+                buttons: [{ text: 'Entendido', style: 'destructive' }],
+              })
+            }
+          },
+        },
+      ],
+    })
   }
 
   if (loading) {
@@ -420,7 +481,67 @@ export function GoalsScreen() {
               <View className="rounded-t-3xl bg-white px-5 pb-8 pt-5">
                 <View className="mb-4 h-1.5 w-16 self-center rounded-full bg-slate-200" />
                 <Text className="text-xl font-extrabold text-purple-900">Actualizar meta</Text>
-                <Text className="mt-1 text-sm font-semibold text-purple-600">{selectedGoal?.title}</Text>
+
+                <View className="mt-4">
+                  <Text className="text-xs font-bold uppercase tracking-wide text-purple-700">Título</Text>
+                  <TextInput
+                    className="mt-2 rounded-2xl border border-purple-200 bg-purple-50 px-4 py-3 text-sm font-semibold text-purple-900"
+                    placeholder="Ej. Terminar capítulo 3 de física"
+                    placeholderTextColor="#a78bfa"
+                    value={editTitle}
+                    onChangeText={setEditTitle}
+                    editable={!savingEdit}
+                  />
+                </View>
+
+                <View className="mt-3">
+                  <Text className="text-xs font-bold uppercase tracking-wide text-purple-700">
+                    Descripción (opcional)
+                  </Text>
+                  <TextInput
+                    className="mt-2 rounded-2xl border border-purple-200 bg-purple-50 px-4 py-3 text-sm font-semibold text-purple-900"
+                    placeholder="Describe tu objetivo"
+                    placeholderTextColor="#a78bfa"
+                    value={editDescription}
+                    onChangeText={setEditDescription}
+                    editable={!savingEdit}
+                    multiline
+                    numberOfLines={2}
+                    textAlignVertical="top"
+                  />
+                </View>
+
+                <View className="mt-3">
+                  <Text className="text-xs font-bold uppercase tracking-wide text-purple-700">Fecha objetivo</Text>
+                  <TextInput
+                    className="mt-2 rounded-2xl border border-purple-200 bg-purple-50 px-4 py-3 text-sm font-semibold text-purple-900"
+                    placeholder="AAAA-MM-DD"
+                    placeholderTextColor="#a78bfa"
+                    value={editTargetDate}
+                    onChangeText={setEditTargetDate}
+                    editable={!savingEdit}
+                  />
+                </View>
+
+                <View className="mt-3">
+                  <Text className="text-xs font-bold uppercase tracking-wide text-purple-700">Color</Text>
+                  <View className="mt-2 flex-row flex-wrap">
+                    {goalColors.map((color) => {
+                      const active = editColor === color.key
+
+                      return (
+                        <TouchableOpacity
+                          key={color.key}
+                          className={`mr-2 mt-2 rounded-full px-3 py-2 ${color.className} ${active ? 'border-2 border-purple-700' : 'border border-transparent'}`}
+                          onPress={() => setEditColor(color.key)}
+                          disabled={savingEdit}
+                        >
+                          <Text className="text-xs font-bold text-purple-900">{color.label}</Text>
+                        </TouchableOpacity>
+                      )
+                    })}
+                  </View>
+                </View>
 
                 <View className="mt-5">
                   <Text className="text-xs font-bold uppercase tracking-wide text-purple-700">
@@ -459,6 +580,16 @@ export function GoalsScreen() {
                   />
                   <Text className="ml-3 text-sm font-bold text-purple-800">Marcar como completada</Text>
                 </TouchableOpacity>
+
+                {selectedGoal ? (
+                  <TouchableOpacity
+                    className="mt-4 rounded-2xl border border-red-200 bg-red-50 py-3"
+                    onPress={() => void handleDeleteGoal(selectedGoal.id)}
+                    disabled={savingEdit}
+                  >
+                    <Text className="text-center font-bold text-red-600">Eliminar meta</Text>
+                  </TouchableOpacity>
+                ) : null}
 
                 <View className="mt-6 flex-row gap-3">
                   <TouchableOpacity
