@@ -12,6 +12,7 @@ type HabitCardProps = {
   habit: Habit
   isCompleted: boolean
   onToggle: () => void
+  onLongPress?: () => void
 }
 
 const colorBorderMap: Record<string, string> = {
@@ -46,7 +47,7 @@ const colorIconMap: Record<string, string> = {
   purple: '#4c1d95',
 }
 
-export function HabitCard({ habit, isCompleted, onToggle }: HabitCardProps) {
+export function HabitCard({ habit, isCompleted, onToggle, onLongPress }: HabitCardProps) {
   const scale = useSharedValue(1)
   const isCompletedShared = useDerivedValue(() => isCompleted)
 
@@ -63,7 +64,7 @@ export function HabitCard({ habit, isCompleted, onToggle }: HabitCardProps) {
   }
 
   return (
-    <TouchableOpacity onPress={handlePress} activeOpacity={0.8}>
+    <TouchableOpacity onPress={handlePress} onLongPress={onLongPress} activeOpacity={0.8}>
       <Animated.View
         style={animatedStyle}
         className={`mb-3 flex-row items-center rounded-2xl border-2 p-4 ${colorBorderMap[habit.color] ?? 'border-purple-200'} ${colorBgMap[habit.color] ?? 'bg-purple-100'}`}

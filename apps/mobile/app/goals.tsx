@@ -245,7 +245,7 @@ export function GoalsScreen() {
     }
   }
 
-  const handleDeleteGoal = async (goalId: string) => {
+  const handleDeleteGoal = (goalId: string) => {
     if (!userId) return
 
     showAlert({
@@ -256,25 +256,27 @@ export function GoalsScreen() {
         {
           text: 'Eliminar',
           style: 'destructive',
-          onPress: async () => {
-            try {
-              const { error: deleteError } = await supabase
-                .from('goals')
-                .delete()
-                .eq('id', goalId)
-                .eq('user_id', userId)
+          onPress: () => {
+            void (async () => {
+              try {
+                const { error: deleteError } = await supabase
+                  .from('goals')
+                  .delete()
+                  .eq('id', goalId)
+                  .eq('user_id', userId)
 
-              if (deleteError) throw deleteError
+                if (deleteError) throw deleteError
 
-              closeEditSheet()
-              await loadGoals()
-            } catch (err) {
-              showAlert({
-                title: 'Error',
-                message: err instanceof Error ? err.message : 'No se pudo eliminar la meta',
-                buttons: [{ text: 'Entendido', style: 'destructive' }],
-              })
-            }
+                closeEditSheet()
+                await loadGoals()
+              } catch (err) {
+                showAlert({
+                  title: 'Error',
+                  message: err instanceof Error ? err.message : 'No se pudo eliminar la meta',
+                  buttons: [{ text: 'Entendido', style: 'destructive' }],
+                })
+              }
+            })()
           },
         },
       ],

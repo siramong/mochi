@@ -255,9 +255,11 @@ export function HabitsScreen() {
               </Text>
             </View>
             {habits.map((habit) => (
-              <TouchableOpacity
+              <HabitCard
                 key={habit.id}
-                activeOpacity={1}
+                habit={habit}
+                isCompleted={completedToday.has(habit.id)}
+                onToggle={() => void handleToggle(habit.id)}
                 onLongPress={() => {
                   showAlert({
                     title: 'Eliminar hábito',
@@ -274,13 +276,7 @@ export function HabitsScreen() {
                     ],
                   })
                 }}
-              >
-                <HabitCard
-                  habit={habit}
-                  isCompleted={completedToday.has(habit.id)}
-                  onToggle={() => void handleToggle(habit.id)}
-                />
-              </TouchableOpacity>
+              />
             ))}
           </>
         )}
