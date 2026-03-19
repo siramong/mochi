@@ -1,7 +1,7 @@
 import "../global.css";
 import { useEffect, useRef } from "react";
-import { Stack, router } from "expo-router";
-import { Text, TouchableOpacity, View } from "react-native";
+import { Stack, router, usePathname } from "expo-router";
+import { Platform, Text, TouchableOpacity, View } from "react-native";
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -11,8 +11,57 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import * as Notifications from "expo-notifications";
+import * as NavigationBar from "expo-navigation-bar";
+import { StatusBar } from "expo-status-bar";
 import { SessionProvider, useSession } from "@/context/SessionContext";
 import { MochiCharacter } from "@/components/MochiCharacter";
+
+type SystemBarsTheme = {
+  backgroundColor: string;
+  statusBarStyle: "light" | "dark";
+};
+
+function getSystemBarsTheme(pathname: string): SystemBarsTheme {
+  if (pathname.startsWith("/login")) {
+    return {
+      backgroundColor: "#f3e8ff",
+      statusBarStyle: "dark",
+    };
+  }
+
+  if (pathname.startsWith("/onboarding")) {
+    return {
+      backgroundColor: "#f5f3ff",
+      statusBarStyle: "dark",
+    };
+  }
+
+  if (pathname.startsWith("/study") || pathname.startsWith("/exam-log")) {
+    return {
+      backgroundColor: "#ede9fe",
+      statusBarStyle: "dark",
+    };
+  }
+
+  if (pathname.startsWith("/exercise") || pathname.startsWith("/routine")) {
+    return {
+      backgroundColor: "#ecfeff",
+      statusBarStyle: "dark",
+    };
+  }
+
+  if (pathname.startsWith("/habits") || pathname.startsWith("/gratitude") || pathname.startsWith("/mood")) {
+    return {
+      backgroundColor: "#ecfdf5",
+      statusBarStyle: "dark",
+    };
+  }
+
+  return {
+    backgroundColor: "#f3e8ff",
+    statusBarStyle: "dark",
+  };
+}
 
 // Configure how notifications are displayed when the app is in the foreground
 Notifications.setNotificationHandler({
@@ -26,9 +75,11 @@ Notifications.setNotificationHandler({
 });
 
 function RootLayoutNavigator() {
+  const pathname = usePathname();
   const { session, loading, requiresOnboarding, profileError, refreshProfile } = useSession();
   const loadingScale = useSharedValue(1);
   const notificationResponseListener = useRef<Notifications.EventSubscription | null>(null);
+  const { backgroundColor, statusBarStyle } = getSystemBarsTheme(pathname);
 
   useEffect(() => {
     if (loading) {
@@ -86,6 +137,19 @@ function RootLayoutNavigator() {
     };
   }, []);
 
+  useEffect(() => {
+    if (Platform.OS !== "android") {
+      return;
+    }
+
+    async function syncAndroidSystemBars() {
+      await NavigationBar.setBackgroundColorAsync(backgroundColor);
+      await NavigationBar.setButtonStyleAsync(statusBarStyle);
+    }
+
+    void syncAndroidSystemBars();
+  }, [backgroundColor, statusBarStyle]);
+
   if (loading) {
     return (
       <View className="flex-1 items-center justify-center bg-purple-50 px-6">
@@ -120,7 +184,12 @@ function RootLayoutNavigator() {
     );
   }
 
-  return <Stack screenOptions={{ headerShown: false }} />;
+  return (
+    <>
+      <StatusBar style={statusBarStyle} backgroundColor={backgroundColor} translucent={false} />
+      <Stack screenOptions={{ headerShown: false }} />
+    </>
+  );
 }
 
 export function RootLayout() {

@@ -16,6 +16,16 @@ type BottomNavProps = {
   onNavigate: (screen: MobileScreen) => void
 }
 
+type TabPalette = {
+  container: string
+  border: string
+  activeBg: string
+  activeIcon: string
+  inactiveIcon: string
+  activeText: string
+  inactiveText: string
+}
+
 const tabs: Array<{ id: MobileScreen; label: string; icon: keyof typeof Ionicons.glyphMap }> = [
   { id: 'home', label: 'Inicio', icon: 'home' },
   { id: 'study', label: 'Estudio', icon: 'book' },
@@ -23,15 +33,55 @@ const tabs: Array<{ id: MobileScreen; label: string; icon: keyof typeof Ionicons
   { id: 'habits', label: 'Hábitos', icon: 'leaf' },
 ]
 
+const tabPalettes: Record<MobileScreen, TabPalette> = {
+  home: {
+    container: 'bg-purple-50',
+    border: 'border-purple-200',
+    activeBg: 'bg-purple-200',
+    activeIcon: '#7e22ce',
+    inactiveIcon: '#c4b5fd',
+    activeText: 'text-purple-800',
+    inactiveText: 'text-purple-500',
+  },
+  study: {
+    container: 'bg-indigo-50',
+    border: 'border-indigo-200',
+    activeBg: 'bg-indigo-200',
+    activeIcon: '#4338ca',
+    inactiveIcon: '#a5b4fc',
+    activeText: 'text-indigo-800',
+    inactiveText: 'text-indigo-500',
+  },
+  exercise: {
+    container: 'bg-cyan-50',
+    border: 'border-cyan-200',
+    activeBg: 'bg-cyan-200',
+    activeIcon: '#0e7490',
+    inactiveIcon: '#67e8f9',
+    activeText: 'text-cyan-800',
+    inactiveText: 'text-cyan-600',
+  },
+  habits: {
+    container: 'bg-emerald-50',
+    border: 'border-emerald-200',
+    activeBg: 'bg-emerald-200',
+    activeIcon: '#047857',
+    inactiveIcon: '#6ee7b7',
+    activeText: 'text-emerald-800',
+    inactiveText: 'text-emerald-600',
+  },
+}
+
 type BottomTabItemProps = {
   id: MobileScreen
   label: string
   icon: keyof typeof Ionicons.glyphMap
   active: boolean
+  palette: TabPalette
   onNavigate: (screen: MobileScreen) => void
 }
 
-function BottomTabItem({ id, label, icon, active, onNavigate }: BottomTabItemProps) {
+function BottomTabItem({ id, label, icon, active, palette, onNavigate }: BottomTabItemProps) {
   const iconScale = useSharedValue(1)
   const hasMounted = useRef(false)
 
@@ -57,15 +107,15 @@ function BottomTabItem({ id, label, icon, active, onNavigate }: BottomTabItemPro
 
   return (
     <TouchableOpacity
-      className={`h-14 w-20 items-center justify-center rounded-2xl ${active ? 'bg-purple-100' : ''}`}
+      className={`h-14 w-20 items-center justify-center rounded-2xl ${active ? palette.activeBg : ''}`}
       onPress={() => {
         onNavigate(id)
       }}
     >
       <Animated.View style={iconAnimatedStyle}>
-        <Ionicons name={icon} size={20} color={active ? '#a855f7' : '#d8b4fe'} />
+        <Ionicons name={icon} size={20} color={active ? palette.activeIcon : palette.inactiveIcon} />
       </Animated.View>
-      <Text className={`mt-1 text-xs font-bold ${active ? 'text-purple-700' : 'text-purple-400'}`}>
+      <Text className={`mt-1 text-xs font-bold ${active ? palette.activeText : palette.inactiveText}`}>
         {label}
       </Text>
     </TouchableOpacity>
@@ -73,8 +123,10 @@ function BottomTabItem({ id, label, icon, active, onNavigate }: BottomTabItemPro
 }
 
 export function BottomNav({ currentScreen, onNavigate }: BottomNavProps) {
+  const palette = tabPalettes[currentScreen]
+
   return (
-    <View className="border-t border-purple-100 bg-white px-5 pb-6 pt-3">
+    <View className={`border-t px-5 pb-6 pt-3 ${palette.border} ${palette.container}`}>
       <View className="flex-row items-center justify-between">
         {tabs.map((tab) => {
           const active = currentScreen === tab.id
@@ -86,6 +138,7 @@ export function BottomNav({ currentScreen, onNavigate }: BottomNavProps) {
               label={tab.label}
               icon={tab.icon}
               active={active}
+              palette={palette}
               onNavigate={onNavigate}
             />
           )
