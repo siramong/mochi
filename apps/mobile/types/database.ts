@@ -122,13 +122,13 @@ export interface VoucherTemplate {
   points_cost: number
   icon: string
   color: string
-  created_at: string
+  created_at?: string
 }
 
 export interface Voucher {
   id: string
   user_id: string
-  template_id: string | null
+  template_id?: string | null
   title: string
   description: string
   points_cost: number

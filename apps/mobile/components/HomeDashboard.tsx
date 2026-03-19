@@ -24,6 +24,15 @@ type HomeDashboardProps = {
   onSignOut: () => void
 }
 
+type QuickAccessItem = {
+  label: string
+  route: '/goals' | '/vouchers' | '/mood' | '/gratitude'
+  icon: keyof typeof Ionicons.glyphMap
+  cardClass: string
+  iconColor: string
+  textClass: string
+}
+
 const colorMap: Record<string, string> = {
   pink: 'bg-pink-200',
   blue: 'bg-blue-200',
@@ -32,6 +41,41 @@ const colorMap: Record<string, string> = {
   purple: 'bg-purple-200',
   green: 'bg-green-200',
 }
+
+const quickAccessItems: QuickAccessItem[] = [
+  {
+    label: 'Metas',
+    route: '/goals',
+    icon: 'flag-outline',
+    cardClass: 'border-pink-200 bg-pink-100',
+    iconColor: '#be185d',
+    textClass: 'text-pink-900',
+  },
+  {
+    label: 'Vales',
+    route: '/vouchers',
+    icon: 'ticket-outline',
+    cardClass: 'border-yellow-200 bg-yellow-100',
+    iconColor: '#92400e',
+    textClass: 'text-yellow-900',
+  },
+  {
+    label: 'Estado de ánimo',
+    route: '/mood',
+    icon: 'heart-outline',
+    cardClass: 'border-orange-200 bg-orange-100',
+    iconColor: '#c2410c',
+    textClass: 'text-orange-900',
+  },
+  {
+    label: 'Gratitud',
+    route: '/gratitude',
+    icon: 'flower-outline',
+    cardClass: 'border-emerald-200 bg-emerald-100',
+    iconColor: '#047857',
+    textClass: 'text-emerald-900',
+  },
+]
 
 type AnimatedDashboardCardProps = {
   children: React.ReactNode
@@ -247,6 +291,26 @@ export function HomeDashboard({ userName, email, onSignOut }: HomeDashboardProps
           timeOfDay={timeOfDay}
         />
       </View>
+
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        className="mt-4"
+        contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}
+      >
+        {quickAccessItems.map((item) => (
+          <TouchableOpacity
+            key={item.route}
+            className={`mr-3 w-20 items-center rounded-2xl border-2 px-3 py-3 ${item.cardClass}`}
+            onPress={() => router.push(item.route)}
+          >
+            <Ionicons name={item.icon} size={20} color={item.iconColor} />
+            <Text className={`mt-2 text-center text-xs font-bold ${item.textClass}`} numberOfLines={2}>
+              {item.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
 
       <TouchableOpacity
         className="mt-4 rounded-3xl border-2 border-green-200 bg-white p-4"

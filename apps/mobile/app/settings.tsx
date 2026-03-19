@@ -5,6 +5,7 @@ import { router } from 'expo-router'
 import { useFocusEffect } from '@react-navigation/native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { MochiCharacter } from '@/components/MochiCharacter'
+import TimePickerModal from '@/components/TimePickerModal'
 import { useCustomAlert } from '@/components/CustomAlert'
 import { useSession } from '@/context/SessionContext'
 import { supabase } from '@/lib/supabase'
@@ -72,6 +73,7 @@ export function SettingsScreen() {
     full_name: '',
     wake_up_time: '',
   })
+  const [showTimePicker, setShowTimePicker] = useState(false)
   const [moduleSettings, setModuleSettings] = useState(defaultModuleSettings)
 
   const [loading, setLoading] = useState(true)
@@ -260,15 +262,15 @@ export function SettingsScreen() {
                 </View>
 
                 <View className="mt-4">
-                  <Text className="mb-2 text-sm font-bold text-blue-900">Hora de despertar (HH:MM)</Text>
-                  <TextInput
-                    className="rounded-2xl border-2 border-blue-200 bg-blue-50 px-4 py-3 text-sm font-semibold text-slate-800"
-                    placeholder="05:20"
-                    placeholderTextColor="#93c5fd"
-                    value={profile.wake_up_time ?? ''}
-                    onChangeText={(value) => setProfile((prev) => ({ ...prev, wake_up_time: value }))}
-                    maxLength={5}
-                  />
+                  <Text className="mb-2 text-sm font-bold text-blue-900">Hora de despertar</Text>
+                  <TouchableOpacity
+                    className="rounded-2xl border-2 border-blue-200 bg-blue-50 px-4 py-3"
+                    onPress={() => setShowTimePicker(true)}
+                  >
+                    <Text className="text-center text-lg font-extrabold text-blue-900">
+                      {profile.wake_up_time || '06:00'}
+                    </Text>
+                  </TouchableOpacity>
                 </View>
 
                 <TouchableOpacity
@@ -281,6 +283,17 @@ export function SettingsScreen() {
                   </Text>
                 </TouchableOpacity>
               </View>
+
+              <TimePickerModal
+                visible={showTimePicker}
+                time={profile.wake_up_time ?? '06:00'}
+                label="Hora de despertar"
+                onConfirm={(time) => {
+                  setProfile((prev) => ({ ...prev, wake_up_time: time }))
+                  setShowTimePicker(false)
+                }}
+                onCancel={() => setShowTimePicker(false)}
+              />
 
               <View className="mt-6 rounded-3xl border-2 border-blue-200 bg-white p-4">
                 <Text className="text-lg font-extrabold text-blue-900">Módulos</Text>

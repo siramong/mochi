@@ -89,12 +89,12 @@ export function VouchersScreen() {
       const [templatesRes, vouchersRes, profileRes] = await Promise.all([
         supabase
           .from('voucher_templates')
-          .select('id, title, description, points_cost, icon, color, created_at')
+          .select('id, title, description, points_cost, icon, color')
           .order('points_cost', { ascending: true }),
         supabase
           .from('vouchers')
           .select(
-            'id, user_id, template_id, title, description, points_cost, icon, color, is_redeemed, redeemed_at, created_at'
+            'id, user_id, title, description, points_cost, icon, color, is_redeemed, redeemed_at, created_at'
           )
           .eq('user_id', userId)
           .order('created_at', { ascending: false }),
