@@ -52,6 +52,8 @@ export function HomeScreen() {
   const [userName, setUserName] = useState('Student')
   const [loadingName, setLoadingName] = useState(true)
   const loadingScale = useSharedValue(1)
+  const contentOpacity = useSharedValue(1)
+  const contentTranslateY = useSharedValue(0)
   const tabParam = useMemo(() => {
     if (typeof params.tab === 'string') return params.tab
     if (Array.isArray(params.tab) && typeof params.tab[0] === 'string') return params.tab[0]
@@ -98,6 +100,18 @@ export function HomeScreen() {
   const loadingAnimatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: loadingScale.value }],
   }))
+
+  const contentAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: contentOpacity.value,
+    transform: [{ translateY: contentTranslateY.value }],
+  }))
+
+  useEffect(() => {
+    contentOpacity.value = 0
+    contentTranslateY.value = 8
+    contentOpacity.value = withTiming(1, { duration: 220, easing: Easing.out(Easing.quad) })
+    contentTranslateY.value = withTiming(0, { duration: 220, easing: Easing.out(Easing.quad) })
+  }, [currentScreen, contentOpacity, contentTranslateY])
 
   useEffect(() => {
     let mounted = true
@@ -149,9 +163,9 @@ export function HomeScreen() {
 
   return (
     <SafeAreaView className={`flex-1 ${screenBackgroundClass[currentScreen]}`}>
-      <View key={currentScreen} className="flex-1">
+      <Animated.View className="flex-1" style={contentAnimatedStyle}>
         {renderContent()}
-      </View>
+      </Animated.View>
       <BottomNav currentScreen={currentScreen} onNavigate={navigateToScreen} />
     </SafeAreaView>
   )
