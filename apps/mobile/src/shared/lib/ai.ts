@@ -30,7 +30,7 @@ async function callOpenRouter(prompt: string): Promise<string> {
         {
           role: 'system',
           content:
-            'Responde siempre en espanol. Si te piden JSON, devuelve solo JSON valido, sin markdown ni texto extra.',
+            'Responde siempre en español. Si te piden JSON, devuelve solo JSON válido, sin markdown ni texto extra.',
         },
         { role: 'user', content: prompt },
       ],

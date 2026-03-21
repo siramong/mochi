@@ -23,7 +23,7 @@ export function LoginPage() {
       <div className="w-full max-w-md rounded-3xl border border-purple-200 bg-white p-8 shadow-sm">
         <MochiCompanion
           mood="excited"
-          title="Mochi te acompana"
+          title="Mochi te acompaña"
           message="Tu escritorio bonito para estudiar con calma y constancia."
           className="mb-5"
         />

@@ -81,7 +81,7 @@ export function DashboardPage() {
       <MochiCompanion
         mood="happy"
         title="Hola, soy Mochi"
-        message="Hoy vamos por enfoque suave: pasos pequenos, progreso real."
+        message="Hoy vamos por enfoque suave: pasos pequeños, progreso real."
         className="mb-4"
       />
       <h1 className="text-2xl font-black text-purple-950">Resumen de hoy</h1>
