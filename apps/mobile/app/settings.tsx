@@ -38,6 +38,7 @@ type ModuleToggleKey =
   | 'mood_enabled'
   | 'gratitude_enabled'
   | 'vouchers_enabled'
+  | 'cooking_enabled'
 
 type ModuleItem = {
   key: ModuleToggleKey
@@ -53,6 +54,7 @@ const moduleItems: ModuleItem[] = [
   { key: 'mood_enabled', label: 'Estado de ánimo', icon: 'heart-outline' },
   { key: 'gratitude_enabled', label: 'Gratitud', icon: 'flower-outline' },
   { key: 'vouchers_enabled', label: 'Vales', icon: 'ticket-outline' },
+  { key: 'cooking_enabled', label: 'Cocina', icon: 'restaurant-outline' },
 ]
 
 const defaultModuleSettings: Pick<
@@ -64,6 +66,7 @@ const defaultModuleSettings: Pick<
   | 'mood_enabled'
   | 'gratitude_enabled'
   | 'vouchers_enabled'
+  | 'cooking_enabled'
 > = {
   study_enabled: true,
   exercise_enabled: true,
@@ -72,6 +75,7 @@ const defaultModuleSettings: Pick<
   mood_enabled: true,
   gratitude_enabled: true,
   vouchers_enabled: true,
+  cooking_enabled: true,
 }
 
 function isValidTime(value: string): boolean {
@@ -90,7 +94,6 @@ export function SettingsScreen() {
   const [showTimePicker, setShowTimePicker] = useState(false)
   const [moduleSettings, setModuleSettings] = useState(defaultModuleSettings)
 
-  // Notification state
   const [notifPrefs, setNotifPrefs] = useState<NotificationPrefs>({
     enabled: false,
     morningEnabled: true,
@@ -124,14 +127,11 @@ export function SettingsScreen() {
         supabase
           .from('user_settings')
           .select(
-            'study_enabled, exercise_enabled, habits_enabled, goals_enabled, mood_enabled, gratitude_enabled, vouchers_enabled'
+            'study_enabled, exercise_enabled, habits_enabled, goals_enabled, mood_enabled, gratitude_enabled, vouchers_enabled, cooking_enabled'
           )
           .eq('user_id', userId)
           .maybeSingle(),
-        supabase
-          .from('study_blocks')
-          .select('*')
-          .eq('user_id', userId),
+        supabase.from('study_blocks').select('*').eq('user_id', userId),
         loadNotificationPrefs(),
         getNotificationPermissionStatus(),
       ])
@@ -188,7 +188,6 @@ export function SettingsScreen() {
 
       if (updateError) throw updateError
 
-      // Reschedule morning reminder if notifications are active
       if (notifPrefs.enabled && notifPrefs.morningEnabled) {
         await scheduleMorningReminder(wakeUpTimeValue)
       }
@@ -237,27 +236,21 @@ export function SettingsScreen() {
     }
   }
 
-  // ─── Notification handlers ───────────────────────────────────────────────
-
   const handleToggleNotifications = async (value: boolean) => {
     if (value && permissionStatus !== 'granted') {
-      // Need to request permission first
       const status = await requestNotificationPermissions()
       setPermissionStatus(status)
 
       if (status !== 'granted') {
         showAlert({
           title: 'Permiso requerido',
-          message:
-            'Para recibir notificaciones, actívalas en los ajustes de tu dispositivo.',
+          message: 'Para recibir notificaciones, actívalas en los ajustes de tu dispositivo.',
           buttons: [
             { text: 'Cancelar', style: 'cancel' },
             {
               text: 'Abrir ajustes',
               style: 'default',
-              onPress: () => {
-                void Linking.openSettings()
-              },
+              onPress: () => { void Linking.openSettings() },
             },
           ],
         })
@@ -276,7 +269,6 @@ export function SettingsScreen() {
         return
       }
 
-      // Re-apply current settings
       const wakeUpTime = profile.wake_up_time ?? '06:00'
       if (updated.morningEnabled) await scheduleMorningReminder(wakeUpTime)
       if (updated.studyEnabled) await scheduleStudyBlockReminders(studyBlocks)
@@ -352,9 +344,7 @@ export function SettingsScreen() {
         {
           text: 'Cerrar sesión',
           style: 'destructive',
-          onPress: () => {
-            void supabase.auth.signOut()
-          },
+          onPress: () => { void supabase.auth.signOut() },
         },
       ],
     })
@@ -487,9 +477,7 @@ export function SettingsScreen() {
                   </View>
                   <Switch
                     value={notifPrefs.enabled}
-                    onValueChange={(v) => {
-                      void handleToggleNotifications(v)
-                    }}
+                    onValueChange={(v) => { void handleToggleNotifications(v) }}
                     disabled={savingNotif}
                     thumbColor={notifPrefs.enabled ? '#7c3aed' : '#94a3b8'}
                     trackColor={{ false: '#cbd5e1', true: '#ddd6fe' }}
@@ -499,9 +487,7 @@ export function SettingsScreen() {
                 {permissionStatus === 'denied' && (
                   <TouchableOpacity
                     className="mt-3 flex-row items-center gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2"
-                    onPress={() => {
-                      void Linking.openSettings()
-                    }}
+                    onPress={() => { void Linking.openSettings() }}
                   >
                     <Ionicons name="warning-outline" size={14} color="#d97706" />
                     <Text className="flex-1 text-xs font-semibold text-amber-800">
@@ -525,9 +511,7 @@ export function SettingsScreen() {
                       </View>
                       <Switch
                         value={notifPrefs.morningEnabled}
-                        onValueChange={(v) => {
-                          void handleToggleMorning(v)
-                        }}
+                        onValueChange={(v) => { void handleToggleMorning(v) }}
                         thumbColor={notifPrefs.morningEnabled ? '#7c3aed' : '#94a3b8'}
                         trackColor={{ false: '#cbd5e1', true: '#ddd6fe' }}
                       />
@@ -546,9 +530,7 @@ export function SettingsScreen() {
                       </View>
                       <Switch
                         value={notifPrefs.studyEnabled}
-                        onValueChange={(v) => {
-                          void handleToggleStudyReminders(v)
-                        }}
+                        onValueChange={(v) => { void handleToggleStudyReminders(v) }}
                         disabled={savingNotif}
                         thumbColor={notifPrefs.studyEnabled ? '#7c3aed' : '#94a3b8'}
                         trackColor={{ false: '#cbd5e1', true: '#ddd6fe' }}
@@ -569,9 +551,7 @@ export function SettingsScreen() {
                         </View>
                         <Switch
                           value={notifPrefs.habitEnabled}
-                          onValueChange={(v) => {
-                            void handleToggleHabitReminder(v)
-                          }}
+                          onValueChange={(v) => { void handleToggleHabitReminder(v) }}
                           thumbColor={notifPrefs.habitEnabled ? '#7c3aed' : '#94a3b8'}
                           trackColor={{ false: '#cbd5e1', true: '#ddd6fe' }}
                         />
@@ -595,9 +575,7 @@ export function SettingsScreen() {
                 visible={showHabitTimePicker}
                 time={notifPrefs.habitTime}
                 label="Hora del recordatorio de hábitos"
-                onConfirm={(time) => {
-                  void handleHabitTimeConfirm(time)
-                }}
+                onConfirm={(time) => { void handleHabitTimeConfirm(time) }}
                 onCancel={() => setShowHabitTimePicker(false)}
               />
 

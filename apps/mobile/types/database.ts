@@ -149,6 +149,7 @@ export interface UserSettings {
   mood_enabled: boolean
   gratitude_enabled: boolean
   vouchers_enabled: boolean
+  cooking_enabled: boolean
   created_at: string
   updated_at: string
 }
@@ -178,4 +179,93 @@ export interface Streak {
   current_streak: number
   longest_streak: number
   last_activity_date: string
+}
+
+// ─── Cocina ───────────────────────────────────────────────────────────────────
+
+export type RecipeDifficulty = 'fácil' | 'media' | 'difícil'
+
+export interface Recipe {
+  id: string
+  user_id: string
+  title: string
+  description: string | null
+  total_time_minutes: number
+  prep_time_minutes: number
+  cook_time_minutes: number
+  servings: number
+  difficulty: RecipeDifficulty
+  cuisine_type: string | null
+  tags: string[]
+  user_prompt: string | null
+  personal_notes: string | null
+  is_favorite: boolean
+  image_url: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface RecipeIngredient {
+  id: string
+  recipe_id: string
+  order_index: number
+  name: string
+  amount: number | null
+  unit: string | null
+  notes: string | null
+}
+
+export interface RecipeStep {
+  id: string
+  recipe_id: string
+  step_number: number
+  title: string
+  instructions: string
+  duration_seconds: number | null
+  temperature: string | null
+  tip: string | null
+}
+
+export interface RecipeCookSession {
+  id: string
+  user_id: string
+  recipe_id: string
+  last_step_completed: number
+  is_finished: boolean
+  servings_cooked: number | null
+  rating: number | null
+  session_notes: string | null
+  started_at: string
+  finished_at: string | null
+}
+
+export interface RecipeWithDetails extends Recipe {
+  ingredients: RecipeIngredient[]
+  steps: RecipeStep[]
+  active_session?: RecipeCookSession | null
+}
+
+export interface AIRecipeResponse {
+  title: string
+  description: string
+  prep_time_minutes: number
+  cook_time_minutes: number
+  servings: number
+  difficulty: RecipeDifficulty
+  cuisine_type: string
+  tags: string[]
+  ingredients: Array<{
+    name: string
+    amount: number | null
+    unit: string | null
+    notes: string | null
+  }>
+  steps: Array<{
+    step_number: number
+    title: string
+    instructions: string
+    duration_seconds: number | null
+    temperature: string | null
+    tip: string | null
+  }>
 }
