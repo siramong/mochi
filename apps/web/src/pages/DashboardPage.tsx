@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { AlarmClock, BookOpen, Dumbbell, Heart, Star } from 'lucide-react'
+import { MochiCompanion } from '@/components/common/MochiCompanion'
 import { supabase } from '@/lib/supabase'
 import { useSession } from '@/hooks/useSession'
 
@@ -77,6 +78,12 @@ export function DashboardPage() {
 
   return (
     <div>
+      <MochiCompanion
+        mood="happy"
+        title="Hola, soy Mochi"
+        message="Hoy vamos por enfoque suave: pasos pequenos, progreso real."
+        className="mb-4"
+      />
       <h1 className="text-2xl font-black text-purple-950">Resumen de hoy</h1>
       <p className="mt-1 text-sm text-purple-700">Tu progreso diario en estudio, bienestar y hábitos</p>
 

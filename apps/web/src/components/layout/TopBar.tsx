@@ -1,4 +1,5 @@
 import { LogOut, Star } from 'lucide-react'
+import { MochiCompanion } from '@/components/common/MochiCompanion'
 import { useSession } from '@/hooks/useSession'
 import { useProfile } from '@/hooks/useProfile'
 
@@ -13,6 +14,10 @@ export function TopBar() {
         <p className="text-lg font-bold text-purple-950">
           {profile?.full_name?.trim() || 'Estudiante'}
         </p>
+      </div>
+
+      <div className="hidden xl:block">
+        <MochiCompanion mood="happy" size={42} title="Mochi" message="Contigo hoy" />
       </div>
 
       <div className="flex items-center gap-3">
