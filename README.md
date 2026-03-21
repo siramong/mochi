@@ -1,22 +1,24 @@
 # Mochi
 
-Mochi is a personal productivity app designed specifically for women students. It combines study organization, exercise routines, gamification, and AI assistance in a single colorful and adorable app.
+Mochi is a personal productivity app designed specifically for women students. It combines study scheduling, exercise routines, gamification, AI assistance, cooking, habits, goals, mood tracking, and gratitude journaling in a single colorful and adorable app.
 
 ---
 
 ## Tech Stack
 
-| Layer | Web | Mobile |
+| Layer | Mobile | Web |
 |---|---|---|
-| Framework | React + Vite | Expo (React Native) |
+| Framework | Expo 55 + React Native 0.83 | React 19 + Vite 8 |
 | Language | TypeScript | TypeScript |
-| Styling | Tailwind v4 + shadcn/ui | NativeWind (Tailwind v3) |
-| Routing | React Router (planned) | Expo Router |
-| Backend | Supabase | Supabase |
+| Styling | NativeWind v4 (Tailwind v3 syntax) | Tailwind v4 + shadcn/ui |
+| Routing | Expo Router v3 | React Router v7 |
+| Animations | react-native-reanimated v4 | Framer Motion |
+| Backend | Supabase (PostgreSQL + Auth + RLS) | Supabase (same instance) |
 | AI Primary | Google Gemini 2.0 Flash | Google Gemini 2.0 Flash |
-| AI Fallback | OpenRouter (free models) | OpenRouter (free models) |
-| Monorepo | Turborepo + pnpm | — |
-| Deploy | Vercel | EAS (planned) |
+| AI Fallback | OpenRouter (nvidia/nemotron free) | OpenRouter |
+| Notifications | expo-notifications | — |
+| Monorepo | Turborepo + pnpm | |
+| Deploy | EAS (Android APK planned) | Vercel |
 
 ---
 
@@ -25,21 +27,24 @@ Mochi is a personal productivity app designed specifically for women students. I
 ```
 mochi/
 ├── apps/
-│   ├── web/          # React + Vite web app
-│   └── mobile/       # Expo React Native app
+│   ├── mobile/          # Expo React Native app (production-ready)
+│   └── web/             # React + Vite web app (auth only, dashboard in progress)
 └── packages/
-    ├── supabase/     # Shared Supabase client (@mochi/supabase)
-    └── ai/           # Shared AI client (@mochi/ai) — planned
+    ├── supabase/         # Shared Supabase client (@mochi/supabase)
+    └── ai/               # Shared AI client (@mochi/ai) — planned
 ```
+
+For a detailed breakdown of the architecture, see [`ARCHITECTURE.md`](./ARCHITECTURE.md).
 
 ---
 
 ## Getting Started
 
 ### Prerequisites
+
 - Node.js >= 18
 - pnpm >= 9
-- Expo Go (SDK 55) on your phone
+- Expo Go (SDK 55) on your phone, or an Android emulator
 
 ### Setup
 
@@ -48,19 +53,12 @@ pnpm install
 
 cp apps/web/.env.local.example apps/web/.env.local
 cp apps/mobile/.env.local.example apps/mobile/.env.local
+# Fill in Supabase + AI keys in both files
 ```
 
 ### Environment Variables
 
-**Web:**
-```
-VITE_SUPABASE_URL=
-VITE_SUPABASE_ANON_KEY=
-VITE_GEMINI_API_KEY=
-VITE_OPENROUTER_API_KEY=
-```
-
-**Mobile:**
+**Mobile (`apps/mobile/.env.local`):**
 ```
 EXPO_PUBLIC_SUPABASE_URL=
 EXPO_PUBLIC_SUPABASE_ANON_KEY=
@@ -68,91 +66,63 @@ EXPO_PUBLIC_GEMINI_API_KEY=
 EXPO_PUBLIC_OPENROUTER_API_KEY=
 ```
 
+**Web (`apps/web/.env.local`):**
+```
+VITE_SUPABASE_URL=
+VITE_SUPABASE_ANON_KEY=
+VITE_GEMINI_API_KEY=
+VITE_OPENROUTER_API_KEY=
+```
+
 ### Run
 
 ```bash
-# Web
-cd apps/web && pnpm dev
-
 # Mobile
 cd apps/mobile && pnpm start --tunnel
+
+# Web
+cd apps/web && pnpm dev
 ```
 
 ---
 
-## Database Schema
+## Documentation
 
-### Core
-- `profiles` — user profile, wake-up time, total points
-- `study_blocks` — study schedule by subject, day and time slot
-- `exercises` — custom exercises (sets, reps, duration)
-- `routines` — weekly exercise routines
-- `routine_exercises` — exercises within a routine
-- `routine_logs` — completed routine history
-
-### Gamification
-- `achievements` — achievement catalog (study, exercise, streak, special)
-- `user_achievements` — achievements unlocked per user
-- `streaks` — current and longest streak per user
-- `rewards` — redeemable vouchers earned by the user
-
-All tables have Row Level Security enabled.
+| File | Description |
+|---|---|
+| [`ARCHITECTURE.md`](./ARCHITECTURE.md) | Stack, folder structure, auth flow, gamification system |
+| [`DATABASE.md`](./DATABASE.md) | Full database schema — all tables, columns, types, relationships |
+| [`WEB_PLAN.md`](./WEB_PLAN.md) | Web dashboard architecture plan, routing, tech choices, build order |
+| [`ROADMAP.md`](./ROADMAP.md) | Feature status (✅/🚧/❌) for both mobile and web |
 
 ---
 
-## Features
-
-### Completed modules
+## Completed Modules (Mobile)
 
 | Module | Description |
 |---|---|
-| Study | Weekly schedule, 1.5h blocks, session timer, exam logging |
-| Exercise | Home workouts, custom exercises, routine player |
-| Gamification | Points, achievements, streaks, redeemable vouchers |
-| Habits | Daily custom habits with completion tracking |
-| Goals | Weekly/monthly goals with progress cards |
-| Mood Tracker | Daily emotional check-in screen |
-| Gratitude Journal | Daily gratitude entries screen |
-| Vouchers | Rewards and voucher management screen |
-| Settings | Profile editing, module toggles, and sign-out flow with confirmation |
-
-### Current app polish
-
-- Profile hub with quick access grid for core and optional modules
-- Quick access row in HomeDashboard for goals, vouchers, mood, and gratitude
-- Consistent TimePickerModal usage in onboarding, settings, and study creation flows
-
-### Planned modules
-
-| Module | Description |
-|---|---|
-| Quick Notes | Lightweight notes per subject — planned |
-
-> Period tracker is intentionally excluded — use Flo or similar dedicated apps instead.
-
----
-
-## AI Features
-
-AI is integrated using Google Gemini 2.0 Flash as the primary provider (free tier) with OpenRouter free models as fallback.
-
-Planned AI-powered features:
-- Daily motivational message personalized to the user's schedule
-- Study block suggestions based on existing schedule gaps
-- Auto-generate exercise routines based on available days
-- Smart streak analysis ("You haven't studied Biology in 3 days")
-- Auto-generate exercise descriptions from a name
-- Creative routine name suggestions
+| **Auth** | Login, signup, logout, persistent session, onboarding |
+| **Study** | Weekly schedule grid, countdown timer, session history, exam logging |
+| **Exercise** | Custom exercise bank, routine builder, step-by-step routine player |
+| **Habits** | Daily habit tracking, 7-day dot view, all-done celebration |
+| **Goals** | Manual progress tracking, target date, color coding |
+| **Mood** | Daily emotional check-in (1–5), 7-day color history |
+| **Gratitude** | 3-entry daily journal with history |
+| **Cooking** | AI recipe generation, step-by-step cook mode with timers, Mochi Q&A |
+| **Gamification** | Points, streaks, 15+ achievements, inline toast notifications |
+| **Vouchers** | Points → rewards, shareable PNG vouchers |
+| **Settings** | Profile editing, module toggles, notification preferences, sign-out |
 
 ---
 
 ## Design System
 
-- **Palette:** pastel yellow, pink, purple, mint green, baby blue
-- **Style:** colorful, adorable, Pinterest-inspired card layouts
-- **Icons:** Ionicons (mobile), Lucide (web) — no emojis anywhere
+- **Palette:** Pastel yellow, pink, purple, mint green, baby blue
+- **Style:** Colorful, adorable, Pinterest-inspired card layouts
+- **Icons:** Ionicons (mobile), Lucide (web) — no emojis
 - **Language:** 100% Spanish UI copy
-- **Libraries:** shadcn/ui (web), NativeWind (mobile), Framer Motion (web), React Kawaii (empty states)
+- **Tone:** Warm, encouraging, positive — designed for women students
+- **Typography:** Geist Variable (web), system font (mobile)
 
 ---
 

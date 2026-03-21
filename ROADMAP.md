@@ -1,112 +1,239 @@
 # Mochi — Roadmap
 
----
-
-## Phase 0 — Foundation (Done)
-
-- [x] Monorepo setup with Turborepo + pnpm
-- [x] Web: React + Vite + TypeScript + Tailwind v4 + shadcn/ui
-- [x] Mobile: Expo + React Native + TypeScript + NativeWind
-- [x] Shared Supabase package (`@mochi/supabase`)
-- [x] Auth flow (login, register, persistent session, logout) — web & mobile
-- [x] Database schema with RLS policies and grants
-- [x] Auto profile creation on signup
-- [x] Gamification schema (achievements, streaks, rewards, points)
-- [x] 11 base achievements seeded
+**Legend:** ✅ Complete · 🚧 Partial · ❌ Not started · 🔮 Future
 
 ---
 
-## Phase 1 — Core Features (Current)
+## Foundation
 
-### Onboarding
-- [ ] Welcome screen with name and wake-up time input
-- [ ] Module selection on first launch
-
-### Study Module
-- [ ] Weekly schedule grid view (by day and time)
-- [ ] Add / edit / delete study blocks
-- [ ] 1.5h session countdown timer
-- [ ] Exam result logging (grade input)
-- [ ] Daily study streak tracking
-
-### Exercise Module
-- [ ] Create custom exercises (sets, reps or duration)
-- [ ] Build weekly routines (assign exercises to days)
-- [ ] Step-by-step routine player with rest timers
-- [ ] Mark routine as completed
-- [ ] Exercise streak tracking
+| Task | Mobile | Web |
+|---|---|---|
+| Monorepo setup (Turborepo + pnpm) | ✅ | ✅ |
+| TypeScript + ESLint + Prettier | ✅ | ✅ |
+| Supabase shared client (`@mochi/supabase`) | ✅ | ✅ |
+| Auth — login / signup / logout | ✅ | ✅ |
+| Auth — OAuth (Google) | ❌ | ✅ |
+| Auth — persistent session | ✅ | ✅ |
+| Auth callback page | — | ✅ |
+| Auto profile creation on signup | ✅ | ✅ |
+| Database schema + RLS policies | ✅ | ✅ |
+| App shell / navigation skeleton | ✅ | ❌ |
 
 ---
 
-## Phase 2 — Gamification
+## Onboarding
 
-### Points & Achievements
-- [ ] Award points on routine completion, study block completion and exam logging
-- [ ] Auto-unlock achievements based on activity
-- [ ] Profile screen with total points and unlocked achievements
-- [ ] Daily streak display (Duolingo-style)
-- [ ] Secret achievements that surprise the user
-
-### Voucher System (Rewards)
-- [ ] Generate redeemable vouchers with accumulated points
-- [ ] Shareable voucher (screenshot or link) to send to a partner
-- [ ] Predefined editable voucher templates
-- [ ] Public users: visual recognition only (achievements, streaks, badges)
+| Task | Mobile | Web |
+|---|---|---|
+| Welcome screen (name + wake-up time) | ✅ | ❌ |
+| Module selection on first launch | ✅ | ❌ |
+| Notification permission request | ✅ | — |
 
 ---
 
-## Backlog — AI Integration
+## Study Module
 
-Primary: Google Gemini 2.0 Flash (free tier)
-Fallback: OpenRouter free models (Llama 3, Mistral, etc.)
-
-- [ ] Shared `@mochi/ai` package with provider abstraction and automatic fallback
-- [ ] Daily personalized motivational message based on schedule
-- [ ] Study block suggestions based on schedule gaps
-- [ ] Auto-generate exercise routines based on available days
-- [ ] Smart streak analysis and nudges
-- [ ] Auto-generate exercise descriptions from name
-- [ ] Creative routine name suggestions
-
----
-
-## Phase 3 — Módulos opcionales (Done)
-
-- [x] **Vales (vouchers)**
-- [x] **Estado de ánimo (mood)**
-- [x] **Gratitud (gratitude)**
-- [x] **Ajustes (settings)**
-- [x] Profile hub with quick access grid
-- [x] Quick access row in HomeDashboard
-- [x] TimePickerModal consistency across all screens
+| Task | Mobile | Web |
+|---|---|---|
+| Weekly schedule grid | ✅ | ❌ |
+| Create study block | ✅ | ❌ |
+| Edit study block | ✅ | ❌ |
+| Delete study block | ✅ | ❌ |
+| AI duration suggestion | ✅ | ❌ |
+| 1.5h countdown timer (Pomodoro) | ✅ | ❌ |
+| Mark session as complete (+5 pts) | ✅ | ❌ |
+| Study session history | ✅ | ❌ |
+| Exam result logging (+20 pts) | ✅ | ❌ |
+| `exam_ace` achievement unlock | ✅ | ❌ |
+| Study block notifications (10min before) | ✅ | — |
+| Study analytics / charts | ❌ | ❌ |
 
 ---
 
-## Phase 4 — Planned
+## Exercise Module
 
-- [ ] Push notifications (`expo-notifications`) — study block reminders and habit reminders
-- [ ] Web app (React + Vite) — dashboard, study schedule, profile
-- [ ] EAS Build — APK for Android distribution
-
----
-
-## Phase 5 — Polish & Launch
-
-- [ ] Push notifications for study blocks and exercise reminders
-- [ ] Full pastel theme applied across all screens
-- [ ] React Kawaii empty states and completion celebrations
-- [ ] Framer Motion animations on web
-- [ ] Vercel deploy for web
-- [ ] EAS Build for Android APK
-- [x] User settings screen (name, wake-up time, active modules)
-- [ ] Superuser dashboard (Doménica) for managing vouchers and users
+| Task | Mobile | Web |
+|---|---|---|
+| Custom exercise bank (CRUD) | ✅ | ❌ |
+| AI exercise description suggestion | ✅ | ❌ |
+| Build weekly routines (assign days) | ✅ | ❌ |
+| Routine player (timer + rest) | ✅ | ❌ |
+| Mark routine as complete (+10 pts) | ✅ | ❌ |
+| Streak update on completion | ✅ | ❌ |
+| Exercise achievements | ✅ | ❌ |
 
 ---
 
-## Phase 6 — Future
+## Habits Module
 
-- [ ] Public multi-user launch
-- [ ] Google Calendar sync
-- [ ] iOS support
-- [ ] Unlockable visual themes with points
-- [ ] Export weekly report as PDF
+| Task | Mobile | Web |
+|---|---|---|
+| Create / delete habits (name, icon, color) | ✅ | ❌ |
+| Daily completion toggle | ✅ | ❌ |
+| 7-day dot tracker per habit | ✅ | ❌ |
+| "All habits complete" celebration | ✅ | ❌ |
+| Habit completion heatmap (calendar) | ❌ | ❌ |
+| Habit notifications | ✅ | — |
+
+---
+
+## Goals Module
+
+| Task | Mobile | Web |
+|---|---|---|
+| Create / edit / delete goals | ✅ | ❌ |
+| Manual progress update (0–100%) | ✅ | ❌ |
+| Mark as completed (+15 pts) | ✅ | ❌ |
+| Color picker + target date | ✅ | ❌ |
+| Goal analytics / board view | ❌ | ❌ |
+
+---
+
+## Mood Tracker
+
+| Task | Mobile | Web |
+|---|---|---|
+| Daily mood check-in (1–5 scale) | ✅ | ❌ |
+| Optional text note | ✅ | ❌ |
+| Edit today's entry | ✅ | ❌ |
+| 7-day color dot history | ✅ | ❌ |
+| Mood trend chart | ❌ | ❌ |
+
+---
+
+## Gratitude Journal
+
+| Task | Mobile | Web |
+|---|---|---|
+| Daily 3-entry gratitude log (+3 pts) | ✅ | ❌ |
+| Edit today's entry | ✅ | ❌ |
+| Last 5 entries history | ✅ | ❌ |
+| Full journal history | ❌ | ❌ |
+
+---
+
+## Cooking Module
+
+| Task | Mobile | Web |
+|---|---|---|
+| AI recipe generation from free-text prompt | ✅ | ❌ |
+| Recipe list / gallery | ✅ | ❌ |
+| Recipe detail (ingredients, steps, serving scaler) | ✅ | ❌ |
+| Mark as favorite | ✅ | ❌ |
+| Personal notes on recipe | ✅ | ❌ |
+| Step-by-step cook mode with timers | ✅ | ❌ |
+| Resume cook session | ✅ | ❌ |
+| Star rating after completion (+15 pts) | ✅ | ❌ |
+| Mochi in-cook Q&A | ✅ | ❌ |
+| Cooking achievements | ✅ | ❌ |
+| Cooking reminder notification | ✅ | — |
+
+---
+
+## Gamification
+
+| Task | Mobile | Web |
+|---|---|---|
+| Points system (`profiles.total_points`) | ✅ | ❌ |
+| `increment_points` RPC | ✅ | ❌ |
+| Achievement catalog (seeded) | ✅ | ❌ |
+| Achievement unlock (idempotent upsert) | ✅ | ❌ |
+| Achievement toast (inline, queued) | ✅ | ❌ |
+| Achievements profile page | ✅ | ❌ |
+| Daily streak tracking | ✅ | ❌ |
+| Streak achievements | ✅ | ❌ |
+
+---
+
+## Voucher System
+
+| Task | Mobile | Web |
+|---|---|---|
+| Voucher template catalog | ✅ | ❌ |
+| Generate voucher (deduct points) | ✅ | ❌ |
+| Mark voucher as redeemed | ✅ | ❌ |
+| Share voucher as PNG image | ✅ | ❌ |
+| Admin: manage templates | ❌ | ❌ |
+
+---
+
+## Settings
+
+| Task | Mobile | Web |
+|---|---|---|
+| Edit profile (name, wake-up time) | ✅ | ❌ |
+| Module toggles (enable/disable) | ✅ | ❌ |
+| Sign out with confirmation | ✅ | ✅ |
+| Notification preferences | ✅ | — |
+
+---
+
+## AI Integration
+
+| Task | Mobile | Web |
+|---|---|---|
+| `@mochi/ai` shared package | ❌ | ❌ |
+| Gemini 2.0 Flash primary | ✅ | ❌ |
+| OpenRouter fallback | ✅ | ❌ |
+| Daily motivational message | ✅ | ❌ |
+| Exercise description suggestion | ✅ | ❌ |
+| Study duration suggestion | ✅ | ❌ |
+| Recipe generation | ✅ | ❌ |
+| In-cook Q&A | ✅ | ❌ |
+
+---
+
+## Notifications (Mobile Only)
+
+| Task | Mobile |
+|---|---|
+| Permission request | ✅ |
+| Morning reminder (at wake-up time) | ✅ |
+| Study block reminders (10min before) | ✅ |
+| Daily habit reminder (configurable time) | ✅ |
+| Cooking reminder (configurable time) | ✅ |
+| Notification deep linking | ✅ |
+
+---
+
+## Planned / Future
+
+| Feature | Priority |
+|---|---|
+| `@mochi/ai` shared package (Gemini + OpenRouter) | High |
+| `@mochi/types` or `packages/supabase/src/types.ts` shared types | High |
+| Web dashboard Phase 1 (shell + study module) | High |
+| Web analytics (study stats, habit heatmap) | Medium |
+| Quick Notes module | Medium |
+| Push notifications EAS | Medium |
+| EAS Build — Android APK | Medium |
+| PDF weekly report export | Low |
+| Google Calendar sync | Low |
+| iOS support | Low |
+| Unlockable visual themes | Low |
+| Admin superuser dashboard | Low |
+| Public multi-user launch | Low |
+
+---
+
+## Module Status Summary
+
+| Module | Mobile | Web |
+|---|---|---|
+| Auth | ✅ | ✅ |
+| Onboarding | ✅ | ❌ |
+| Study | ✅ | ❌ |
+| Exercise | ✅ | ❌ |
+| Habits | ✅ | ❌ |
+| Goals | ✅ | ❌ |
+| Mood Tracker | ✅ | ❌ |
+| Gratitude Journal | ✅ | ❌ |
+| Cooking | ✅ | ❌ |
+| Gamification | ✅ | ❌ |
+| Vouchers | ✅ | ❌ |
+| Settings | ✅ | 🚧 (sign-out only) |
+| Profile | ✅ | ❌ |
+| Notifications | ✅ | — |
+| AI integration | ✅ | ❌ |
+| Web Dashboard Shell | — | ❌ |
+| Web Analytics | — | ❌ |
