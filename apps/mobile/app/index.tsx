@@ -18,12 +18,17 @@ import { HomeDashboard } from '@/components/HomeDashboard'
 import { StudySchedule } from '@/components/StudySchedule'
 import { MochiCharacter } from '@/components/MochiCharacter'
 import { HabitsScreen } from '@/app/habits'
+import { CookingScreen } from '@/app/cooking'
 
-const screenThemes: Record<MobileScreen, { statusBarStyle: 'light' | 'dark'; navigationBarStyle: 'light' | 'dark' }> = {
+const screenThemes: Record<
+  MobileScreen,
+  { statusBarStyle: 'light' | 'dark'; navigationBarStyle: 'light' | 'dark' }
+> = {
   home:     { statusBarStyle: 'dark', navigationBarStyle: 'dark' },
   study:    { statusBarStyle: 'dark', navigationBarStyle: 'dark' },
   exercise: { statusBarStyle: 'dark', navigationBarStyle: 'dark' },
   habits:   { statusBarStyle: 'dark', navigationBarStyle: 'dark' },
+  cooking:  { statusBarStyle: 'dark', navigationBarStyle: 'dark' },
 }
 
 export function HomeScreen() {
@@ -40,69 +45,51 @@ export function HomeScreen() {
       loadingScale.value = withRepeat(
         withSequence(
           withTiming(1.06, { duration: 650, easing: Easing.inOut(Easing.quad) }),
-          withTiming(1, { duration: 650, easing: Easing.inOut(Easing.quad) })
+          withTiming(1,    { duration: 650, easing: Easing.inOut(Easing.quad) })
         ),
         -1,
         false
       )
       return
     }
-
     loadingScale.value = withTiming(1, { duration: 180 })
   }, [loadingName, loadingScale])
 
-  const loadingAnimatedStyle = useAnimatedStyle(() => {
-    return {
-      transform: [{ scale: loadingScale.value }],
-    }
-  })
+  const loadingAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: loadingScale.value }],
+  }))
 
   useEffect(() => {
     let mounted = true
 
     async function loadName() {
       if (!session?.user.id) {
-        if (mounted) {
-          setUserName('Student')
-          setLoadingName(false)
-        }
+        if (mounted) { setUserName('Student'); setLoadingName(false) }
         return
       }
-
       setLoadingName(true)
-
       const { data } = await supabase
         .from('profiles')
         .select('full_name')
         .eq('id', session.user.id)
         .single()
-
       if (!mounted) return
-
-      const nextName = data?.full_name?.trim() || 'Student'
-      setUserName(nextName)
+      setUserName(data?.full_name?.trim() || 'Student')
       setLoadingName(false)
     }
 
     void loadName()
-
-    return () => {
-      mounted = false
-    }
+    return () => { mounted = false }
   }, [session?.user.id])
 
   const renderContent = () => {
     switch (currentScreen) {
-      case 'home':
-        return <HomeDashboard userName={userName} />
-      case 'study':
-        return <StudySchedule />
-      case 'exercise':
-        return <ExerciseRoutine />
-      case 'habits':
-        return <HabitsScreen />
-      default:
-        return null
+      case 'home':     return <HomeDashboard userName={userName} />
+      case 'study':    return <StudySchedule />
+      case 'exercise': return <ExerciseRoutine />
+      case 'habits':   return <HabitsScreen />
+      case 'cooking':  return <CookingScreen />
+      default:         return null
     }
   }
 
@@ -121,7 +108,6 @@ export function HomeScreen() {
       <View key={currentScreen} className="flex-1">
         {renderContent()}
       </View>
-
       <BottomNav currentScreen={currentScreen} onNavigate={setCurrentScreen} />
     </SafeAreaView>
   )

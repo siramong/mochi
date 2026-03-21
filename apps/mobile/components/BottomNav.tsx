@@ -9,7 +9,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated'
 
-export type MobileScreen = 'home' | 'study' | 'exercise' | 'habits'
+export type MobileScreen = 'home' | 'study' | 'exercise' | 'habits' | 'cooking'
 
 type BottomNavProps = {
   currentScreen: MobileScreen
@@ -27,10 +27,11 @@ type TabPalette = {
 }
 
 const tabs: Array<{ id: MobileScreen; label: string; icon: keyof typeof Ionicons.glyphMap }> = [
-  { id: 'home', label: 'Inicio', icon: 'home' },
-  { id: 'study', label: 'Estudio', icon: 'book' },
+  { id: 'home',     label: 'Inicio',    icon: 'home' },
+  { id: 'study',    label: 'Estudio',   icon: 'book' },
   { id: 'exercise', label: 'Ejercicio', icon: 'barbell' },
-  { id: 'habits', label: 'Hábitos', icon: 'leaf' },
+  { id: 'habits',   label: 'Hábitos',   icon: 'leaf' },
+  { id: 'cooking',  label: 'Cocina',    icon: 'restaurant' },
 ]
 
 const tabPalettes: Record<MobileScreen, TabPalette> = {
@@ -70,6 +71,15 @@ const tabPalettes: Record<MobileScreen, TabPalette> = {
     activeText: 'text-emerald-800',
     inactiveText: 'text-emerald-600',
   },
+  cooking: {
+    container: 'bg-orange-50',
+    border: 'border-orange-200',
+    activeBg: 'bg-orange-200',
+    activeIcon: '#c2410c',
+    inactiveIcon: '#fdba74',
+    activeText: 'text-orange-800',
+    inactiveText: 'text-orange-500',
+  },
 }
 
 type BottomTabItemProps = {
@@ -90,27 +100,22 @@ function BottomTabItem({ id, label, icon, active, palette, onNavigate }: BottomT
       hasMounted.current = true
       return
     }
-
     if (active) {
       iconScale.value = withSequence(
         withTiming(1.15, { duration: 220, easing: Easing.out(Easing.quad) }),
-        withTiming(1, { duration: 220, easing: Easing.inOut(Easing.quad) })
+        withTiming(1,    { duration: 220, easing: Easing.inOut(Easing.quad) })
       )
     }
   }, [active, iconScale])
 
-  const iconAnimatedStyle = useAnimatedStyle(() => {
-    return {
-      transform: [{ scale: iconScale.value }],
-    }
-  })
+  const iconAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: iconScale.value }],
+  }))
 
   return (
     <TouchableOpacity
-      className={`h-14 w-20 items-center justify-center rounded-2xl ${active ? palette.activeBg : ''}`}
-      onPress={() => {
-        onNavigate(id)
-      }}
+      className={`h-14 w-16 items-center justify-center rounded-2xl ${active ? palette.activeBg : ''}`}
+      onPress={() => onNavigate(id)}
     >
       <Animated.View style={iconAnimatedStyle}>
         <Ionicons name={icon} size={20} color={active ? palette.activeIcon : palette.inactiveIcon} />
@@ -126,23 +131,19 @@ export function BottomNav({ currentScreen, onNavigate }: BottomNavProps) {
   const palette = tabPalettes[currentScreen]
 
   return (
-    <View className={`border-t px-5 pb-6 pt-3 ${palette.border} ${palette.container}`}>
+    <View className={`border-t px-3 pb-6 pt-3 ${palette.border} ${palette.container}`}>
       <View className="flex-row items-center justify-between">
-        {tabs.map((tab) => {
-          const active = currentScreen === tab.id
-
-          return (
-            <BottomTabItem
-              key={tab.id}
-              id={tab.id}
-              label={tab.label}
-              icon={tab.icon}
-              active={active}
-              palette={palette}
-              onNavigate={onNavigate}
-            />
-          )
-        })}
+        {tabs.map((tab) => (
+          <BottomTabItem
+            key={tab.id}
+            id={tab.id}
+            label={tab.label}
+            icon={tab.icon}
+            active={currentScreen === tab.id}
+            palette={palette}
+            onNavigate={onNavigate}
+          />
+        ))}
       </View>
     </View>
   )
