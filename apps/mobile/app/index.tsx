@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { useLocalSearchParams } from 'expo-router'
+import { router, useLocalSearchParams } from 'expo-router'
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -32,6 +32,14 @@ const screenThemes: Record<
   cooking:  { statusBarStyle: 'dark', navigationBarStyle: 'dark' },
 }
 
+const screenBackgroundClass: Record<MobileScreen, string> = {
+  home: 'bg-purple-100',
+  study: 'bg-purple-100',
+  exercise: 'bg-teal-100',
+  habits: 'bg-purple-50',
+  cooking: 'bg-orange-50',
+}
+
 // Valida que un string sea una MobileScreen conocida
 function isMobileScreen(value: string): value is MobileScreen {
   return ['home', 'study', 'exercise', 'habits', 'cooking'].includes(value)
@@ -44,14 +52,32 @@ export function HomeScreen() {
   const [userName, setUserName] = useState('Student')
   const [loadingName, setLoadingName] = useState(true)
   const loadingScale = useSharedValue(1)
-
-  // Cuando llega un param `tab` (p.ej. desde una notificación de Cocina),
-  // navegamos a esa tab si es válida.
-  useEffect(() => {
-    if (params.tab && isMobileScreen(params.tab)) {
-      setCurrentScreen(params.tab)
-    }
+  const tabParam = useMemo(() => {
+    if (typeof params.tab === 'string') return params.tab
+    if (Array.isArray(params.tab) && typeof params.tab[0] === 'string') return params.tab[0]
+    return undefined
   }, [params.tab])
+
+  useEffect(() => {
+    if (tabParam && isMobileScreen(tabParam)) {
+      setCurrentScreen(tabParam)
+      return
+    }
+
+    setCurrentScreen('home')
+  }, [tabParam])
+
+  const navigateToScreen = useCallback((screen: MobileScreen) => {
+    // Actualización optimista: el color activo del bottom nav cambia al instante.
+    setCurrentScreen(screen)
+
+    if (screen === 'home') {
+      router.replace('/')
+      return
+    }
+
+    router.replace({ pathname: '/', params: { tab: screen } })
+  }, [])
 
   useScreenTheme(screenThemes[currentScreen])
 
@@ -100,7 +126,7 @@ export function HomeScreen() {
         return (
           <HomeDashboard
             userName={userName}
-            onNavigateToCooking={() => setCurrentScreen('cooking')}
+            onNavigateToCooking={() => navigateToScreen('cooking')}
           />
         )
       case 'study':    return <StudySchedule />
@@ -122,11 +148,11 @@ export function HomeScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-purple-100">
+    <SafeAreaView className={`flex-1 ${screenBackgroundClass[currentScreen]}`}>
       <View key={currentScreen} className="flex-1">
         {renderContent()}
       </View>
-      <BottomNav currentScreen={currentScreen} onNavigate={setCurrentScreen} />
+      <BottomNav currentScreen={currentScreen} onNavigate={navigateToScreen} />
     </SafeAreaView>
   )
 }
