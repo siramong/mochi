@@ -21,6 +21,11 @@ import Animated, {
 import { supabase } from '@/lib/supabase'
 import { useSession } from '@/context/SessionContext'
 import { askMochiWhileCooking } from '@/lib/ai'
+import {
+  addPoints,
+  checkCookingSessionAchievements,
+  checkPerfectRecipeAchievement,
+} from '@/lib/gamification'
 import { MochiCharacter } from '@/components/MochiCharacter'
 import { useCustomAlert } from '@/components/CustomAlert'
 import type { Recipe, RecipeStep, RecipeCookSession } from '@/types/database'
@@ -234,6 +239,10 @@ export function RecipePlayerScreen() {
       })
       .eq('id', cookSession.id)
 
+    // Puntos y logros de cocina
+    await addPoints(userId, 15)
+    await checkCookingSessionAchievements(userId)
+
     setCompleted(true)
   }
 
@@ -244,6 +253,8 @@ export function RecipePlayerScreen() {
       .from('recipe_cook_sessions')
       .update({ rating: stars })
       .eq('id', cookSession.id)
+    // Logro: 5 estrellas
+    if (stars === 5 && userId) await checkPerfectRecipeAchievement(userId)
   }
 
   const handleAskMochi = async () => {

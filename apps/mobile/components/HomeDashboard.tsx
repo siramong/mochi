@@ -20,6 +20,7 @@ import { getGreeting, getTimeColor, getTimeIcon, getTimeOfDay, type TimeOfDay } 
 
 type HomeDashboardProps = {
   userName: string
+  onNavigateToCooking: () => void
 }
 
 type QuickAccessItem = {
@@ -105,12 +106,10 @@ function AnimatedDashboardCard({ children, delay, animationSeed, className }: An
   )
 }
 
-export function HomeDashboard({ userName }: HomeDashboardProps) {
+export function HomeDashboard({ userName, onNavigateToCooking }: HomeDashboardProps) {
   const { session } = useSession()
   const todayRaw = new Date().toLocaleDateString('es-ES', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
+    weekday: 'long', day: 'numeric', month: 'long',
   })
   const today = todayRaw.charAt(0).toUpperCase() + todayRaw.slice(1)
   const timeOfDay = getTimeOfDay()
@@ -119,11 +118,7 @@ export function HomeDashboard({ userName }: HomeDashboardProps) {
   const greetingBgClass = getTimeColor()
 
   const timeLabelMap: Record<TimeOfDay, string> = {
-    dawn: 'Madrugada',
-    morning: 'Mañana',
-    afternoon: 'Tarde',
-    evening: 'Noche',
-    night: 'Noche',
+    dawn: 'Madrugada', morning: 'Mañana', afternoon: 'Tarde', evening: 'Noche', night: 'Noche',
   }
 
   const [todayBlocks, setTodayBlocks] = useState<StudyBlock[]>([])
@@ -145,8 +140,7 @@ export function HomeDashboard({ userName }: HomeDashboardProps) {
           withTiming(1.06, { duration: 650, easing: Easing.inOut(Easing.quad) }),
           withTiming(1, { duration: 650, easing: Easing.inOut(Easing.quad) })
         ),
-        -1,
-        false
+        -1, false
       )
       return
     }
@@ -159,10 +153,7 @@ export function HomeDashboard({ userName }: HomeDashboardProps) {
 
   useEffect(() => {
     const userId = session?.user.id
-    if (!userId) {
-      setLoading(false)
-      return
-    }
+    if (!userId) { setLoading(false); return }
 
     async function loadTodayData() {
       try {
@@ -172,53 +163,21 @@ export function HomeDashboard({ userName }: HomeDashboardProps) {
         const todayDayOfWeek = new Date().getDay()
         const todayISO = new Date().toISOString().slice(0, 10)
 
-        const [
-          blocksRes,
-          routinesRes,
-          habitsCountRes,
-          habitsLogsRes,
-          latestRecipeRes,
-          recipeCountRes,
-        ] = await Promise.all([
-          supabase
-            .from('study_blocks')
-            .select('*')
-            .eq('user_id', userId)
-            .eq('day_of_week', todayDayOfWeek)
-            .order('start_time', { ascending: true }),
-          supabase
-            .from('routines')
-            .select(`*, routine_exercises (id, routine_id, exercise_id, order_index, exercise:exercises (id, name, sets, reps, duration_seconds, notes))`)
-            .eq('user_id', userId),
-          supabase
-            .from('habits')
-            .select('id', { count: 'exact', head: true })
-            .eq('user_id', userId),
-          supabase
-            .from('habit_logs')
-            .select('id', { count: 'exact', head: true })
-            .eq('user_id', userId)
-            .eq('log_date', todayISO),
-          supabase
-            .from('recipes')
-            .select('*')
-            .eq('user_id', userId)
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .maybeSingle(),
-          supabase
-            .from('recipes')
-            .select('id', { count: 'exact', head: true })
-            .eq('user_id', userId),
-        ])
+        const [blocksRes, routinesRes, habitsCountRes, habitsLogsRes, latestRecipeRes, recipeCountRes] =
+          await Promise.all([
+            supabase.from('study_blocks').select('*').eq('user_id', userId).eq('day_of_week', todayDayOfWeek).order('start_time', { ascending: true }),
+            supabase.from('routines').select(`*, routine_exercises (id, routine_id, exercise_id, order_index, exercise:exercises (id, name, sets, reps, duration_seconds, notes))`).eq('user_id', userId),
+            supabase.from('habits').select('id', { count: 'exact', head: true }).eq('user_id', userId),
+            supabase.from('habit_logs').select('id', { count: 'exact', head: true }).eq('user_id', userId).eq('log_date', todayISO),
+            supabase.from('recipes').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+            supabase.from('recipes').select('id', { count: 'exact', head: true }).eq('user_id', userId),
+          ])
 
         if (blocksRes.error) throw blocksRes.error
         if (routinesRes.error) throw routinesRes.error
 
         setTodayBlocks(blocksRes.data ?? [])
-        setTodayRoutines(
-          (routinesRes.data ?? []).filter((r) => r.days.includes(todayDayOfWeek))
-        )
+        setTodayRoutines((routinesRes.data ?? []).filter((r) => r.days.includes(todayDayOfWeek)))
         setHabitCount(habitsCountRes.count ?? 0)
         setHabitLogsCount(habitsLogsRes.count ?? 0)
         setLatestRecipe((latestRecipeRes.data as Recipe | null) ?? null)
@@ -235,16 +194,13 @@ export function HomeDashboard({ userName }: HomeDashboardProps) {
   }, [session?.user.id])
 
   const handleTotalTime = (routine: RoutineWithExercises): string => {
-    const totalSeconds = routine.routine_exercises.reduce(
-      (sum, re) => sum + (re.exercise?.duration_seconds ?? 0),
-      0
-    )
+    const totalSeconds = routine.routine_exercises.reduce((sum, re) => sum + (re.exercise?.duration_seconds ?? 0), 0)
     return `${Math.ceil(totalSeconds / 60)} min`
   }
 
   return (
     <ScrollView className="flex-1 bg-blue-100 px-5 pt-12">
-      {/* Header saludo */}
+      {/* Header */}
       <View className="flex-row items-start justify-between">
         <View className={`flex-1 mr-3 rounded-3xl border-2 border-blue-200 px-4 py-3 ${greetingBgClass}`}>
           <View className="flex-row items-center">
@@ -275,7 +231,7 @@ export function HomeDashboard({ userName }: HomeDashboardProps) {
         </View>
       </View>
 
-      {/* Motivación diaria */}
+      {/* Motivación */}
       <View className="mt-4">
         <DailyMotivation
           userName={userName}
@@ -287,9 +243,7 @@ export function HomeDashboard({ userName }: HomeDashboardProps) {
 
       {/* Quick access */}
       <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        className="mt-4"
+        horizontal showsHorizontalScrollIndicator={false} className="mt-4"
         contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}
       >
         {quickAccessItems.map((item) => (
@@ -319,18 +273,12 @@ export function HomeDashboard({ userName }: HomeDashboardProps) {
           <Ionicons name="chevron-forward" size={18} color="#166534" />
         </View>
         <Text className="mt-2 text-sm font-semibold text-green-700">
-          {loading
-            ? 'Cargando hábitos...'
-            : `${habitLogsCount}/${habitCount} hábitos completados hoy`}
+          {loading ? 'Cargando hábitos...' : `${habitLogsCount}/${habitCount} hábitos completados hoy`}
         </Text>
       </TouchableOpacity>
 
       {/* Bloques de estudio */}
-      <AnimatedDashboardCard
-        delay={0}
-        animationSeed={animationSeed}
-        className="mt-4 rounded-3xl border-2 border-blue-200 bg-white p-5"
-      >
+      <AnimatedDashboardCard delay={0} animationSeed={animationSeed} className="mt-4 rounded-3xl border-2 border-blue-200 bg-white p-5">
         <View className="mb-3 flex-row items-center">
           <Ionicons name="book" size={18} color="#1e40af" />
           <Text className="ml-2 text-base font-bold text-blue-900">Bloques de estudio</Text>
@@ -358,25 +306,17 @@ export function HomeDashboard({ userName }: HomeDashboardProps) {
               onPress={() => router.push(`/study-timer?blockId=${block.id}`)}
             >
               <View className="flex-row items-center">
-                <View
-                  className={`mr-3 h-10 w-10 items-center justify-center rounded-xl ${colorMap[block.color] ?? 'bg-purple-200'}`}
-                >
+                <View className={`mr-3 h-10 w-10 items-center justify-center rounded-xl ${colorMap[block.color] ?? 'bg-purple-200'}`}>
                   <Text className="text-xs font-extrabold text-slate-700">{block.subject[0]}</Text>
                 </View>
                 <View>
                   <Text className="text-sm font-bold text-slate-800">{block.subject}</Text>
-                  <Text className="text-xs font-semibold text-slate-500">
-                    {block.start_time} - {block.end_time}
-                  </Text>
+                  <Text className="text-xs font-semibold text-slate-500">{block.start_time} - {block.end_time}</Text>
                 </View>
               </View>
               <View className="rounded-full bg-white px-3 py-1">
                 <Text className="text-xs font-bold text-slate-600">
-                  {(() => {
-                    const start = parseInt(block.start_time.split(':')[0])
-                    const end = parseInt(block.end_time.split(':')[0])
-                    return `${end - start}h`
-                  })()}
+                  {`${parseInt(block.end_time.split(':')[0]) - parseInt(block.start_time.split(':')[0])}h`}
                 </Text>
               </View>
             </TouchableOpacity>
@@ -393,12 +333,8 @@ export function HomeDashboard({ userName }: HomeDashboardProps) {
         <Text className="ml-2 font-bold text-pink-900">Registrar examen</Text>
       </TouchableOpacity>
 
-      {/* Rutinas de hoy */}
-      <AnimatedDashboardCard
-        delay={100}
-        animationSeed={animationSeed}
-        className="mt-4 rounded-3xl border-2 border-teal-200 bg-white p-5"
-      >
+      {/* Rutinas */}
+      <AnimatedDashboardCard delay={100} animationSeed={animationSeed} className="mt-4 rounded-3xl border-2 border-teal-200 bg-white p-5">
         <View className="mb-2 flex-row items-center">
           <Ionicons name="barbell" size={18} color="#0d9488" />
           <Text className="ml-2 text-base font-bold text-blue-900">Rutinas de hoy</Text>
@@ -435,11 +371,7 @@ export function HomeDashboard({ userName }: HomeDashboardProps) {
       </AnimatedDashboardCard>
 
       {/* ─── Cocina ─── */}
-      <AnimatedDashboardCard
-        delay={200}
-        animationSeed={animationSeed}
-        className="mt-4 rounded-3xl border-2 border-orange-200 bg-white p-5"
-      >
+      <AnimatedDashboardCard delay={200} animationSeed={animationSeed} className="mt-4 rounded-3xl border-2 border-orange-200 bg-white p-5">
         <View className="mb-3 flex-row items-center justify-between">
           <View className="flex-row items-center">
             <Ionicons name="restaurant" size={18} color="#c2410c" />
@@ -478,9 +410,7 @@ export function HomeDashboard({ userName }: HomeDashboardProps) {
                   ) : null}
                 </View>
                 <View className="flex-row items-center gap-1">
-                  {latestRecipe.is_favorite && (
-                    <Ionicons name="heart" size={14} color="#f97316" />
-                  )}
+                  {latestRecipe.is_favorite && <Ionicons name="heart" size={14} color="#f97316" />}
                   <Ionicons name="chevron-forward" size={16} color="#c2410c" />
                 </View>
               </View>
@@ -503,21 +433,26 @@ export function HomeDashboard({ userName }: HomeDashboardProps) {
               )}
             </TouchableOpacity>
 
+            {/* FIX: navega a la tab de Cocina, no a una ruta de Expo Router */}
             <TouchableOpacity
               className="mt-3 flex-row items-center justify-center rounded-2xl border border-orange-200 py-2"
-              onPress={() => router.push(`/recipe-detail?recipeId=${latestRecipe.id}`)}
+              onPress={onNavigateToCooking}
             >
               <Ionicons name="restaurant-outline" size={14} color="#c2410c" />
               <Text className="ml-1.5 text-xs font-bold text-orange-700">Ver todas las recetas</Text>
             </TouchableOpacity>
           </>
         ) : (
-          <View className="items-center py-2">
+          <TouchableOpacity
+            className="items-center py-2"
+            onPress={onNavigateToCooking}
+            activeOpacity={0.8}
+          >
             <MochiCharacter mood="happy" size={72} />
             <Text className="mt-2 text-center text-sm font-semibold text-orange-700">
               Cuéntame qué quieres cocinar hoy
             </Text>
-          </View>
+          </TouchableOpacity>
         )}
       </AnimatedDashboardCard>
 

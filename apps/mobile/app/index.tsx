@@ -47,8 +47,7 @@ export function HomeScreen() {
           withTiming(1.06, { duration: 650, easing: Easing.inOut(Easing.quad) }),
           withTiming(1,    { duration: 650, easing: Easing.inOut(Easing.quad) })
         ),
-        -1,
-        false
+        -1, false
       )
       return
     }
@@ -61,7 +60,6 @@ export function HomeScreen() {
 
   useEffect(() => {
     let mounted = true
-
     async function loadName() {
       if (!session?.user.id) {
         if (mounted) { setUserName('Student'); setLoadingName(false) }
@@ -77,14 +75,19 @@ export function HomeScreen() {
       setUserName(data?.full_name?.trim() || 'Student')
       setLoadingName(false)
     }
-
     void loadName()
     return () => { mounted = false }
   }, [session?.user.id])
 
   const renderContent = () => {
     switch (currentScreen) {
-      case 'home':     return <HomeDashboard userName={userName} />
+      case 'home':
+        return (
+          <HomeDashboard
+            userName={userName}
+            onNavigateToCooking={() => setCurrentScreen('cooking')}
+          />
+        )
       case 'study':    return <StudySchedule />
       case 'exercise': return <ExerciseRoutine />
       case 'habits':   return <HabitsScreen />

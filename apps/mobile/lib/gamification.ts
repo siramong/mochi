@@ -59,6 +59,73 @@ export async function checkStreakAchievements(userId: string): Promise<void> {
   if (streak >= 365) await unlockAchievement(userId, 'streak_365')
 }
 
+// ─── Logros de Cocina ─────────────────────────────────────────────────────────
+
+/**
+ * Llama esto cuando la usuaria guarda su primera receta generada con IA.
+ */
+export async function checkCookingRecipeAchievements(userId: string): Promise<void> {
+  const { count } = await supabase
+    .from('recipes')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId)
+
+  const total = count ?? 0
+  if (total >= 1) await unlockAchievement(userId, 'first_recipe')
+  if (total >= 5) await unlockAchievement(userId, 'recipes_5')
+  if (total >= 10) await unlockAchievement(userId, 'recipes_10')
+}
+
+/**
+ * Llama esto cuando la usuaria completa una sesión de cocina (recipe-player).
+ */
+export async function checkCookingSessionAchievements(userId: string): Promise<void> {
+  // Primera vez cocinando
+  const { count: totalSessions } = await supabase
+    .from('recipe_cook_sessions')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .eq('is_finished', true)
+
+  if ((totalSessions ?? 0) >= 1) await unlockAchievement(userId, 'first_cook')
+
+  // 3 recetas distintas completadas
+  const { data: distinctRecipes } = await supabase
+    .from('recipe_cook_sessions')
+    .select('recipe_id')
+    .eq('user_id', userId)
+    .eq('is_finished', true)
+
+  const uniqueRecipes = new Set((distinctRecipes ?? []).map((s) => s.recipe_id))
+  if (uniqueRecipes.size >= 3) await unlockAchievement(userId, 'cook_streak_3')
+}
+
+/**
+ * Llama esto cuando la usuaria guarda una calificación de 5 estrellas.
+ */
+export async function checkPerfectRecipeAchievement(userId: string): Promise<void> {
+  const { count } = await supabase
+    .from('recipe_cook_sessions')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .eq('rating', 5)
+
+  if ((count ?? 0) >= 1) await unlockAchievement(userId, 'perfect_recipe')
+}
+
+/**
+ * Llama esto cuando la usuaria marca una receta como favorita.
+ */
+export async function checkFavoriteRecipeAchievement(userId: string): Promise<void> {
+  const { count } = await supabase
+    .from('recipes')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .eq('is_favorite', true)
+
+  if ((count ?? 0) >= 1) await unlockAchievement(userId, 'favorite_recipe')
+}
+
 export async function updateStreak(userId: string): Promise<void> {
   const today = new Date().toISOString().slice(0, 10)
   const yesterday = new Date()

@@ -15,6 +15,7 @@ import { useFocusEffect } from '@react-navigation/native'
 import { supabase } from '@/lib/supabase'
 import { useSession } from '@/context/SessionContext'
 import { generateRecipe } from '@/lib/ai'
+import { addPoints, checkCookingRecipeAchievements } from '@/lib/gamification'
 import { useCustomAlert } from '@/components/CustomAlert'
 import { MochiCharacter } from '@/components/MochiCharacter'
 import type { Recipe, AIRecipeResponse } from '@/types/database'
@@ -48,9 +49,7 @@ function RecipeCard({ recipe, onPress }: { recipe: Recipe; onPress: () => void }
             </Text>
           ) : null}
         </View>
-        {recipe.is_favorite && (
-          <Ionicons name="heart" size={18} color="#f97316" />
-        )}
+        {recipe.is_favorite && <Ionicons name="heart" size={18} color="#f97316" />}
       </View>
 
       <View className="mt-3 flex-row flex-wrap items-center gap-2">
@@ -105,11 +104,7 @@ export function CookingScreen() {
   const userId = session?.user.id
 
   const loadRecipes = useCallback(async () => {
-    if (!userId) {
-      setRecipes([])
-      setLoading(false)
-      return
-    }
+    if (!userId) { setRecipes([]); setLoading(false); return }
     try {
       setLoading(true)
       setError(null)
@@ -127,21 +122,15 @@ export function CookingScreen() {
     }
   }, [userId])
 
-  useFocusEffect(
-    useCallback(() => {
-      void loadRecipes()
-    }, [loadRecipes])
-  )
+  useFocusEffect(useCallback(() => { void loadRecipes() }, [loadRecipes]))
 
   const handleGenerate = async () => {
     if (!userId || !prompt.trim()) return
-
     try {
       setGenerating(true)
       setGeneratingStep('Pensando en tu receta...')
 
       const aiRecipe: AIRecipeResponse = await generateRecipe(prompt.trim())
-
       setGeneratingStep('Guardando receta...')
 
       const totalTime = aiRecipe.prep_time_minutes + aiRecipe.cook_time_minutes
@@ -170,12 +159,8 @@ export function CookingScreen() {
       if (aiRecipe.ingredients.length > 0) {
         const { error: ingError } = await supabase.from('recipe_ingredients').insert(
           aiRecipe.ingredients.map((ing, idx) => ({
-            recipe_id: recipeId,
-            order_index: idx,
-            name: ing.name,
-            amount: ing.amount,
-            unit: ing.unit,
-            notes: ing.notes,
+            recipe_id: recipeId, order_index: idx,
+            name: ing.name, amount: ing.amount, unit: ing.unit, notes: ing.notes,
           }))
         )
         if (ingError) throw ingError
@@ -185,16 +170,17 @@ export function CookingScreen() {
         const { error: stepsError } = await supabase.from('recipe_steps').insert(
           aiRecipe.steps.map((step) => ({
             recipe_id: recipeId,
-            step_number: step.step_number,
-            title: step.title,
-            instructions: step.instructions,
-            duration_seconds: step.duration_seconds,
-            temperature: step.temperature,
-            tip: step.tip,
+            step_number: step.step_number, title: step.title,
+            instructions: step.instructions, duration_seconds: step.duration_seconds,
+            temperature: step.temperature, tip: step.tip,
           }))
         )
         if (stepsError) throw stepsError
       }
+
+      // Puntos y logros
+      await addPoints(userId, 5)
+      await checkCookingRecipeAchievements(userId)
 
       setShowGenerateModal(false)
       setPrompt('')
@@ -216,14 +202,11 @@ export function CookingScreen() {
     <>
       <View className="flex-1 bg-orange-50">
         <ScrollView className="flex-1 px-5 pt-12" showsVerticalScrollIndicator={false}>
-
-          {/* Header — igual que habits, exercise, study */}
           <View className="mb-5 flex-row items-center">
             <Ionicons name="restaurant" size={20} color="#c2410c" />
             <Text className="ml-2 text-2xl font-extrabold text-orange-900">Cocina</Text>
           </View>
 
-          {/* Botón generar */}
           <TouchableOpacity
             className="mb-5 flex-row items-center justify-center rounded-3xl bg-orange-500 py-4"
             onPress={() => setShowGenerateModal(true)}
@@ -233,7 +216,6 @@ export function CookingScreen() {
             <Text className="ml-2 text-base font-extrabold text-white">Generar receta con IA</Text>
           </TouchableOpacity>
 
-          {/* Lista */}
           {loading ? (
             <View className="items-center py-12">
               <MochiCharacter mood="thinking" size={88} />
@@ -242,10 +224,7 @@ export function CookingScreen() {
           ) : error ? (
             <View className="rounded-3xl border-2 border-red-200 bg-red-50 p-4">
               <Text className="text-sm font-semibold text-red-700">{error}</Text>
-              <TouchableOpacity
-                className="mt-3 rounded-2xl bg-red-500 py-2"
-                onPress={() => void loadRecipes()}
-              >
+              <TouchableOpacity className="mt-3 rounded-2xl bg-red-500 py-2" onPress={() => void loadRecipes()}>
                 <Text className="text-center font-bold text-white">Reintentar</Text>
               </TouchableOpacity>
             </View>
@@ -268,19 +247,15 @@ export function CookingScreen() {
               />
             ))
           )}
-
           <View className="h-6" />
         </ScrollView>
       </View>
 
-      {/* Modal de generación */}
       <Modal
-        transparent
-        visible={showGenerateModal}
-        animationType="slide"
-        onRequestClose={() => { if (!generating) { setShowGenerateModal(false) } }}
+        transparent visible={showGenerateModal} animationType="slide"
+        onRequestClose={() => { if (!generating) setShowGenerateModal(false) }}
       >
-        <TouchableWithoutFeedback onPress={() => { if (!generating) { setShowGenerateModal(false) } }}>
+        <TouchableWithoutFeedback onPress={() => { if (!generating) setShowGenerateModal(false) }}>
           <View className="flex-1 justify-end bg-black/40">
             <TouchableWithoutFeedback onPress={() => undefined}>
               <View className="rounded-t-3xl bg-white px-5 pb-10 pt-5">
@@ -300,7 +275,6 @@ export function CookingScreen() {
                     <Text className="mt-1 text-sm font-semibold text-orange-600">
                       Descríbelo con tus palabras, yo me encargo del resto
                     </Text>
-
                     <View className="mt-4 rounded-2xl border-2 border-orange-200 bg-orange-50 px-4 py-3">
                       <Text className="mb-1 text-xs font-bold text-orange-700">Ejemplos:</Text>
                       <Text className="text-xs font-semibold text-orange-600">
@@ -309,7 +283,6 @@ export function CookingScreen() {
                         • "pollo al horno fácil para 4, menos de 40 minutos"
                       </Text>
                     </View>
-
                     <TextInput
                       className="mt-4 min-h-24 rounded-2xl border-2 border-orange-200 bg-white px-4 py-3 text-sm font-semibold text-slate-800"
                       placeholder="Quiero hacer..."
@@ -320,7 +293,6 @@ export function CookingScreen() {
                       textAlignVertical="top"
                       autoFocus
                     />
-
                     <View className="mt-5 flex-row gap-3">
                       <TouchableOpacity
                         className="flex-1 rounded-2xl border-2 border-orange-200 py-3"

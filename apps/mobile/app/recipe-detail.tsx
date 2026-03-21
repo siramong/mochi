@@ -15,6 +15,7 @@ import { supabase } from '@/lib/supabase'
 import { useSession } from '@/context/SessionContext'
 import { useCustomAlert } from '@/components/CustomAlert'
 import { MochiCharacter } from '@/components/MochiCharacter'
+import { checkFavoriteRecipeAchievement } from '@/lib/gamification'
 import type { Recipe, RecipeIngredient, RecipeStep, RecipeCookSession } from '@/types/database'
 
 const difficultyConfig: Record<string, { label: string; className: string; textClass: string }> = {
@@ -131,6 +132,8 @@ export function RecipeDetailScreen() {
       .update({ is_favorite: next })
       .eq('id', recipe.id)
       .eq('user_id', userId)
+    // Logro: primera receta marcada como favorita
+    if (next) await checkFavoriteRecipeAchievement(userId)
   }
 
   const handleSaveNotes = async () => {
