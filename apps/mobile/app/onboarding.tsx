@@ -296,7 +296,7 @@ export function OnboardingScreen() {
   // ─── Step 2: Módulos ──────────────────────────────────────────────────────
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="flex-1 bg-purple-50">
+    <KeyboardAvoidingView behavior="padding" enabled={Platform.OS === 'ios'} className="flex-1 bg-purple-50">
       <ScrollView className="flex-1 px-6 pt-14" showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <View className="mb-5 items-center">
           <MochiCharacter mood="happy" size={80} />

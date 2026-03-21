@@ -339,7 +339,7 @@ export function RecipePlayerScreen() {
 
   return (
     <>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="flex-1 bg-orange-50">
+      <KeyboardAvoidingView behavior="padding" enabled={Platform.OS === 'ios'} className="flex-1 bg-orange-50">
         <SafeAreaView className="flex-1">
           {/* Header */}
           <View className="px-5 pt-4">
@@ -525,7 +525,8 @@ export function RecipePlayerScreen() {
         onRequestClose={() => setShowAsk(false)}
       >
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          behavior="padding"
+          enabled={Platform.OS === 'ios'}
           className="flex-1 justify-end"
         >
           <View className="flex-1 justify-end bg-black/40">

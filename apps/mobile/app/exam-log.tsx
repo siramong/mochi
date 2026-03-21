@@ -150,7 +150,8 @@ export function ExamLogScreen() {
   return (
     <SafeAreaView className="flex-1 bg-pink-50">
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior="padding"
+        enabled={Platform.OS === 'ios'}
         className="flex-1"
       >
         <ScrollView className="flex-1 px-6" keyboardShouldPersistTaps="handled">

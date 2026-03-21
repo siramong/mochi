@@ -150,7 +150,7 @@ export function GratitudeScreen() {
 
   return (
     <>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="flex-1 bg-emerald-50">
+      <KeyboardAvoidingView behavior="padding" enabled={Platform.OS === 'ios'} className="flex-1 bg-emerald-50">
         <SafeAreaView className="flex-1">
           <ScrollView className="flex-1 px-5" showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
           <TouchableOpacity className="mt-4 flex-row items-center" onPress={() => router.back()}>

@@ -349,7 +349,7 @@ export function HabitsScreen() {
       {/* Create Habit Modal */}
       <Modal visible={showModal} transparent animationType="slide">
         <View className="flex-1 justify-end bg-black/30">
-          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="flex-1">
+          <KeyboardAvoidingView behavior="padding" enabled={Platform.OS === 'ios'} className="flex-1">
             <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
               <View className="rounded-t-3xl bg-white px-6 pb-10 pt-6">
                 <View className="mb-4 flex-row items-center justify-between">

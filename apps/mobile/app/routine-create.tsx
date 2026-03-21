@@ -165,7 +165,7 @@ export function RoutineCreateScreen() {
   }
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="flex-1">
+    <KeyboardAvoidingView behavior="padding" enabled={Platform.OS === 'ios'} className="flex-1">
       <ScrollView className="flex-1 bg-teal-100" keyboardShouldPersistTaps="handled">
         <View className="px-5 py-6">
         <TouchableOpacity onPress={() => router.back()} className="mb-4 flex-row items-center">
