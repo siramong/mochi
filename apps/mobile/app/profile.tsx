@@ -25,7 +25,7 @@ interface Profile {
 
 type QuickAccessItem = {
   label: string
-  route: '/goals' | '/vouchers' | '/mood' | '/gratitude' | '/settings' | '/study-history'
+  route: '/goals' | '/vouchers' | '/mood' | '/gratitude' | '/settings' | '/study-history' | '/cooking'
   icon: keyof typeof Ionicons.glyphMap
   cardClass: string
   iconColor: string
@@ -72,6 +72,14 @@ const quickAccessItems: QuickAccessItem[] = [
     cardClass: 'border-emerald-200 bg-emerald-100',
     iconColor: '#047857',
     textClass: 'text-emerald-900',
+  },
+  {
+    label: 'Cocina',
+    route: '/cooking',
+    icon: 'restaurant-outline',
+    cardClass: 'border-orange-200 bg-orange-100',
+    iconColor: '#c2410c',
+    textClass: 'text-orange-900',
   },
   {
     label: 'Ajustes',
@@ -134,11 +142,7 @@ export function ProfileScreen() {
           .select('full_name, total_points, wake_up_time')
           .eq('id', userId)
           .single(),
-        supabase
-          .from('streaks')
-          .select('*')
-          .eq('user_id', userId)
-          .single(),
+        supabase.from('streaks').select('*').eq('user_id', userId).single(),
         supabase
           .from('user_achievements')
           .select('*, achievement:achievements(*)')

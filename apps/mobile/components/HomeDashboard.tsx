@@ -13,7 +13,7 @@ import Animated, {
 } from 'react-native-reanimated'
 import { supabase } from '@/lib/supabase'
 import { useSession } from '@/context/SessionContext'
-import type { StudyBlock, RoutineWithExercises } from '@/types/database'
+import type { StudyBlock, RoutineWithExercises, Recipe } from '@/types/database'
 import { MochiCharacter } from '@/components/MochiCharacter'
 import { DailyMotivation } from '@/components/DailyMotivation'
 import { getGreeting, getTimeColor, getTimeIcon, getTimeOfDay, type TimeOfDay } from '@/lib/timeContext'
@@ -89,17 +89,14 @@ function AnimatedDashboardCard({ children, delay, animationSeed, className }: An
   useEffect(() => {
     opacity.value = 0
     translateY.value = 16
-
     opacity.value = withDelay(delay, withTiming(1, { duration: 320, easing: Easing.out(Easing.cubic) }))
     translateY.value = withDelay(delay, withTiming(0, { duration: 360, easing: Easing.out(Easing.cubic) }))
   }, [animationSeed, delay, opacity, translateY])
 
-  const animatedStyle = useAnimatedStyle(() => {
-    return {
-      opacity: opacity.value,
-      transform: [{ translateY: translateY.value }],
-    }
-  })
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [{ translateY: translateY.value }],
+  }))
 
   return (
     <Animated.View style={animatedStyle} className={className}>
@@ -133,6 +130,8 @@ export function HomeDashboard({ userName }: HomeDashboardProps) {
   const [todayRoutines, setTodayRoutines] = useState<RoutineWithExercises[]>([])
   const [habitCount, setHabitCount] = useState(0)
   const [habitLogsCount, setHabitLogsCount] = useState(0)
+  const [latestRecipe, setLatestRecipe] = useState<Recipe | null>(null)
+  const [recipeCount, setRecipeCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [animationSeed, setAnimationSeed] = useState(0)
@@ -151,15 +150,12 @@ export function HomeDashboard({ userName }: HomeDashboardProps) {
       )
       return
     }
-
     loadingScale.value = withTiming(1, { duration: 180 })
   }, [loading, loadingScale])
 
-  const loadingAnimatedStyle = useAnimatedStyle(() => {
-    return {
-      transform: [{ scale: loadingScale.value }],
-    }
-  })
+  const loadingAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: loadingScale.value }],
+  }))
 
   useEffect(() => {
     const userId = session?.user.id
@@ -173,66 +169,63 @@ export function HomeDashboard({ userName }: HomeDashboardProps) {
         setLoading(true)
         setError(null)
 
-        // JS Date.getDay() devuelve 0=domingo ... 6=sábado.
         const todayDayOfWeek = new Date().getDay()
         const todayISO = new Date().toISOString().slice(0, 10)
 
-        // Load today's study blocks
-        const { data: blocksData, error: blocksError } = await supabase
-          .from('study_blocks')
-          .select('*')
-          .eq('user_id', userId)
-          .eq('day_of_week', todayDayOfWeek)
-          .order('start_time', { ascending: true })
+        const [
+          blocksRes,
+          routinesRes,
+          habitsCountRes,
+          habitsLogsRes,
+          latestRecipeRes,
+          recipeCountRes,
+        ] = await Promise.all([
+          supabase
+            .from('study_blocks')
+            .select('*')
+            .eq('user_id', userId)
+            .eq('day_of_week', todayDayOfWeek)
+            .order('start_time', { ascending: true }),
+          supabase
+            .from('routines')
+            .select(`*, routine_exercises (id, routine_id, exercise_id, order_index, exercise:exercises (id, name, sets, reps, duration_seconds, notes))`)
+            .eq('user_id', userId),
+          supabase
+            .from('habits')
+            .select('id', { count: 'exact', head: true })
+            .eq('user_id', userId),
+          supabase
+            .from('habit_logs')
+            .select('id', { count: 'exact', head: true })
+            .eq('user_id', userId)
+            .eq('log_date', todayISO),
+          supabase
+            .from('recipes')
+            .select('*')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle(),
+          supabase
+            .from('recipes')
+            .select('id', { count: 'exact', head: true })
+            .eq('user_id', userId),
+        ])
 
-        if (blocksError) throw blocksError
-        setTodayBlocks(blocksData ?? [])
+        if (blocksRes.error) throw blocksRes.error
+        if (routinesRes.error) throw routinesRes.error
 
-        // Load all routines and filter by today's day.
-        const { data: routinesData, error: routinesError } = await supabase
-          .from('routines')
-          .select(
-            `*,
-             routine_exercises (
-               id,
-               routine_id,
-               exercise_id,
-               order_index,
-               exercise:exercises (id, name, sets, reps, duration_seconds, notes)
-             )`
-          )
-          .eq('user_id', userId)
-
-        if (routinesError) throw routinesError
-        const filteredRoutines = (routinesData ?? []).filter((routine) => routine.days.includes(todayDayOfWeek))
-        setTodayRoutines(filteredRoutines)
-
-        const { count: totalHabits, error: habitsError } = await supabase
-          .from('habits')
-          .select('id', { count: 'exact', head: true })
-          .eq('user_id', userId)
-
-        if (habitsError) throw habitsError
-
-        // Count today's logs to render X/Y summary for habits.
-        const { count: completedHabits, error: logsError } = await supabase
-          .from('habit_logs')
-          .select('id', { count: 'exact', head: true })
-          .eq('user_id', userId)
-          .eq('log_date', todayISO)
-
-        if (logsError) throw logsError
-
-        setHabitCount(totalHabits ?? 0)
-        setHabitLogsCount(completedHabits ?? 0)
-
+        setTodayBlocks(blocksRes.data ?? [])
+        setTodayRoutines(
+          (routinesRes.data ?? []).filter((r) => r.days.includes(todayDayOfWeek))
+        )
+        setHabitCount(habitsCountRes.count ?? 0)
+        setHabitLogsCount(habitsLogsRes.count ?? 0)
+        setLatestRecipe((latestRecipeRes.data as Recipe | null) ?? null)
+        setRecipeCount(recipeCountRes.count ?? 0)
         setAnimationSeed((prev) => prev + 1)
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Error cargando datos')
-        setTodayBlocks([])
-        setTodayRoutines([])
-        setHabitCount(0)
-        setHabitLogsCount(0)
       } finally {
         setLoading(false)
       }
@@ -242,15 +235,16 @@ export function HomeDashboard({ userName }: HomeDashboardProps) {
   }, [session?.user.id])
 
   const handleTotalTime = (routine: RoutineWithExercises): string => {
-    const totalSeconds = routine.routine_exercises.reduce((sum, re) => {
-      return sum + (re.exercise?.duration_seconds ?? 0)
-    }, 0)
-    const minutes = Math.ceil(totalSeconds / 60)
-    return `${minutes} min`
+    const totalSeconds = routine.routine_exercises.reduce(
+      (sum, re) => sum + (re.exercise?.duration_seconds ?? 0),
+      0
+    )
+    return `${Math.ceil(totalSeconds / 60)} min`
   }
 
   return (
     <ScrollView className="flex-1 bg-blue-100 px-5 pt-12">
+      {/* Header saludo */}
       <View className="flex-row items-start justify-between">
         <View className={`flex-1 mr-3 rounded-3xl border-2 border-blue-200 px-4 py-3 ${greetingBgClass}`}>
           <View className="flex-row items-center">
@@ -281,6 +275,7 @@ export function HomeDashboard({ userName }: HomeDashboardProps) {
         </View>
       </View>
 
+      {/* Motivación diaria */}
       <View className="mt-4">
         <DailyMotivation
           userName={userName}
@@ -290,6 +285,7 @@ export function HomeDashboard({ userName }: HomeDashboardProps) {
         />
       </View>
 
+      {/* Quick access */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -310,6 +306,7 @@ export function HomeDashboard({ userName }: HomeDashboardProps) {
         ))}
       </ScrollView>
 
+      {/* Hábitos */}
       <TouchableOpacity
         className="mt-4 rounded-3xl border-2 border-green-200 bg-white p-4"
         onPress={() => router.push('/habits')}
@@ -321,19 +318,18 @@ export function HomeDashboard({ userName }: HomeDashboardProps) {
           </View>
           <Ionicons name="chevron-forward" size={18} color="#166534" />
         </View>
-        {loading ? (
-          <Text className="mt-2 text-sm font-semibold text-green-700">Cargando hábitos...</Text>
-        ) : (
-          <Text className="mt-2 text-sm font-semibold text-green-700">
-            {habitLogsCount}/{habitCount} hábitos completados hoy
-          </Text>
-        )}
+        <Text className="mt-2 text-sm font-semibold text-green-700">
+          {loading
+            ? 'Cargando hábitos...'
+            : `${habitLogsCount}/${habitCount} hábitos completados hoy`}
+        </Text>
       </TouchableOpacity>
 
+      {/* Bloques de estudio */}
       <AnimatedDashboardCard
         delay={0}
         animationSeed={animationSeed}
-        className="mt-6 rounded-3xl border-2 border-blue-200 bg-white p-5"
+        className="mt-4 rounded-3xl border-2 border-blue-200 bg-white p-5"
       >
         <View className="mb-3 flex-row items-center">
           <Ionicons name="book" size={18} color="#1e40af" />
@@ -363,7 +359,7 @@ export function HomeDashboard({ userName }: HomeDashboardProps) {
             >
               <View className="flex-row items-center">
                 <View
-                  className={`mr-3 h-10 w-10 items-center justify-center rounded-xl ${colorMap[block.color] || 'bg-purple-200'}`}
+                  className={`mr-3 h-10 w-10 items-center justify-center rounded-xl ${colorMap[block.color] ?? 'bg-purple-200'}`}
                 >
                   <Text className="text-xs font-extrabold text-slate-700">{block.subject[0]}</Text>
                 </View>
@@ -379,8 +375,7 @@ export function HomeDashboard({ userName }: HomeDashboardProps) {
                   {(() => {
                     const start = parseInt(block.start_time.split(':')[0])
                     const end = parseInt(block.end_time.split(':')[0])
-                    const duration = end - start
-                    return `${duration}h`
+                    return `${end - start}h`
                   })()}
                 </Text>
               </View>
@@ -389,6 +384,7 @@ export function HomeDashboard({ userName }: HomeDashboardProps) {
         )}
       </AnimatedDashboardCard>
 
+      {/* Registrar examen */}
       <TouchableOpacity
         className="mt-4 flex-row items-center justify-center rounded-2xl border-2 border-pink-300 bg-pink-200 py-4"
         onPress={() => router.push('/exam-log')}
@@ -397,6 +393,7 @@ export function HomeDashboard({ userName }: HomeDashboardProps) {
         <Text className="ml-2 font-bold text-pink-900">Registrar examen</Text>
       </TouchableOpacity>
 
+      {/* Rutinas de hoy */}
       <AnimatedDashboardCard
         delay={100}
         animationSeed={animationSeed}
@@ -414,27 +411,112 @@ export function HomeDashboard({ userName }: HomeDashboardProps) {
             <Text className="mt-3 text-sm font-semibold text-teal-700">Preparando tus rutinas...</Text>
           </View>
         ) : todayRoutines.length > 0 ? (
-          <View>
-            {todayRoutines.map((routine) => (
-              <TouchableOpacity
-                key={routine.id}
-                className="mb-3 rounded-2xl border border-teal-200 bg-teal-50 p-3"
-                onPress={() => router.push(`/routine-player?routineId=${routine.id}`)}
-              >
-                <Text className="text-sm font-bold text-slate-800">{routine.name}</Text>
-                <Text className="mt-1 text-xs font-semibold text-teal-700">
-                  {routine.routine_exercises.length} ejercicios • {handleTotalTime(routine)}
-                </Text>
-                <View className="mt-2 self-start rounded-xl border border-teal-200 bg-white px-3 py-1">
-                  <Text className="text-xs font-bold text-teal-800">Iniciar rutina</Text>
-                </View>
-              </TouchableOpacity>
-            ))}
-          </View>
+          todayRoutines.map((routine) => (
+            <TouchableOpacity
+              key={routine.id}
+              className="mb-3 rounded-2xl border border-teal-200 bg-teal-50 p-3"
+              onPress={() => router.push(`/routine-player?routineId=${routine.id}`)}
+            >
+              <Text className="text-sm font-bold text-slate-800">{routine.name}</Text>
+              <Text className="mt-1 text-xs font-semibold text-teal-700">
+                {routine.routine_exercises.length} ejercicios • {handleTotalTime(routine)}
+              </Text>
+              <View className="mt-2 self-start rounded-xl border border-teal-200 bg-white px-3 py-1">
+                <Text className="text-xs font-bold text-teal-800">Iniciar rutina</Text>
+              </View>
+            </TouchableOpacity>
+          ))
         ) : (
           <View className="items-center py-2">
             <MochiCharacter mood="happy" size={78} />
             <Text className="mt-3 text-sm font-semibold text-slate-500">Crea tu primera rutina</Text>
+          </View>
+        )}
+      </AnimatedDashboardCard>
+
+      {/* ─── Cocina ─── */}
+      <AnimatedDashboardCard
+        delay={200}
+        animationSeed={animationSeed}
+        className="mt-4 rounded-3xl border-2 border-orange-200 bg-white p-5"
+      >
+        <View className="mb-3 flex-row items-center justify-between">
+          <View className="flex-row items-center">
+            <Ionicons name="restaurant" size={18} color="#c2410c" />
+            <Text className="ml-2 text-base font-bold text-orange-900">Cocina</Text>
+          </View>
+          {recipeCount > 0 && (
+            <View className="rounded-full bg-orange-100 px-3 py-1">
+              <Text className="text-xs font-bold text-orange-700">
+                {recipeCount} {recipeCount === 1 ? 'receta' : 'recetas'}
+              </Text>
+            </View>
+          )}
+        </View>
+
+        {loading ? (
+          <View className="items-center py-4">
+            <Animated.View style={loadingAnimatedStyle}>
+              <MochiCharacter mood="thinking" size={72} />
+            </Animated.View>
+          </View>
+        ) : latestRecipe ? (
+          <>
+            <TouchableOpacity
+              className="rounded-2xl border border-orange-200 bg-orange-50 p-3"
+              onPress={() => router.push(`/recipe-detail?recipeId=${latestRecipe.id}`)}
+            >
+              <View className="flex-row items-center justify-between">
+                <View className="flex-1 pr-3">
+                  <Text className="text-sm font-extrabold text-orange-950" numberOfLines={1}>
+                    {latestRecipe.title}
+                  </Text>
+                  {latestRecipe.description ? (
+                    <Text className="mt-0.5 text-xs font-semibold text-orange-700" numberOfLines={1}>
+                      {latestRecipe.description}
+                    </Text>
+                  ) : null}
+                </View>
+                <View className="flex-row items-center gap-1">
+                  {latestRecipe.is_favorite && (
+                    <Ionicons name="heart" size={14} color="#f97316" />
+                  )}
+                  <Ionicons name="chevron-forward" size={16} color="#c2410c" />
+                </View>
+              </View>
+              {(latestRecipe.total_time_minutes > 0 || latestRecipe.difficulty) && (
+                <View className="mt-2 flex-row gap-2">
+                  {latestRecipe.total_time_minutes > 0 && (
+                    <View className="flex-row items-center rounded-full bg-orange-200 px-2 py-0.5">
+                      <Ionicons name="time-outline" size={11} color="#c2410c" />
+                      <Text className="ml-0.5 text-xs font-bold text-orange-800">
+                        {latestRecipe.total_time_minutes} min
+                      </Text>
+                    </View>
+                  )}
+                  <View className="rounded-full bg-orange-200 px-2 py-0.5">
+                    <Text className="text-xs font-bold text-orange-800 capitalize">
+                      {latestRecipe.difficulty}
+                    </Text>
+                  </View>
+                </View>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              className="mt-3 flex-row items-center justify-center rounded-2xl border border-orange-200 py-2"
+              onPress={() => router.push(`/recipe-detail?recipeId=${latestRecipe.id}`)}
+            >
+              <Ionicons name="restaurant-outline" size={14} color="#c2410c" />
+              <Text className="ml-1.5 text-xs font-bold text-orange-700">Ver todas las recetas</Text>
+            </TouchableOpacity>
+          </>
+        ) : (
+          <View className="items-center py-2">
+            <MochiCharacter mood="happy" size={72} />
+            <Text className="mt-2 text-center text-sm font-semibold text-orange-700">
+              Cuéntame qué quieres cocinar hoy
+            </Text>
           </View>
         )}
       </AnimatedDashboardCard>
