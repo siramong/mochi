@@ -31,7 +31,7 @@
     },
     "plugins": [
       [
-        "react-native-edge-to-edge",
+        "react-native-edge-to-edge/app.plugin.js",
         {
           "android": {
             "parentTheme": "Default",
