@@ -18,6 +18,7 @@ import { StudyExamsPage } from '@/pages/study/StudyExamsPage'
 import { StudyFormPage } from '@/pages/study/StudyFormPage'
 import { StudyHistoryPage } from '@/pages/study/StudyHistoryPage'
 import { StudyPage } from '@/pages/study/StudyPage'
+import { StudyTimerPage } from '@/pages/study/StudyTimerPage'
 
 function ProtectedLayout() {
   const { session, loading } = useSessionContext()
@@ -79,6 +80,7 @@ export default function App() {
           <Route path="/study" element={<StudyPage />} />
           <Route path="/study/new" element={<StudyFormPage />} />
           <Route path="/study/:blockId/edit" element={<StudyFormPage />} />
+          <Route path="/study/timer" element={<StudyTimerPage />} />
           <Route path="/study/history" element={<StudyHistoryPage />} />
           <Route path="/study/exams" element={<StudyExamsPage />} />
           <Route path="/exercise" element={<ExercisePage />} />

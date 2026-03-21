@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { Pencil, Plus, Trash2 } from 'lucide-react'
+import { Hourglass, Pencil, Plus, Trash2 } from 'lucide-react'
 import { useStudyBlocks } from '@/hooks/useStudyBlocks'
 import { EmptyState } from '@/components/common/EmptyState'
 
@@ -24,50 +24,64 @@ const colorMap: Record<string, string> = {
 }
 
 export function StudyPage() {
-  const [selectedDay, setSelectedDay] = useState(new Date().getDay())
-  const { blocks, loading, error, deleteBlock } = useStudyBlocks(selectedDay)
+  const { blocks, loading, error, deleteBlock } = useStudyBlocks()
 
-  const dayLabel = useMemo(
-    () => days.find((day) => day.value === selectedDay)?.label ?? 'Día',
-    [selectedDay],
-  )
+  const weeklyGroups = useMemo(() => {
+    const map = new Map<number, typeof blocks>()
+
+    days.forEach((day) => {
+      map.set(day.value, [])
+    })
+
+    blocks.forEach((block) => {
+      const current = map.get(block.day_of_week) ?? []
+      current.push(block)
+      current.sort((a, b) => a.start_time.localeCompare(b.start_time))
+      map.set(block.day_of_week, current)
+    })
+
+    return map
+  }, [blocks])
 
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-black text-purple-950">Horario de estudio</h1>
-          <p className="text-sm text-purple-700">Planifica por día y edita bloques rápido</p>
+          <p className="text-sm text-purple-700">Planifica tu semana completa y activa enfoque desde PC</p>
         </div>
-        <Link
-          to="/study/new"
-          className="inline-flex items-center gap-2 rounded-2xl bg-purple-500 px-4 py-2 text-sm font-semibold text-white hover:bg-purple-600"
-        >
-          <Plus className="h-4 w-4" />
-          Nuevo bloque
-        </Link>
-      </div>
-
-      <div className="mt-5 flex flex-wrap gap-2">
-        {days.map((day) => (
-          <button
-            key={day.value}
-            type="button"
-            onClick={() => setSelectedDay(day.value)}
-            className={[
-              'rounded-xl px-3 py-2 text-sm font-bold transition-colors',
-              selectedDay === day.value
-                ? 'bg-purple-500 text-white'
-                : 'bg-purple-100 text-purple-900 hover:bg-purple-200',
-            ].join(' ')}
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            to="/study/timer"
+            className="inline-flex items-center gap-2 rounded-2xl bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600"
           >
-            {day.label}
-          </button>
-        ))}
+            <Hourglass className="h-4 w-4" />
+            Modo enfoque
+          </Link>
+          <Link
+            to="/study/history"
+            className="rounded-2xl bg-purple-100 px-4 py-2 text-sm font-semibold text-purple-900"
+          >
+            Historial
+          </Link>
+          <Link
+            to="/study/exams"
+            className="rounded-2xl bg-pink-100 px-4 py-2 text-sm font-semibold text-pink-900"
+          >
+            Examenes
+          </Link>
+          <Link
+            to="/study/new"
+            className="inline-flex items-center gap-2 rounded-2xl bg-purple-500 px-4 py-2 text-sm font-semibold text-white hover:bg-purple-600"
+          >
+            <Plus className="h-4 w-4" />
+            Nuevo bloque
+          </Link>
+        </div>
       </div>
 
       <div className="mt-5 rounded-3xl border border-purple-200 bg-white p-4">
-        <h2 className="text-base font-bold text-purple-900">Bloques de {dayLabel}</h2>
+        <h2 className="text-base font-bold text-purple-900">Vista semanal</h2>
 
         {loading && <p className="mt-3 text-sm text-purple-700">Cargando bloques...</p>}
         {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
@@ -75,50 +89,72 @@ export function StudyPage() {
         {!loading && !error && blocks.length === 0 && (
           <div className="mt-4">
             <EmptyState
-              title="No hay bloques para este día"
-              description="Crea tu primer bloque para empezar una semana más clara y organizada."
+              title="Aun no tienes bloques de estudio"
+              description="Crea tu primer bloque y convierte la semana en un plan claro desde la compu."
             />
           </div>
         )}
 
-        <div className="mt-4 space-y-3">
-          {blocks.map((block) => (
-            <div
-              key={block.id}
-              className={[
-                'flex flex-wrap items-center justify-between gap-3 rounded-2xl border p-3',
-                colorMap[block.color] ?? 'bg-slate-100 border-slate-200',
-              ].join(' ')}
-            >
-              <div>
-                <p className="text-sm font-extrabold text-slate-900">{block.subject}</p>
-                <p className="text-xs font-semibold text-slate-700">
-                  {block.start_time} - {block.end_time}
-                </p>
-              </div>
+        {!loading && !error && blocks.length > 0 && (
+          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-7">
+            {days.map((day) => {
+              const dayBlocks = weeklyGroups.get(day.value) ?? []
 
-              <div className="flex items-center gap-2">
-                <Link
-                  to={`/study/${block.id}/edit`}
-                  className="inline-flex items-center gap-1 rounded-xl bg-white px-2 py-1 text-xs font-semibold text-purple-800"
-                >
-                  <Pencil className="h-3 w-3" />
-                  Editar
-                </Link>
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-1 rounded-xl bg-white px-2 py-1 text-xs font-semibold text-red-700"
-                  onClick={() => {
-                    void deleteBlock(block.id)
-                  }}
-                >
-                  <Trash2 className="h-3 w-3" />
-                  Eliminar
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
+              return (
+                <div key={day.value} className="rounded-2xl border border-purple-100 bg-purple-50/70 p-3">
+                  <p className="text-sm font-extrabold text-purple-900">{day.label}</p>
+
+                  <div className="mt-2 space-y-2">
+                    {dayBlocks.length === 0 ? (
+                      <p className="text-xs font-semibold text-purple-400">Sin bloques</p>
+                    ) : (
+                      dayBlocks.map((block) => (
+                        <article
+                          key={block.id}
+                          className={[
+                            'rounded-xl border p-2',
+                            colorMap[block.color] ?? 'bg-slate-100 border-slate-200',
+                          ].join(' ')}
+                        >
+                          <p className="text-xs font-extrabold text-slate-900">{block.subject}</p>
+                          <p className="text-[11px] font-semibold text-slate-700">
+                            {block.start_time} - {block.end_time}
+                          </p>
+
+                          <div className="mt-2 flex flex-wrap gap-1">
+                            <Link
+                              to={`/study/timer?blockId=${block.id}`}
+                              className="rounded-lg bg-blue-500 px-2 py-1 text-[11px] font-bold text-white"
+                            >
+                              Enfoque
+                            </Link>
+                            <Link
+                              to={`/study/${block.id}/edit`}
+                              className="inline-flex items-center gap-1 rounded-lg bg-white px-2 py-1 text-[11px] font-bold text-purple-800"
+                            >
+                              <Pencil className="h-3 w-3" />
+                              Editar
+                            </Link>
+                            <button
+                              type="button"
+                              className="inline-flex items-center gap-1 rounded-lg bg-white px-2 py-1 text-[11px] font-bold text-red-700"
+                              onClick={() => {
+                                void deleteBlock(block.id)
+                              }}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                              Borrar
+                            </button>
+                          </div>
+                        </article>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
       </div>
     </div>
   )
