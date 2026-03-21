@@ -14,6 +14,7 @@ import * as Notifications from "expo-notifications";
 import { SystemBars } from "react-native-edge-to-edge";
 import { SessionProvider, useSession } from "@/context/SessionContext";
 import { SystemBarsProvider, useSystemBars } from "@/context/SystemBarsContext";
+import { AchievementProvider } from "@/context/AchievementContext";
 import { MochiCharacter } from "@/components/MochiCharacter";
 
 Notifications.setNotificationHandler({
@@ -65,7 +66,6 @@ function RootLayoutNavigator() {
 
         if (screen === "habits") router.push("/habits");
         else if (screen === "study") router.push("/");
-        // cooking es una tab dentro de index, le pasamos el param para que la active
         else if (screen === "cooking") router.push("/?tab=cooking");
       });
     return () => { notificationResponseListener.current?.remove(); };
@@ -126,7 +126,9 @@ export function RootLayout() {
   return (
     <SystemBarsProvider>
       <SessionProvider>
-        <RootLayoutNavigator />
+        <AchievementProvider>
+          <RootLayoutNavigator />
+        </AchievementProvider>
       </SessionProvider>
     </SystemBarsProvider>
   );

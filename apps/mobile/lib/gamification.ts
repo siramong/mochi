@@ -1,40 +1,103 @@
 import { supabase } from '@/lib/supabase'
 
+// ─── Tipos ────────────────────────────────────────────────────────────────────
+
+export type UnlockedAchievement = {
+  title: string
+  description: string
+  points: number
+  icon?: string
+}
+
+type OnUnlock = (achievement: UnlockedAchievement) => void
+
+// ─── Puntos ───────────────────────────────────────────────────────────────────
+
 export async function addPoints(userId: string, points: number): Promise<void> {
   await supabase.rpc('increment_points', { user_id: userId, points })
 }
 
-export async function unlockAchievement(userId: string, achievementKey: string): Promise<void> {
-  const { data: achievement } = await supabase
+// ─── Desbloqueo de logros ─────────────────────────────────────────────────────
+
+/**
+ * Intenta desbloquear un logro por su key.
+ * Retorna los datos del logro si fue NUEVO (primera vez que se desbloquea).
+ * Retorna null si ya estaba desbloqueado o si no existe.
+ */
+export async function unlockAchievement(
+  userId: string,
+  achievementKey: string
+): Promise<UnlockedAchievement | null> {
+  // 1. Buscar el logro
+  const { data: achievement, error: achError } = await supabase
     .from('achievements')
-    .select('id')
+    .select('id, title, description, points, icon')
     .eq('key', achievementKey)
     .single()
-  if (!achievement) return
-  await supabase
+
+  if (achError || !achievement) return null
+
+  // 2. Intentar insertar — si ya existe, ignoreDuplicates lo descarta
+  const { data: inserted, error: insertError } = await supabase
     .from('user_achievements')
     .upsert(
       { user_id: userId, achievement_id: achievement.id },
       { onConflict: 'user_id,achievement_id', ignoreDuplicates: true }
     )
+    .select('id')
+
+  if (insertError) return null
+
+  // upsert con ignoreDuplicates retorna [] si ya existía, [row] si fue nuevo
+  const wasNew = Array.isArray(inserted) && inserted.length > 0
+  if (!wasNew) return null
+
+  return {
+    title: achievement.title,
+    description: achievement.description,
+    points: achievement.points,
+    icon: achievement.icon ?? undefined,
+  }
 }
 
-export async function checkStudyAchievements(userId: string): Promise<void> {
+// ─── Helper interno ───────────────────────────────────────────────────────────
+
+/**
+ * Desbloquea y notifica si fue nuevo.
+ */
+async function tryUnlock(
+  userId: string,
+  key: string,
+  onUnlock?: OnUnlock
+): Promise<void> {
+  const result = await unlockAchievement(userId, key)
+  if (result && onUnlock) onUnlock(result)
+}
+
+// ─── Checks por categoría ─────────────────────────────────────────────────────
+
+export async function checkStudyAchievements(
+  userId: string,
+  onUnlock?: OnUnlock
+): Promise<void> {
   const { count } = await supabase
     .from('study_sessions')
     .select('*', { count: 'exact', head: true })
     .eq('user_id', userId)
   const sessionCount = count ?? 0
-  if (sessionCount >= 1) await unlockAchievement(userId, 'first_study')
-  if (sessionCount >= 10) await unlockAchievement(userId, 'study_10')
+  if (sessionCount >= 1) await tryUnlock(userId, 'first_study', onUnlock)
+  if (sessionCount >= 10) await tryUnlock(userId, 'study_10', onUnlock)
 }
 
-export async function checkExerciseAchievements(userId: string): Promise<void> {
+export async function checkExerciseAchievements(
+  userId: string,
+  onUnlock?: OnUnlock
+): Promise<void> {
   const { count: totalCount } = await supabase
     .from('routine_logs')
     .select('*', { count: 'exact', head: true })
     .eq('user_id', userId)
-  if ((totalCount ?? 0) >= 1) await unlockAchievement(userId, 'first_routine')
+  if ((totalCount ?? 0) >= 1) await tryUnlock(userId, 'first_routine', onUnlock)
 
   const sevenDaysAgo = new Date()
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
@@ -43,53 +106,54 @@ export async function checkExerciseAchievements(userId: string): Promise<void> {
     .select('*', { count: 'exact', head: true })
     .eq('user_id', userId)
     .gte('completed_at', sevenDaysAgo.toISOString())
-  if ((weekCount ?? 0) >= 7) await unlockAchievement(userId, 'routine_7')
+  if ((weekCount ?? 0) >= 7) await tryUnlock(userId, 'routine_7', onUnlock)
 }
 
-export async function checkStreakAchievements(userId: string): Promise<void> {
+export async function checkStreakAchievements(
+  userId: string,
+  onUnlock?: OnUnlock
+): Promise<void> {
   const { data } = await supabase
     .from('streaks')
     .select('current_streak')
     .eq('user_id', userId)
     .single()
   const streak = data?.current_streak ?? 0
-  if (streak >= 3) await unlockAchievement(userId, 'streak_3')
-  if (streak >= 7) await unlockAchievement(userId, 'streak_7')
-  if (streak >= 30) await unlockAchievement(userId, 'streak_30')
-  if (streak >= 365) await unlockAchievement(userId, 'streak_365')
+  if (streak >= 3)   await tryUnlock(userId, 'streak_3', onUnlock)
+  if (streak >= 7)   await tryUnlock(userId, 'streak_7', onUnlock)
+  if (streak >= 30)  await tryUnlock(userId, 'streak_30', onUnlock)
+  if (streak >= 365) await tryUnlock(userId, 'streak_365', onUnlock)
 }
 
 // ─── Logros de Cocina ─────────────────────────────────────────────────────────
 
-/**
- * Llama esto cuando la usuaria guarda su primera receta generada con IA.
- */
-export async function checkCookingRecipeAchievements(userId: string): Promise<void> {
+export async function checkCookingRecipeAchievements(
+  userId: string,
+  onUnlock?: OnUnlock
+): Promise<void> {
   const { count } = await supabase
     .from('recipes')
     .select('id', { count: 'exact', head: true })
     .eq('user_id', userId)
 
   const total = count ?? 0
-  if (total >= 1) await unlockAchievement(userId, 'first_recipe')
-  if (total >= 5) await unlockAchievement(userId, 'recipes_5')
-  if (total >= 10) await unlockAchievement(userId, 'recipes_10')
+  if (total >= 1)  await tryUnlock(userId, 'first_recipe', onUnlock)
+  if (total >= 5)  await tryUnlock(userId, 'recipes_5', onUnlock)
+  if (total >= 10) await tryUnlock(userId, 'recipes_10', onUnlock)
 }
 
-/**
- * Llama esto cuando la usuaria completa una sesión de cocina (recipe-player).
- */
-export async function checkCookingSessionAchievements(userId: string): Promise<void> {
-  // Primera vez cocinando
+export async function checkCookingSessionAchievements(
+  userId: string,
+  onUnlock?: OnUnlock
+): Promise<void> {
   const { count: totalSessions } = await supabase
     .from('recipe_cook_sessions')
     .select('id', { count: 'exact', head: true })
     .eq('user_id', userId)
     .eq('is_finished', true)
 
-  if ((totalSessions ?? 0) >= 1) await unlockAchievement(userId, 'first_cook')
+  if ((totalSessions ?? 0) >= 1) await tryUnlock(userId, 'first_cook', onUnlock)
 
-  // 3 recetas distintas completadas
   const { data: distinctRecipes } = await supabase
     .from('recipe_cook_sessions')
     .select('recipe_id')
@@ -97,34 +161,36 @@ export async function checkCookingSessionAchievements(userId: string): Promise<v
     .eq('is_finished', true)
 
   const uniqueRecipes = new Set((distinctRecipes ?? []).map((s) => s.recipe_id))
-  if (uniqueRecipes.size >= 3) await unlockAchievement(userId, 'cook_streak_3')
+  if (uniqueRecipes.size >= 3) await tryUnlock(userId, 'cook_streak_3', onUnlock)
 }
 
-/**
- * Llama esto cuando la usuaria guarda una calificación de 5 estrellas.
- */
-export async function checkPerfectRecipeAchievement(userId: string): Promise<void> {
+export async function checkPerfectRecipeAchievement(
+  userId: string,
+  onUnlock?: OnUnlock
+): Promise<void> {
   const { count } = await supabase
     .from('recipe_cook_sessions')
     .select('id', { count: 'exact', head: true })
     .eq('user_id', userId)
     .eq('rating', 5)
 
-  if ((count ?? 0) >= 1) await unlockAchievement(userId, 'perfect_recipe')
+  if ((count ?? 0) >= 1) await tryUnlock(userId, 'perfect_recipe', onUnlock)
 }
 
-/**
- * Llama esto cuando la usuaria marca una receta como favorita.
- */
-export async function checkFavoriteRecipeAchievement(userId: string): Promise<void> {
+export async function checkFavoriteRecipeAchievement(
+  userId: string,
+  onUnlock?: OnUnlock
+): Promise<void> {
   const { count } = await supabase
     .from('recipes')
     .select('id', { count: 'exact', head: true })
     .eq('user_id', userId)
     .eq('is_favorite', true)
 
-  if ((count ?? 0) >= 1) await unlockAchievement(userId, 'favorite_recipe')
+  if ((count ?? 0) >= 1) await tryUnlock(userId, 'favorite_recipe', onUnlock)
 }
+
+// ─── Streak ───────────────────────────────────────────────────────────────────
 
 export async function updateStreak(userId: string): Promise<void> {
   const today = new Date().toISOString().slice(0, 10)
