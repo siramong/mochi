@@ -1,7 +1,9 @@
 import { Ionicons } from '@expo/vector-icons'
 import { useEffect, useRef, useState } from 'react'
 import {
+  Keyboard,
   Modal,
+  Platform,
   ScrollView,
   Text,
   TextInput,
@@ -64,6 +66,7 @@ export function RecipePlayerScreen() {
   const [question, setQuestion] = useState('')
   const [mochiAnswer, setMochiAnswer] = useState('')
   const [asking, setAsking] = useState(false)
+  const [keyboardInset, setKeyboardInset] = useState(0)
 
   // Progress bar
   const progress = useSharedValue(0)
@@ -185,6 +188,22 @@ export function RecipePlayerScreen() {
     }, 1000)
     return () => { if (intervalRef.current) clearInterval(intervalRef.current) }
   }, [timerRunning])
+
+  useEffect(() => {
+    if (Platform.OS !== 'android') return
+
+    const showSub = Keyboard.addListener('keyboardDidShow', (event) => {
+      setKeyboardInset(event.endCoordinates.height)
+    })
+    const hideSub = Keyboard.addListener('keyboardDidHide', () => {
+      setKeyboardInset(0)
+    })
+
+    return () => {
+      showSub.remove()
+      hideSub.remove()
+    }
+  }, [])
 
   const currentStep = steps[currentIndex]
 
@@ -522,10 +541,11 @@ export function RecipePlayerScreen() {
         animationType="slide"
         onRequestClose={() => setShowAsk(false)}
       >
-        <View className="flex-1 justify-end">
+        <View className="flex-1 justify-end" style={{ paddingBottom: keyboardInset }}>
           <View className="flex-1 justify-end bg-black/40">
-            <View className="rounded-t-3xl bg-white px-5 pb-10 pt-5">
-              <View className="mb-4 h-1.5 w-16 self-center rounded-full bg-slate-200" />
+            <View className="max-h-[90%] rounded-t-3xl bg-white px-5 pb-10 pt-5">
+              <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+                <View className="mb-4 h-1.5 w-16 self-center rounded-full bg-slate-200" />
 
               <View className="flex-row items-center">
                 <MochiCharacter mood="thinking" size={50} />
@@ -573,6 +593,7 @@ export function RecipePlayerScreen() {
                   </>
                 )}
               </TouchableOpacity>
+              </ScrollView>
             </View>
           </View>
         </View>

@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Modal, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native'
+import { Keyboard, Modal, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -56,6 +56,7 @@ export function HabitsScreen() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showModal, setShowModal] = useState(false)
+  const [keyboardInset, setKeyboardInset] = useState(0)
   const [showCelebration, setShowCelebration] = useState(false)
   const [newHabitName, setNewHabitName] = useState('')
   const [selectedColor, setSelectedColor] = useState<string>('pink')
@@ -84,6 +85,22 @@ export function HabitsScreen() {
   useEffect(() => {
     return () => {
       if (celebrationTimerRef.current) clearTimeout(celebrationTimerRef.current)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (Platform.OS !== 'android') return
+
+    const showSub = Keyboard.addListener('keyboardDidShow', (event) => {
+      setKeyboardInset(event.endCoordinates.height)
+    })
+    const hideSub = Keyboard.addListener('keyboardDidHide', () => {
+      setKeyboardInset(0)
+    })
+
+    return () => {
+      showSub.remove()
+      hideSub.remove()
     }
   }, [])
 
@@ -348,10 +365,9 @@ export function HabitsScreen() {
 
       {/* Create Habit Modal */}
       <Modal visible={showModal} transparent animationType="slide">
-        <View className="flex-1 justify-end bg-black/30">
-          <View className="flex-1">
+        <View className="flex-1 justify-end bg-black/30" style={{ paddingBottom: keyboardInset }}>
+          <View className="max-h-[90%] rounded-t-3xl bg-white px-6 pb-10 pt-6">
             <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-              <View className="rounded-t-3xl bg-white px-6 pb-10 pt-6">
                 <View className="mb-4 flex-row items-center justify-between">
                   <Text className="text-lg font-extrabold text-purple-900">Nuevo hábito</Text>
                   <TouchableOpacity onPress={() => setShowModal(false)}>
@@ -405,7 +421,6 @@ export function HabitsScreen() {
                 {saving ? 'Creando...' : 'Crear hábito'}
               </Text>
             </TouchableOpacity>
-              </View>
             </ScrollView>
           </View>
         </View>

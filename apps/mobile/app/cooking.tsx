@@ -1,8 +1,10 @@
 import { Ionicons } from '@expo/vector-icons'
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import {
   ActivityIndicator,
+  Keyboard,
   Modal,
+  Platform,
   ScrollView,
   Text,
   TextInput,
@@ -120,6 +122,7 @@ export function CookingScreen() {
   const [complexity, setComplexity] = useState<RecipeDifficulty>('media')
   const [generating, setGenerating] = useState(false)
   const [generatingStep, setGeneratingStep] = useState('')
+  const [keyboardInset, setKeyboardInset] = useState(0)
 
   const userId = session?.user.id
 
@@ -143,6 +146,22 @@ export function CookingScreen() {
   }, [userId])
 
   useFocusEffect(useCallback(() => { void loadRecipes() }, [loadRecipes]))
+
+  useEffect(() => {
+    if (Platform.OS !== 'android') return
+
+    const showSub = Keyboard.addListener('keyboardDidShow', (event) => {
+      setKeyboardInset(event.endCoordinates.height)
+    })
+    const hideSub = Keyboard.addListener('keyboardDidHide', () => {
+      setKeyboardInset(0)
+    })
+
+    return () => {
+      showSub.remove()
+      hideSub.remove()
+    }
+  }, [])
 
   const handleGenerate = async () => {
     if (!userId || !prompt.trim()) return
@@ -283,11 +302,10 @@ export function CookingScreen() {
         onRequestClose={() => { if (!generating) setShowGenerateModal(false) }}
       >
         <TouchableWithoutFeedback onPress={() => { if (!generating) setShowGenerateModal(false) }}>
-          <View className="flex-1 justify-end bg-black/40">
+          <View className="flex-1 justify-end bg-black/40" style={{ paddingBottom: keyboardInset }}>
             <TouchableWithoutFeedback onPress={() => undefined}>
-              <View className="flex-1">
+              <View className="max-h-[90%] rounded-t-3xl bg-white px-5 pb-10 pt-5">
                 <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-                  <View className="rounded-t-3xl bg-white px-5 pb-10 pt-5">
                     <View className="mb-4 h-1.5 w-16 self-center rounded-full bg-slate-200" />
 
                 {generating ? (
@@ -376,7 +394,6 @@ export function CookingScreen() {
                       onChangeText={setPrompt}
                       multiline
                       textAlignVertical="top"
-                      autoFocus
                     />
                     <View className="mt-5 flex-row gap-3">
                       <TouchableOpacity
@@ -401,7 +418,6 @@ export function CookingScreen() {
                     </View>
                   </>
                 )}
-                  </View>
                 </ScrollView>
               </View>
             </TouchableWithoutFeedback>
