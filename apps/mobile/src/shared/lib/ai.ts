@@ -34,7 +34,7 @@ async function callOpenRouter(prompt: string): Promise<string> {
         },
         { role: 'user', content: prompt },
       ],
-      max_tokens: 1400,
+      max_tokens: 2600,
       temperature: 0.4,
     })
 
@@ -171,6 +171,21 @@ function parseRecipeResponse(raw: string): AIRecipeResponse {
   return parsed
 }
 
+function isLikelyTruncatedJson(raw: string): boolean {
+  const clean = raw.replace(/```json\s*/gi, '').replace(/```\s*/gi, '').trim()
+  if (!clean) return false
+
+  const openBraces = (clean.match(/\{/g) ?? []).length
+  const closeBraces = (clean.match(/\}/g) ?? []).length
+  const openBrackets = (clean.match(/\[/g) ?? []).length
+  const closeBrackets = (clean.match(/\]/g) ?? []).length
+
+  const hasUnbalancedDelimiters = openBraces > closeBraces || openBrackets > closeBrackets
+  const endsAbruptly = !/[}\]"\n]$/.test(clean)
+
+  return hasUnbalancedDelimiters || endsAbruptly
+}
+
 function buildRecipePrompt(userPrompt: string, options: RecipeGenerationOptions): string {
   const recipeTypeText: Record<RecipeGenerationType, string> = {
     normal: 'Normal (sin restriccion especial)',
@@ -252,6 +267,12 @@ export async function generateRecipe(
     return parseRecipeResponse(response)
   } catch (firstError) {
     try {
+      if (isLikelyTruncatedJson(response)) {
+        const completePrompt = `Completa este JSON truncado y devuelve SOLO un JSON valido, sin markdown ni texto adicional. Debes respetar exactamente: servings=${options.servings}, difficulty=${options.complexity}, tipo=${options.recipeType}. JSON truncado:\n\n${response}`
+        const completed = await callAI(completePrompt)
+        return parseRecipeResponse(completed)
+      }
+
       const repairPrompt = `Corrige y devuelve SOLO un JSON valido, sin texto adicional, usando exactamente la estructura solicitada. Mantén estos valores obligatorios: servings=${options.servings}, difficulty=${options.complexity}, tipo=${options.recipeType}. Respuesta original:\n\n${response}`
       const repaired = await callAI(repairPrompt)
       return parseRecipeResponse(repaired)
