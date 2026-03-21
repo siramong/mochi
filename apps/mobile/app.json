@@ -48,6 +48,14 @@
           "sounds": [],
           "iosDisplayInForeground": true
         }
+      ],
+      [
+        "react-native-health-connect",
+        {
+          "permissions": [
+            "android.permission.health.READ_MENSTRUATION"
+          ]
+        }
       ]
     ],
     "extra": {

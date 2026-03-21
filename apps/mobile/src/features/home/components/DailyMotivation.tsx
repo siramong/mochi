@@ -10,18 +10,28 @@ import Animated, {
 } from 'react-native-reanimated'
 import { getDailyMotivation } from '@/src/shared/lib/ai'
 import { MochiCharacter } from '@/src/shared/components/MochiCharacter'
+import { getCyclePersonality } from '@/src/shared/lib/cyclePersonality'
+import type { CyclePhase } from '@/src/shared/lib/healthConnect'
 
 type DailyMotivationProps = {
   userName: string
   studyBlockCount: number
   hasRoutine: boolean
   timeOfDay: string
+  cyclePhase?: CyclePhase
 }
 
-export function DailyMotivation({ userName, studyBlockCount, hasRoutine, timeOfDay }: DailyMotivationProps) {
+export function DailyMotivation({
+  userName,
+  studyBlockCount,
+  hasRoutine,
+  timeOfDay,
+  cyclePhase,
+}: DailyMotivationProps) {
   const [message, setMessage] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const shimmerOpacity = useSharedValue(1)
+  const personality = cyclePhase ? getCyclePersonality(cyclePhase) : null
 
   useEffect(() => {
     shimmerOpacity.value = withRepeat(
@@ -41,7 +51,13 @@ export function DailyMotivation({ userName, studyBlockCount, hasRoutine, timeOfD
   useEffect(() => {
     let mounted = true
     async function load() {
-      const msg = await getDailyMotivation(userName, studyBlockCount, hasRoutine, timeOfDay)
+      const msg = await getDailyMotivation(
+        userName,
+        studyBlockCount,
+        hasRoutine,
+        timeOfDay,
+        personality?.phaseLabel
+      )
       if (mounted) {
         setMessage(msg)
         setLoading(false)
@@ -52,11 +68,11 @@ export function DailyMotivation({ userName, studyBlockCount, hasRoutine, timeOfD
     return () => {
       mounted = false
     }
-  }, [userName, studyBlockCount, hasRoutine, timeOfDay, shimmerOpacity])
+  }, [userName, studyBlockCount, hasRoutine, timeOfDay, shimmerOpacity, personality?.phaseLabel])
 
   return (
     <View className="rounded-3xl border-2 border-yellow-200 bg-yellow-50 p-4 flex-row items-center">
-      <MochiCharacter mood="happy" size={56} />
+      <MochiCharacter mood={personality?.mochiMood ?? 'happy'} size={56} />
       <View className="flex-1 ml-3">
         {loading ? (
           <Animated.View style={shimmerStyle}>

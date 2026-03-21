@@ -25,6 +25,13 @@ import {
   scheduleStudyBlockReminders,
   type NotificationPrefs,
 } from '@/src/shared/lib/notifications'
+import {
+  getCycleLastSync,
+  hasCyclePermissions,
+  isHealthConnectAvailable,
+  requestCyclePermissions,
+  revokeCyclePermissions,
+} from '@/src/shared/lib/healthConnect'
 import type { StudyBlock, UserSettings } from '@/src/shared/types/database'
 
 type ProfileSettings = {
@@ -110,6 +117,10 @@ export function SettingsScreen() {
   const [showCookingTimePicker, setShowCookingTimePicker] = useState(false)
   const [studyBlocks, setStudyBlocks] = useState<StudyBlock[]>([])
   const [savingNotif, setSavingNotif] = useState(false)
+  const [healthAvailable, setHealthAvailable] = useState(false)
+  const [healthPermission, setHealthPermission] = useState(false)
+  const [healthSyncing, setHealthSyncing] = useState(false)
+  const [lastCycleSync, setLastCycleSync] = useState<string | null>(null)
 
   const [loading, setLoading] = useState(true)
   const [savingProfile, setSavingProfile] = useState(false)
@@ -127,7 +138,7 @@ export function SettingsScreen() {
       setLoading(true)
       setError(null)
 
-      const [profileRes, settingsRes, blocksRes, prefs, permStatus] = await Promise.all([
+      const [profileRes, settingsRes, blocksRes, prefs, permStatus, cycleAvailable, cyclePermission, cycleSync] = await Promise.all([
         supabase.from('profiles').select('full_name, wake_up_time').eq('id', userId).single(),
         supabase
           .from('user_settings')
@@ -139,6 +150,9 @@ export function SettingsScreen() {
         supabase.from('study_blocks').select('*').eq('user_id', userId),
         loadNotificationPrefs(),
         getNotificationPermissionStatus(),
+        isHealthConnectAvailable(),
+        hasCyclePermissions(),
+        getCycleLastSync(),
       ])
 
       if (profileRes.error) throw profileRes.error
@@ -152,10 +166,16 @@ export function SettingsScreen() {
       setStudyBlocks((blocksRes.data as StudyBlock[] | null) ?? [])
       setNotifPrefs(prefs)
       setPermissionStatus(permStatus)
+      setHealthAvailable(cycleAvailable)
+      setHealthPermission(cyclePermission)
+      setLastCycleSync(cycleSync)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudieron cargar los ajustes')
       setProfile({ full_name: '', wake_up_time: '' })
       setModuleSettings(defaultModuleSettings)
+      setHealthAvailable(false)
+      setHealthPermission(false)
+      setLastCycleSync(null)
     } finally {
       setLoading(false)
     }
@@ -382,6 +402,57 @@ export function SettingsScreen() {
     })
   }
 
+  const refreshCycleHealthState = async () => {
+    const [available, permission, sync] = await Promise.all([
+      isHealthConnectAvailable(),
+      hasCyclePermissions(),
+      getCycleLastSync(),
+    ])
+
+    setHealthAvailable(available)
+    setHealthPermission(permission)
+    setLastCycleSync(sync)
+  }
+
+  const handleConnectHealth = async () => {
+    setHealthSyncing(true)
+    try {
+      const granted = await requestCyclePermissions()
+      setHealthPermission(granted)
+      await refreshCycleHealthState()
+
+      if (!granted) {
+        showAlert({
+          title: 'Permiso no concedido',
+          message: 'Puedes intentarlo de nuevo cuando quieras. Mochi seguirá funcionando con normalidad.',
+          buttons: [{ text: 'Entendido', style: 'cancel' }],
+        })
+      }
+    } finally {
+      setHealthSyncing(false)
+    }
+  }
+
+  const handleRevokeHealth = async () => {
+    setHealthSyncing(true)
+    try {
+      await revokeCyclePermissions()
+      await refreshCycleHealthState()
+    } finally {
+      setHealthSyncing(false)
+    }
+  }
+
+  const formattedCycleSync = lastCycleSync
+    ? new Date(lastCycleSync).toLocaleString('es-ES', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : 'Sin sincronización aún'
+
   return (
     <>
       <SafeAreaView className="flex-1 bg-blue-50">
@@ -496,6 +567,54 @@ export function SettingsScreen() {
                     Los módulos desactivados se ocultarán del perfil
                   </Text>
                 </View>
+              </View>
+
+              {/* ── Datos de salud ── */}
+              <View className="mt-6 rounded-3xl border-2 border-rose-200 bg-white p-4">
+                <Text className="text-lg font-extrabold text-rose-900">Datos de salud</Text>
+                <Text className="mt-2 text-sm font-semibold text-rose-700">
+                  Conecta Health Connect para que Mochi conozca tu ciclo menstrual
+                </Text>
+
+                {healthAvailable ? (
+                  <>
+                    <View className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-3">
+                      <Text className="text-xs font-bold text-rose-800">Estado del permiso</Text>
+                      <Text className="mt-1 text-sm font-semibold text-rose-700">
+                        {healthPermission ? 'Concedido' : 'No concedido'}
+                      </Text>
+                      <Text className="mt-2 text-xs font-semibold text-rose-700">
+                        Última sincronización: {formattedCycleSync}
+                      </Text>
+                    </View>
+
+                    <TouchableOpacity
+                      className={`mt-4 items-center rounded-2xl py-3 ${healthSyncing ? 'bg-rose-300' : 'bg-rose-500'}`}
+                      onPress={() => {
+                        if (healthPermission) {
+                          void handleRevokeHealth()
+                        } else {
+                          void handleConnectHealth()
+                        }
+                      }}
+                      disabled={healthSyncing}
+                    >
+                      <Text className="font-extrabold text-white">
+                        {healthSyncing
+                          ? 'Actualizando...'
+                          : healthPermission
+                            ? 'Revocar'
+                            : 'Conectar'}
+                      </Text>
+                    </TouchableOpacity>
+                  </>
+                ) : (
+                  <View className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-3 py-3">
+                    <Text className="text-xs font-semibold text-amber-800">
+                      No disponible en este dispositivo. Requiere Android 14+ o Health Connect instalado.
+                    </Text>
+                  </View>
+                )}
               </View>
 
               {/* ── Notificaciones ── */}

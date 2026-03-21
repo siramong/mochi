@@ -17,6 +17,7 @@ import { supabase } from '@/src/shared/lib/supabase'
 import { useSession } from '@/src/core/providers/SessionContext'
 import type { RoutineWithExercises } from '@/src/shared/types/database'
 import { MochiCharacter } from '@/src/shared/components/MochiCharacter'
+import { useCycleRecommendation } from '@/src/shared/hooks/useCycleRecommendation'
 
 const colorMap: Record<string, string> = {
   teal: 'bg-teal-200',
@@ -85,6 +86,7 @@ function AnimatedRoutineCard({ routine, index, animationSeed, totalTime }: Anima
 
 export function ExerciseRoutine() {
   const { session } = useSession()
+  const { tip, personality, phase } = useCycleRecommendation('exercise')
   const [routines, setRoutines] = useState<RoutineWithExercises[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -174,12 +176,41 @@ export function ExerciseRoutine() {
 
   return (
     <View className="flex-1 bg-teal-100 px-5 pt-12">
-      <View className="mb-6 flex-row items-center">
+      <View className="mb-6 flex-row items-center justify-between">
+        <View className="flex-row items-center">
         <View className="h-11 w-11 items-center justify-center rounded-2xl border-2 border-teal-200 bg-white">
-          <Ionicons name="barbell" size={20} color="#0d9488" />
+          <Ionicons
+            name={personality?.phaseIconName ?? 'barbell'}
+            size={20}
+            color={personality ? personality.phaseColor : '#0d9488'}
+          />
         </View>
         <Text className="ml-3 text-2xl font-extrabold text-teal-900">Mis rutinas</Text>
+        </View>
+        <MochiCharacter mood={personality?.mochiMood ?? 'happy'} size={46} />
       </View>
+
+      {tip && personality && (
+        <View className={`mb-4 rounded-2xl border p-3 ${personality.phaseBadgeClass}`}>
+          <View className="flex-row items-center justify-between">
+            <View className="flex-1 pr-2">
+              <Text className="text-xs font-extrabold text-slate-800">Consejo para hoy</Text>
+              <Text className="mt-1 text-xs font-semibold text-slate-700">{tip}</Text>
+              {phase === 'menstrual' && (
+                <View className="mt-2 self-start rounded-full bg-white/80 px-2.5 py-1">
+                  <Text className="text-[11px] font-extrabold text-slate-700">Escúchate hoy</Text>
+                </View>
+              )}
+              {phase === 'ovulatoria' && (
+                <View className="mt-2 self-start rounded-full bg-white/80 px-2.5 py-1">
+                  <Text className="text-[11px] font-extrabold text-slate-700">Tu mejor momento para entrenar</Text>
+                </View>
+              )}
+            </View>
+            <MochiCharacter mood={personality.mochiMood} size={54} />
+          </View>
+        </View>
+      )}
 
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
         {loading ? (
@@ -196,7 +227,7 @@ export function ExerciseRoutine() {
         ) : routines.length === 0 ? (
           <View className="rounded-3xl border-2 border-teal-200 bg-white p-6">
             <View className="items-center">
-              <MochiCharacter mood="happy" size={88} />
+              <MochiCharacter mood={personality?.mochiMood ?? 'happy'} size={88} />
               <Text className="mt-3 text-center text-sm font-semibold text-teal-600">Crea tu primera rutina</Text>
             </View>
           </View>

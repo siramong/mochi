@@ -15,6 +15,7 @@ import { SystemBars } from "react-native-edge-to-edge";
 import { SessionProvider, useSession } from "@/src/core/providers/SessionContext";
 import { SystemBarsProvider, useSystemBars } from "@/src/core/providers/SystemBarsContext";
 import { AchievementProvider } from "@/src/core/providers/AchievementContext";
+import { CycleProvider } from "@/src/core/providers/CycleContext";
 import { MochiCharacter } from "@/src/shared/components/MochiCharacter";
 
 Notifications.setNotificationHandler({
@@ -127,7 +128,9 @@ export function RootLayout() {
     <SystemBarsProvider>
       <SessionProvider>
         <AchievementProvider>
-          <RootLayoutNavigator />
+          <CycleProvider>
+            <RootLayoutNavigator />
+          </CycleProvider>
         </AchievementProvider>
       </SessionProvider>
     </SystemBarsProvider>

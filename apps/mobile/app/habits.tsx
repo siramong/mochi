@@ -16,6 +16,7 @@ import { useCustomAlert } from '@/src/shared/components/CustomAlert'
 import { MochiCharacter } from '@/src/shared/components/MochiCharacter'
 import { HabitCard } from '@/src/features/habits/components/HabitCard'
 import type { Habit } from '@/src/shared/types/database'
+import { useCycleRecommendation } from '@/src/shared/hooks/useCycleRecommendation'
 
 const COLOR_OPTIONS = ['pink', 'yellow', 'blue', 'teal', 'purple'] as const
 const ICON_OPTIONS = ['leaf', 'water', 'book', 'heart', 'fitness'] as const
@@ -50,6 +51,7 @@ const colorBorderMap: Record<string, string> = {
 export function HabitsScreen() {
   const { session } = useSession()
   const { showAlert, AlertComponent } = useCustomAlert()
+  const { personality, phase } = useCycleRecommendation('habit')
   const [habits, setHabits] = useState<Habit[]>([])
   const [completedToday, setCompletedToday] = useState<Set<string>>(new Set())
   const [weeklyLogs, setWeeklyLogs] = useState<Map<string, Set<string>>>(new Map())
@@ -278,12 +280,31 @@ export function HabitsScreen() {
         <View className="mb-6 flex-row items-center">
           <Ionicons name="leaf" size={20} color="#7c3aed" />
           <Text className="ml-2 text-2xl font-extrabold text-purple-900">Mis hábitos</Text>
+          {personality && (
+            <View className={`ml-2 rounded-full border px-2.5 py-1 ${personality.phaseBadgeClass}`}>
+              <View className="flex-row items-center">
+                <Ionicons name={personality.phaseIconName} size={11} color="#334155" />
+                <Text className="ml-1 text-[11px] font-extrabold text-slate-700">{personality.phaseLabel}</Text>
+              </View>
+            </View>
+          )}
         </View>
+
+        {phase === 'menstrual' && (
+          <View className="mb-4 rounded-2xl border border-pink-200 bg-pink-100 px-3 py-2">
+            <Text className="text-xs font-semibold text-pink-800">Hoy celebramos cada hábito que completes</Text>
+          </View>
+        )}
+        {phase === 'lutea' && (
+          <View className="mb-4 rounded-2xl border border-violet-200 bg-violet-100 px-3 py-2">
+            <Text className="text-xs font-semibold text-violet-800">Enfócate en los esenciales, está bien descansar</Text>
+          </View>
+        )}
 
         {loading ? (
           <View className="flex-1 items-center justify-center py-12">
             <Animated.View style={loadingAnimatedStyle}>
-              <MochiCharacter mood="thinking" size={92} />
+              <MochiCharacter mood={personality?.mochiMood ?? 'thinking'} size={92} />
             </Animated.View>
             <Text className="mt-4 text-sm font-semibold text-purple-700">Cargando hábitos...</Text>
           </View>
@@ -344,7 +365,7 @@ export function HabitsScreen() {
             style={celebrationAnimatedStyle}
             className="items-center rounded-3xl bg-white p-8"
           >
-            <MochiCharacter mood="excited" size={96} />
+            <MochiCharacter mood={personality?.mochiMood ?? 'excited'} size={96} />
             <Text className="mt-4 text-xl font-extrabold text-purple-900">
               ¡Todos los hábitos completados!
             </Text>

@@ -15,9 +15,11 @@ import Animated, {
 } from 'react-native-reanimated'
 import { supabase } from '@/src/shared/lib/supabase'
 import { useSession } from '@/src/core/providers/SessionContext'
+import { useCycle } from '@/src/core/providers/CycleContext'
 import type { StudyBlock } from '@/src/shared/types/database'
 import { MochiCharacter } from '@/src/shared/components/MochiCharacter'
 import { useCustomAlert } from '@/src/shared/components/CustomAlert'
+import { MochiCycleTip } from '@/src/shared/components/MochiCycleTip'
 
 const days = ['L', 'M', 'X', 'J', 'V', 'S', 'D']
 const dayOfWeekMap: Record<string, number> = {
@@ -129,7 +131,10 @@ function AnimatedStudyCard({ block, index, animationSeed, onDelete, onEdit }: An
 
 export function StudySchedule() {
   const { session } = useSession()
+  const { cycleData } = useCycle()
   const { showAlert, AlertComponent } = useCustomAlert()
+  const loadingMood = cycleData?.phase === 'menstrual' ? 'sleepy' : cycleData?.phase === 'folicular' ? 'thinking' : 'thinking'
+
   const [selectedDay, setSelectedDay] = useState(dayLettersByGetDay[new Date().getDay()] ?? 'X')
   const [blocks, setBlocks] = useState<StudyBlock[]>([])
   const [loading, setLoading] = useState(true)
@@ -287,11 +292,20 @@ export function StudySchedule() {
         })}
       </View>
 
+      <View className="mb-4">
+        <MochiCycleTip
+          context="study"
+          style="inline"
+          dismissible
+          storageKey="cycle:tip:study:hidden"
+        />
+      </View>
+
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
         {loading ? (
           <View className="flex-1 items-center justify-center py-8">
             <Animated.View style={loadingAnimatedStyle}>
-              <MochiCharacter mood="thinking" size={92} />
+              <MochiCharacter mood={loadingMood} size={92} />
             </Animated.View>
             <Text className="mt-4 text-sm font-semibold text-purple-700">Cargando bloques...</Text>
           </View>

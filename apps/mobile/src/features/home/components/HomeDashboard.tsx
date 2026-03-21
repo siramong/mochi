@@ -13,9 +13,11 @@ import Animated, {
 } from 'react-native-reanimated'
 import { supabase } from '@/src/shared/lib/supabase'
 import { useSession } from '@/src/core/providers/SessionContext'
+import { useCycle } from '@/src/core/providers/CycleContext'
 import type { StudyBlock, RoutineWithExercises, Recipe } from '@/src/shared/types/database'
 import { MochiCharacter } from '@/src/shared/components/MochiCharacter'
 import { DailyMotivation } from '@/src/features/home/components/DailyMotivation'
+import { CycleWidget } from '@/src/shared/components/CycleWidget'
 import { getGreeting, getTimeColor, getTimeIcon, getTimeOfDay, type TimeOfDay } from '@/src/shared/lib/timeContext'
 
 type HomeDashboardProps = {
@@ -108,6 +110,7 @@ function AnimatedDashboardCard({ children, delay, animationSeed, className }: An
 
 export function HomeDashboard({ userName, onNavigateToCooking }: HomeDashboardProps) {
   const { session } = useSession()
+  const { cycleData, hasPermission, requestPermission } = useCycle()
   const todayRaw = new Date().toLocaleDateString('es-ES', {
     weekday: 'long', day: 'numeric', month: 'long',
   })
@@ -238,8 +241,15 @@ export function HomeDashboard({ userName, onNavigateToCooking }: HomeDashboardPr
           studyBlockCount={todayBlocks.length}
           hasRoutine={todayRoutines.length > 0}
           timeOfDay={timeOfDay}
+          cyclePhase={cycleData?.phase}
         />
       </View>
+
+      <CycleWidget
+        cycleData={cycleData}
+        hasPermission={hasPermission}
+        onRequestPermission={requestPermission}
+      />
 
       {/* Quick access */}
       <ScrollView

@@ -23,6 +23,7 @@ import { useCustomAlert } from '@/src/shared/components/CustomAlert'
 import { MochiCharacter } from '@/src/shared/components/MochiCharacter'
 import type { Recipe, AIRecipeResponse, RecipeDifficulty } from '@/src/shared/types/database'
 import type { RecipeGenerationType } from '@/src/shared/lib/ai'
+import { useCycleRecommendation } from '@/src/shared/hooks/useCycleRecommendation'
 
 const difficultyConfig: Record<string, { label: string; className: string; textClass: string }> = {
   'fácil':   { label: 'Fácil',   className: 'bg-green-100',  textClass: 'text-green-800' },
@@ -110,6 +111,7 @@ export function CookingScreen() {
   const { session } = useSession()
   const { showAchievement } = useAchievement()
   const { showAlert, AlertComponent } = useCustomAlert()
+  const { tip: cycleCookingTip, personality } = useCycleRecommendation('cooking')
 
   const [recipes, setRecipes] = useState<Recipe[]>([])
   const [loading, setLoading] = useState(true)
@@ -173,7 +175,7 @@ export function CookingScreen() {
         recipeType,
         servings,
         complexity,
-      })
+      }, personality?.phaseLabel)
       setGeneratingStep('Guardando receta...')
 
       const totalTime = aiRecipe.prep_time_minutes + aiRecipe.cook_time_minutes
@@ -191,7 +193,7 @@ export function CookingScreen() {
           difficulty: aiRecipe.difficulty,
           cuisine_type: aiRecipe.cuisine_type || null,
           tags: aiRecipe.tags ?? [],
-          user_prompt: `${prompt.trim()} | Tipo: ${recipeType} | Personas: ${servings} | Complejidad: ${complexity}`,
+          user_prompt: `${prompt.trim()} | Tipo: ${recipeType} | Personas: ${servings} | Complejidad: ${complexity}${personality ? ` | Fase: ${personality.phaseLabel}` : ''}`,
         })
         .select('id')
         .single()
@@ -276,12 +278,12 @@ export function CookingScreen() {
             </View>
           ) : recipes.length === 0 ? (
             <View className="items-center rounded-3xl border-2 border-orange-200 bg-white p-8">
-              <MochiCharacter mood="happy" size={88} />
+              <MochiCharacter mood={personality?.mochiMood ?? 'happy'} size={88} />
               <Text className="mt-3 text-center text-base font-extrabold text-orange-900">
                 Aún no tienes recetas guardadas
               </Text>
               <Text className="mt-2 text-center text-sm font-semibold text-orange-600">
-                Cuéntame qué quieres cocinar y lo creo para ti
+                {cycleCookingTip ?? 'Cuéntame qué quieres cocinar y lo creo para ti'}
               </Text>
             </View>
           ) : (
@@ -322,6 +324,14 @@ export function CookingScreen() {
                     <Text className="mt-1 text-sm font-semibold text-orange-600">
                       Descríbelo con tus palabras, yo me encargo del resto
                     </Text>
+                    {personality && (
+                      <View className={`mt-3 self-start rounded-full border px-3 py-1 ${personality.phaseBadgeClass}`}>
+                        <View className="flex-row items-center">
+                          <Ionicons name={personality.phaseIconName} size={12} color="#334155" />
+                          <Text className="ml-1 text-xs font-extrabold text-slate-700">{personality.phaseLabel}</Text>
+                        </View>
+                      </View>
+                    )}
                     <View className="mt-4 rounded-2xl border-2 border-orange-200 bg-orange-50 px-4 py-3">
                       <Text className="mb-1 text-xs font-bold text-orange-700">Ejemplos:</Text>
                       <Text className="text-xs font-semibold text-orange-600">

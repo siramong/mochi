@@ -9,6 +9,7 @@ import { useCustomAlert } from '@/src/shared/components/CustomAlert'
 import { useSession } from '@/src/core/providers/SessionContext'
 import { supabase } from '@/src/shared/lib/supabase'
 import type { MoodLog } from '@/src/shared/types/database'
+import { useCycleRecommendation } from '@/src/shared/hooks/useCycleRecommendation'
 
 type MoodOption = {
   value: number
@@ -99,6 +100,7 @@ function getMoodLabel(value: number): string {
 export function MoodScreen() {
   const { session } = useSession()
   const { showAlert, AlertComponent } = useCustomAlert()
+  const { personality, phase } = useCycleRecommendation('mood')
 
   const [todayEntry, setTodayEntry] = useState<MoodLog | null>(null)
   const [recentEntries, setRecentEntries] = useState<MoodLog[]>([])
@@ -180,6 +182,7 @@ export function MoodScreen() {
   }, [recentEntries])
 
   const showEditor = !todayEntry || editingToday
+  const shouldShowCompassionNote = (selectedMood === 1 || selectedMood === 2) && (phase === 'lutea' || phase === 'menstrual')
 
   const handleSaveMood = async () => {
     if (!userId) return
@@ -282,9 +285,21 @@ export function MoodScreen() {
                     <Text className="mt-2 text-sm font-semibold text-orange-800">
                       {todayEntry.note?.trim() ? todayEntry.note : 'Sin nota para hoy'}
                     </Text>
+                    {phase === 'lutea' && (
+                      <Text className="mt-3 text-xs font-semibold text-violet-700">
+                        Es normal sentirte más sensible en esta fase. Mochi está aquí.
+                      </Text>
+                    )}
                   </View>
                 ) : (
                   <>
+                    {phase === 'lutea' && (
+                      <View className="mt-3 rounded-2xl border border-violet-200 bg-violet-50 p-3">
+                        <Text className="text-xs font-semibold text-violet-700">
+                          Es normal sentirte más sensible en esta fase. Mochi está aquí.
+                        </Text>
+                      </View>
+                    )}
                     <View className="mt-4 flex-row flex-wrap">
                       {moodOptions.map((option) => {
                         const isSelected = selectedMood === option.value
@@ -305,6 +320,14 @@ export function MoodScreen() {
                         )
                       })}
                     </View>
+
+                    {shouldShowCompassionNote && (
+                      <View className="rounded-2xl border border-pink-200 bg-pink-50 p-3">
+                        <Text className="text-xs font-semibold text-pink-800">
+                          Hoy te abrazo con calma. Si necesitas bajar el ritmo, está bien. Estás haciendo lo mejor que puedes.
+                        </Text>
+                      </View>
+                    )}
 
                     <View className="mt-2">
                       <Text className="mb-2 text-sm font-bold text-orange-900">Nota (opcional)</Text>
@@ -351,7 +374,7 @@ export function MoodScreen() {
 
                 {recentEntries.length === 0 && (
                   <View className="mt-5 items-center rounded-2xl border border-orange-200 bg-orange-50 p-4">
-                    <MochiCharacter mood="happy" size={68} />
+                    <MochiCharacter mood={personality?.mochiMood ?? 'happy'} size={68} />
                     <Text className="mt-2 text-center text-sm font-semibold text-orange-800">
                       Aún no hay registros. Tu primer check-in te espera.
                     </Text>

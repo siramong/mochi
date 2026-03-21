@@ -20,6 +20,7 @@ import { useSession } from '@/src/core/providers/SessionContext'
 import { addPoints } from '@/src/shared/lib/gamification'
 import { supabase } from '@/src/shared/lib/supabase'
 import type { Goal } from '@/src/shared/types/database'
+import { useCycleRecommendation } from '@/src/shared/hooks/useCycleRecommendation'
 
 type GoalColor = {
   key: string
@@ -54,6 +55,7 @@ function initialGoalDraft() {
 export function GoalsScreen() {
   const { session } = useSession()
   const { showAlert, AlertComponent } = useCustomAlert()
+  const { personality, phase } = useCycleRecommendation('general')
   const [goals, setGoals] = useState<Goal[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -378,6 +380,13 @@ export function GoalsScreen() {
               <View className="rounded-t-3xl bg-white px-5 pb-8 pt-5">
                 <View className="mb-4 h-1.5 w-16 self-center rounded-full bg-slate-200" />
                 <Text className="text-xl font-extrabold text-purple-900">Nueva meta</Text>
+                {phase === 'folicular' && personality && (
+                  <View className={`mt-3 self-start rounded-2xl border px-3 py-2 ${personality.phaseBadgeClass}`}>
+                    <Text className="text-xs font-semibold text-slate-700">
+                      Estás en tu fase folicular: ideal para empezar metas nuevas.
+                    </Text>
+                  </View>
+                )}
 
                 <View className="mt-4">
                   <Text className="text-xs font-bold uppercase tracking-wide text-purple-700">Título</Text>

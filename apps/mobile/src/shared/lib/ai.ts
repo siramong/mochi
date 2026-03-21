@@ -103,10 +103,12 @@ export async function getDailyMotivation(
   userName: string,
   studyBlockCount: number,
   hasRoutine: boolean,
-  timeOfDay: string
+  timeOfDay: string,
+  cyclePhaseLabel?: string
 ): Promise<string> {
   const today = new Date().toISOString().slice(0, 10)
-  const cacheKey = `daily-motivation-${today}-${timeOfDay}`
+  const cycleKey = cyclePhaseLabel ? cyclePhaseLabel.toLowerCase().replace(/\s+/g, '-') : 'sin-fase'
+  const cacheKey = `daily-motivation-${today}-${timeOfDay}-${cycleKey}`
 
   try {
     const cached = await AsyncStorage.getItem(cacheKey)
@@ -122,7 +124,11 @@ export async function getDailyMotivation(
           ? 'la tarde'
           : 'la noche'
 
-  const prompt = `Eres Mochi, una asistente adorable. Es ${timeText}. Saluda a ${userName} de forma breve y motivadora (máximo 2 oraciones) considerando que hoy tiene ${studyBlockCount} bloques de estudio${hasRoutine ? ' y una rutina de ejercicio' : ''}. Responde solo el mensaje, sin comillas.`
+  const cycleHint = cyclePhaseLabel
+    ? ` La usuaria está en su ${cyclePhaseLabel}. Ten en cuenta esto con un tono cálido y sin presión.`
+    : ''
+
+  const prompt = `Eres Mochi, una asistente adorable. Es ${timeText}. Saluda a ${userName} de forma breve y motivadora (máximo 2 oraciones) considerando que hoy tiene ${studyBlockCount} bloques de estudio${hasRoutine ? ' y una rutina de ejercicio' : ''}.${cycleHint} Responde solo el mensaje, sin comillas.`
 
   const response = await callAI(prompt)
   const message = response || `¡Hola ${userName}! Hoy es un gran día para alcanzar tus metas.`
@@ -186,7 +192,11 @@ function isLikelyTruncatedJson(raw: string): boolean {
   return hasUnbalancedDelimiters || endsAbruptly
 }
 
-function buildRecipePrompt(userPrompt: string, options: RecipeGenerationOptions): string {
+function buildRecipePrompt(
+  userPrompt: string,
+  options: RecipeGenerationOptions,
+  cyclePhaseLabel?: string
+): string {
   const recipeTypeText: Record<RecipeGenerationType, string> = {
     normal: 'Normal (sin restriccion especial)',
     keto: 'Keto (baja en carbohidratos)',
@@ -194,6 +204,10 @@ function buildRecipePrompt(userPrompt: string, options: RecipeGenerationOptions)
     vegana: 'Vegana (sin ingredientes de origen animal)',
     alta_proteina: 'Alta en proteina',
   }
+
+  const cycleHint = cyclePhaseLabel
+    ? `\nContexto adicional de bienestar:\n- La usuaria está en su ${cyclePhaseLabel}. Si es apropiado, sugiere ingredientes o preparaciones que beneficien su bienestar en esta fase, sin dar consejos médicos.`
+    : ''
 
   return `Eres Mochi, una asistente de cocina adorable y experta. Una estudiante te pide:
 
@@ -203,6 +217,7 @@ Configuracion obligatoria para esta receta:
 - Tipo de receta: ${recipeTypeText[options.recipeType]}
 - Cantidad de personas: ${options.servings}
 - Nivel de complejidad: ${options.complexity}
+${cycleHint}
 
 Genera una receta detallada, realista y deliciosa en español. Responde ÚNICAMENTE con un objeto JSON válido (sin texto adicional, sin markdown, sin bloques de código) con esta estructura exacta:
 
@@ -258,9 +273,10 @@ Reglas:
  */
 export async function generateRecipe(
   userPrompt: string,
-  options: RecipeGenerationOptions
+  options: RecipeGenerationOptions,
+  cyclePhaseLabel?: string
 ): Promise<AIRecipeResponse> {
-  const prompt = buildRecipePrompt(userPrompt, options)
+  const prompt = buildRecipePrompt(userPrompt, options, cyclePhaseLabel)
   const response = await callAI(prompt)
 
   try {
