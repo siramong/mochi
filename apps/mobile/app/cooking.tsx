@@ -2,9 +2,7 @@ import { Ionicons } from '@expo/vector-icons'
 import { useCallback, useState } from 'react'
 import {
   ActivityIndicator,
-  KeyboardAvoidingView,
   Modal,
-  Platform,
   ScrollView,
   Text,
   TextInput,
@@ -287,7 +285,7 @@ export function CookingScreen() {
         <TouchableWithoutFeedback onPress={() => { if (!generating) setShowGenerateModal(false) }}>
           <View className="flex-1 justify-end bg-black/40">
             <TouchableWithoutFeedback onPress={() => undefined}>
-              <KeyboardAvoidingView behavior="padding" enabled={Platform.OS === 'ios'} className="flex-1">
+              <View className="flex-1">
                 <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
                   <View className="rounded-t-3xl bg-white px-5 pb-10 pt-5">
                     <View className="mb-4 h-1.5 w-16 self-center rounded-full bg-slate-200" />
@@ -405,7 +403,7 @@ export function CookingScreen() {
                 )}
                   </View>
                 </ScrollView>
-              </KeyboardAvoidingView>
+              </View>
             </TouchableWithoutFeedback>
           </View>
         </TouchableWithoutFeedback>

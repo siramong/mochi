@@ -1,9 +1,7 @@
 import { Ionicons } from '@expo/vector-icons'
 import { useEffect, useRef, useState } from 'react'
 import {
-  KeyboardAvoidingView,
   Modal,
-  Platform,
   ScrollView,
   Text,
   TextInput,
@@ -339,7 +337,7 @@ export function RecipePlayerScreen() {
 
   return (
     <>
-      <KeyboardAvoidingView behavior="padding" enabled={Platform.OS === 'ios'} className="flex-1 bg-orange-50">
+      <View className="flex-1 bg-orange-50">
         <SafeAreaView className="flex-1">
           {/* Header */}
           <View className="px-5 pt-4">
@@ -515,7 +513,7 @@ export function RecipePlayerScreen() {
           </View>
         </View>
         </SafeAreaView>
-      </KeyboardAvoidingView>
+      </View>
 
       {/* Modal preguntarle a Mochi */}
       <Modal
@@ -524,11 +522,7 @@ export function RecipePlayerScreen() {
         animationType="slide"
         onRequestClose={() => setShowAsk(false)}
       >
-        <KeyboardAvoidingView
-          behavior="padding"
-          enabled={Platform.OS === 'ios'}
-          className="flex-1 justify-end"
-        >
+        <View className="flex-1 justify-end">
           <View className="flex-1 justify-end bg-black/40">
             <View className="rounded-t-3xl bg-white px-5 pb-10 pt-5">
               <View className="mb-4 h-1.5 w-16 self-center rounded-full bg-slate-200" />
@@ -581,7 +575,7 @@ export function RecipePlayerScreen() {
               </TouchableOpacity>
             </View>
           </View>
-        </KeyboardAvoidingView>
+        </View>
       </Modal>
 
       {AlertComponent}

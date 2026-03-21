@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { KeyboardAvoidingView, Modal, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native'
+import { Modal, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -349,7 +349,7 @@ export function HabitsScreen() {
       {/* Create Habit Modal */}
       <Modal visible={showModal} transparent animationType="slide">
         <View className="flex-1 justify-end bg-black/30">
-          <KeyboardAvoidingView behavior="padding" enabled={Platform.OS === 'ios'} className="flex-1">
+          <View className="flex-1">
             <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
               <View className="rounded-t-3xl bg-white px-6 pb-10 pt-6">
                 <View className="mb-4 flex-row items-center justify-between">
@@ -407,7 +407,7 @@ export function HabitsScreen() {
             </TouchableOpacity>
               </View>
             </ScrollView>
-          </KeyboardAvoidingView>
+          </View>
         </View>
       </Modal>
       {AlertComponent}

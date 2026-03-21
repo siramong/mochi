@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native'
+import { ActivityIndicator, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { router, useLocalSearchParams } from 'expo-router'
 import { supabase } from '@/src/shared/lib/supabase'
@@ -108,7 +108,7 @@ export function CreateExerciseScreen() {
   }
 
   return (
-    <KeyboardAvoidingView behavior="padding" enabled={Platform.OS === 'ios'} className="flex-1">
+    <View className="flex-1">
       <ScrollView className="flex-1 bg-teal-100" keyboardShouldPersistTaps="handled">
         <View className="px-5 py-6">
         {/* Header */}
@@ -238,7 +238,7 @@ export function CreateExerciseScreen() {
         </View>
       </ScrollView>
       {AlertComponent}
-    </KeyboardAvoidingView>
+    </View>
   )
 }
 

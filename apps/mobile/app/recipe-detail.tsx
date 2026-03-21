@@ -2,8 +2,6 @@ import { Ionicons } from '@expo/vector-icons'
 import { useCallback, useState } from 'react'
 import {
   ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
   ScrollView,
   Text,
   TextInput,
@@ -239,7 +237,7 @@ export function RecipeDetailScreen() {
 
   return (
     <>
-      <KeyboardAvoidingView behavior="padding" enabled={Platform.OS === 'ios'} className="flex-1 bg-orange-50">
+      <View className="flex-1 bg-orange-50">
         <SafeAreaView className="flex-1">
           <ScrollView className="flex-1 px-5" showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
           {/* Nav */}
@@ -504,7 +502,7 @@ export function RecipeDetailScreen() {
           </TouchableOpacity>
         </View>
         </SafeAreaView>
-      </KeyboardAvoidingView>
+      </View>
       {AlertComponent}
     </>
   )

@@ -2,8 +2,6 @@ import { Ionicons } from '@expo/vector-icons'
 import { useCallback, useState } from 'react'
 import {
   ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
   ScrollView,
   Text,
   TextInput,
@@ -149,11 +147,7 @@ export function ExamLogScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-pink-50">
-      <KeyboardAvoidingView
-        behavior="padding"
-        enabled={Platform.OS === 'ios'}
-        className="flex-1"
-      >
+      <View className="flex-1">
         <ScrollView className="flex-1 px-6" keyboardShouldPersistTaps="handled">
           <TouchableOpacity className="mt-4 flex-row items-center" onPress={() => router.back()}>
             <Ionicons name="chevron-back" size={22} color="#9d174d" />
@@ -273,7 +267,7 @@ export function ExamLogScreen() {
             </Text>
           </TouchableOpacity>
         </ScrollView>
-      </KeyboardAvoidingView>
+      </View>
     </SafeAreaView>
   )
 }
