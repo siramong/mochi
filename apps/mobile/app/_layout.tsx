@@ -62,8 +62,11 @@ function RootLayoutNavigator() {
       Notifications.addNotificationResponseReceivedListener((response) => {
         const data = response.notification.request.content.data as Record<string, unknown> | null;
         const screen = typeof data?.screen === "string" ? data.screen : null;
+
         if (screen === "habits") router.push("/habits");
         else if (screen === "study") router.push("/");
+        // cooking es una tab dentro de index, le pasamos el param para que la active
+        else if (screen === "cooking") router.push("/?tab=cooking");
       });
     return () => { notificationResponseListener.current?.remove(); };
   }, []);

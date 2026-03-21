@@ -10,6 +10,8 @@ const STORAGE_KEY = {
   STUDY_ENABLED: 'notifications:study_enabled',
   HABIT_ENABLED: 'notifications:habit_enabled',
   HABIT_TIME: 'notifications:habit_time',
+  COOKING_ENABLED: 'notifications:cooking_enabled',
+  COOKING_TIME: 'notifications:cooking_time',
 } as const
 
 // ─── Notification identifiers ────────────────────────────────────────────────
@@ -17,6 +19,7 @@ const STORAGE_KEY = {
 const NOTIFICATION_ID = {
   MORNING: 'morning-reminder',
   HABIT: 'habit-reminder',
+  COOKING: 'cooking-reminder',
   studyBlock: (blockId: string) => `study-block-${blockId}`,
 } as const
 
@@ -28,14 +31,12 @@ export type NotificationPrefs = {
   studyEnabled: boolean
   habitEnabled: boolean
   habitTime: string
+  cookingEnabled: boolean
+  cookingTime: string
 }
 
 // ─── Permissions ─────────────────────────────────────────────────────────────
 
-/**
- * Requests notification permissions from the OS.
- * Returns the resulting permission status.
- */
 export async function requestNotificationPermissions(): Promise<Notifications.PermissionStatus> {
   const { status } = await Notifications.requestPermissionsAsync({
     ios: {
@@ -47,9 +48,6 @@ export async function requestNotificationPermissions(): Promise<Notifications.Pe
   return status
 }
 
-/**
- * Returns the current permission status without prompting.
- */
 export async function getNotificationPermissionStatus(): Promise<Notifications.PermissionStatus> {
   const { status } = await Notifications.getPermissionsAsync()
   return status
@@ -57,30 +55,29 @@ export async function getNotificationPermissionStatus(): Promise<Notifications.P
 
 // ─── Preferences (AsyncStorage) ──────────────────────────────────────────────
 
-/**
- * Loads all notification preferences from AsyncStorage.
- * Defaults: enabled=false (until user grants permission), all reminders on, habit time 21:00.
- */
 export async function loadNotificationPrefs(): Promise<NotificationPrefs> {
-  const [enabled, morningEnabled, studyEnabled, habitEnabled, habitTime] = await Promise.all([
-    AsyncStorage.getItem(STORAGE_KEY.ENABLED),
-    AsyncStorage.getItem(STORAGE_KEY.MORNING_ENABLED),
-    AsyncStorage.getItem(STORAGE_KEY.STUDY_ENABLED),
-    AsyncStorage.getItem(STORAGE_KEY.HABIT_ENABLED),
-    AsyncStorage.getItem(STORAGE_KEY.HABIT_TIME),
-  ])
+  const [enabled, morningEnabled, studyEnabled, habitEnabled, habitTime, cookingEnabled, cookingTime] =
+    await Promise.all([
+      AsyncStorage.getItem(STORAGE_KEY.ENABLED),
+      AsyncStorage.getItem(STORAGE_KEY.MORNING_ENABLED),
+      AsyncStorage.getItem(STORAGE_KEY.STUDY_ENABLED),
+      AsyncStorage.getItem(STORAGE_KEY.HABIT_ENABLED),
+      AsyncStorage.getItem(STORAGE_KEY.HABIT_TIME),
+      AsyncStorage.getItem(STORAGE_KEY.COOKING_ENABLED),
+      AsyncStorage.getItem(STORAGE_KEY.COOKING_TIME),
+    ])
   return {
     enabled: enabled === 'true',
     morningEnabled: morningEnabled !== 'false',
     studyEnabled: studyEnabled !== 'false',
     habitEnabled: habitEnabled !== 'false',
     habitTime: habitTime ?? '21:00',
+    // cooking off by default — la usuaria lo activa explícitamente
+    cookingEnabled: cookingEnabled === 'true',
+    cookingTime: cookingTime ?? '19:00',
   }
 }
 
-/**
- * Saves notification preferences to AsyncStorage.
- */
 export async function saveNotificationPrefs(prefs: Partial<NotificationPrefs>): Promise<void> {
   const entries: [string, string][] = []
 
@@ -92,7 +89,12 @@ export async function saveNotificationPrefs(prefs: Partial<NotificationPrefs>): 
     entries.push([STORAGE_KEY.STUDY_ENABLED, prefs.studyEnabled ? 'true' : 'false'])
   if (prefs.habitEnabled !== undefined)
     entries.push([STORAGE_KEY.HABIT_ENABLED, prefs.habitEnabled ? 'true' : 'false'])
-  if (prefs.habitTime !== undefined) entries.push([STORAGE_KEY.HABIT_TIME, prefs.habitTime])
+  if (prefs.habitTime !== undefined)
+    entries.push([STORAGE_KEY.HABIT_TIME, prefs.habitTime])
+  if (prefs.cookingEnabled !== undefined)
+    entries.push([STORAGE_KEY.COOKING_ENABLED, prefs.cookingEnabled ? 'true' : 'false'])
+  if (prefs.cookingTime !== undefined)
+    entries.push([STORAGE_KEY.COOKING_TIME, prefs.cookingTime])
 
   await AsyncStorage.multiSet(entries)
 }
@@ -107,27 +109,14 @@ function parseTime(hhmm: string): { hour: number; minute: number } {
   }
 }
 
-/**
- * Converts the app's day_of_week (0=Sunday, JS Date.getDay() convention, matching
- * study-create.tsx's `daysOfWeek` array) to expo-notifications weekly trigger weekday
- * (1=Sunday … 7=Saturday).
- */
 function toExpoWeekday(appDayOfWeek: number): number {
   return appDayOfWeek + 1
 }
 
-/**
- * Subtracts N minutes from a HH:MM time, wrapping to the previous day when the
- * result is negative (e.g., 00:05 - 10 min → 23:55 of the same weekday trigger).
- * Note: expo-notifications WEEKLY triggers fire on a specific weekday; same-day
- * wrapping is not supported. Blocks starting before 00:10 will notify at 23:50+
- * of the *previous* weekday instead. This is an acceptable edge case.
- */
 function subtractMinutes(hhmm: string, mins: number): { hour: number; minute: number } {
   const { hour, minute } = parseTime(hhmm)
   const totalMinutes = hour * 60 + minute - mins
   if (totalMinutes < 0) {
-    // Wrap to end of day (23:50 for a 10-min subtraction from midnight)
     const wrapped = (totalMinutes % 1440 + 1440) % 1440
     return { hour: Math.floor(wrapped / 60), minute: wrapped % 60 }
   }
@@ -136,10 +125,6 @@ function subtractMinutes(hhmm: string, mins: number): { hour: number; minute: nu
 
 // ─── Morning reminder ────────────────────────────────────────────────────────
 
-/**
- * Schedules (or reschedules) the daily morning motivation reminder.
- * Safe to call multiple times – always replaces the previous schedule.
- */
 export async function scheduleMorningReminder(wakeUpTime: string): Promise<void> {
   await cancelMorningReminder()
   const { hour, minute } = parseTime(wakeUpTime)
@@ -165,10 +150,6 @@ export async function cancelMorningReminder(): Promise<void> {
 
 // ─── Study block reminders ───────────────────────────────────────────────────
 
-/**
- * Schedules a weekly reminder 10 minutes before each study block starts.
- * Cancels any existing study-block notifications first.
- */
 export async function scheduleStudyBlockReminders(blocks: StudyBlock[]): Promise<void> {
   await cancelAllStudyBlockReminders()
 
@@ -205,9 +186,6 @@ export async function cancelAllStudyBlockReminders(): Promise<void> {
 
 // ─── Habit reminder ──────────────────────────────────────────────────────────
 
-/**
- * Schedules (or reschedules) the daily habits reminder.
- */
 export async function scheduleHabitReminder(time: string): Promise<void> {
   await cancelHabitReminder()
   const { hour, minute } = parseTime(time)
@@ -232,19 +210,44 @@ export async function cancelHabitReminder(): Promise<void> {
   await Notifications.cancelScheduledNotificationAsync(NOTIFICATION_ID.HABIT).catch(() => {})
 }
 
+// ─── Cooking reminder ─────────────────────────────────────────────────────────
+
+/**
+ * Recordatorio diario para inspirar a la usuaria a cocinar.
+ * Por defecto a las 19:00 — justo antes de preparar la cena.
+ */
+export async function scheduleCookingReminder(time: string): Promise<void> {
+  await cancelCookingReminder()
+  const { hour, minute } = parseTime(time)
+
+  await Notifications.scheduleNotificationAsync({
+    identifier: NOTIFICATION_ID.COOKING,
+    content: {
+      title: '¿Qué vas a cocinar hoy? 🍳',
+      body: 'Mochi tiene ideas deliciosas esperándote',
+      sound: true,
+      data: { screen: 'cooking' },
+    },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.DAILY,
+      hour,
+      minute,
+    },
+  })
+}
+
+export async function cancelCookingReminder(): Promise<void> {
+  await Notifications.cancelScheduledNotificationAsync(NOTIFICATION_ID.COOKING).catch(() => {})
+}
+
 // ─── Master cancel ───────────────────────────────────────────────────────────
 
-/** Cancels every scheduled notification for this app. */
 export async function cancelAllNotifications(): Promise<void> {
   await Notifications.cancelAllScheduledNotificationsAsync()
 }
 
 // ─── Full sync ───────────────────────────────────────────────────────────────
 
-/**
- * Applies the current preferences to the notification schedule.
- * Call after the user saves settings or when the app initialises with an active session.
- */
 export async function syncNotifications(
   prefs: NotificationPrefs,
   wakeUpTime: string,
@@ -255,24 +258,27 @@ export async function syncNotifications(
     return
   }
 
-  // Morning
   if (prefs.morningEnabled) {
     await scheduleMorningReminder(wakeUpTime)
   } else {
     await cancelMorningReminder()
   }
 
-  // Study blocks
   if (prefs.studyEnabled) {
     await scheduleStudyBlockReminders(studyBlocks)
   } else {
     await cancelAllStudyBlockReminders()
   }
 
-  // Habit
   if (prefs.habitEnabled) {
     await scheduleHabitReminder(prefs.habitTime)
   } else {
     await cancelHabitReminder()
+  }
+
+  if (prefs.cookingEnabled) {
+    await scheduleCookingReminder(prefs.cookingTime)
+  } else {
+    await cancelCookingReminder()
   }
 }

@@ -12,12 +12,14 @@ import { supabase } from '@/lib/supabase'
 import {
   cancelAllNotifications,
   cancelAllStudyBlockReminders,
+  cancelCookingReminder,
   cancelHabitReminder,
   cancelMorningReminder,
   getNotificationPermissionStatus,
   loadNotificationPrefs,
   requestNotificationPermissions,
   saveNotificationPrefs,
+  scheduleCookingReminder,
   scheduleHabitReminder,
   scheduleMorningReminder,
   scheduleStudyBlockReminders,
@@ -100,9 +102,12 @@ export function SettingsScreen() {
     studyEnabled: true,
     habitEnabled: true,
     habitTime: '21:00',
+    cookingEnabled: false,
+    cookingTime: '19:00',
   })
   const [permissionStatus, setPermissionStatus] = useState<string>('undetermined')
   const [showHabitTimePicker, setShowHabitTimePicker] = useState(false)
+  const [showCookingTimePicker, setShowCookingTimePicker] = useState(false)
   const [studyBlocks, setStudyBlocks] = useState<StudyBlock[]>([])
   const [savingNotif, setSavingNotif] = useState(false)
 
@@ -273,6 +278,7 @@ export function SettingsScreen() {
       if (updated.morningEnabled) await scheduleMorningReminder(wakeUpTime)
       if (updated.studyEnabled) await scheduleStudyBlockReminders(studyBlocks)
       if (updated.habitEnabled) await scheduleHabitReminder(updated.habitTime)
+      if (updated.cookingEnabled) await scheduleCookingReminder(updated.cookingTime)
     } catch {
       setNotifPrefs((prev) => ({ ...prev, enabled: !value }))
     } finally {
@@ -332,6 +338,32 @@ export function SettingsScreen() {
 
     if (notifPrefs.enabled && notifPrefs.habitEnabled) {
       await scheduleHabitReminder(time)
+    }
+  }
+
+  // ─── Cooking handlers ──────────────────────────────────────────────────────
+
+  const handleToggleCookingReminder = async (value: boolean) => {
+    const updated = { ...notifPrefs, cookingEnabled: value }
+    setNotifPrefs(updated)
+    await saveNotificationPrefs({ cookingEnabled: value })
+
+    if (!notifPrefs.enabled) return
+    if (value) {
+      await scheduleCookingReminder(notifPrefs.cookingTime)
+    } else {
+      await cancelCookingReminder()
+    }
+  }
+
+  const handleCookingTimeConfirm = async (time: string) => {
+    setShowCookingTimePicker(false)
+    const updated = { ...notifPrefs, cookingTime: time }
+    setNotifPrefs(updated)
+    await saveNotificationPrefs({ cookingTime: time })
+
+    if (notifPrefs.enabled && notifPrefs.cookingEnabled) {
+      await scheduleCookingReminder(time)
     }
   }
 
@@ -567,6 +599,37 @@ export function SettingsScreen() {
                         </TouchableOpacity>
                       )}
                     </View>
+
+                    {/* Cooking reminder */}
+                    <View className="rounded-2xl border border-orange-100 bg-orange-50 px-3 py-3">
+                      <View className="flex-row items-center justify-between">
+                        <View className="flex-1">
+                          <View className="flex-row items-center gap-1.5">
+                            <Ionicons name="restaurant-outline" size={15} color="#c2410c" />
+                            <Text className="text-sm font-bold text-orange-900">Recordatorio de cocina</Text>
+                          </View>
+                          <Text className="mt-0.5 text-xs font-semibold text-orange-500">
+                            Diario a las {notifPrefs.cookingTime}
+                          </Text>
+                        </View>
+                        <Switch
+                          value={notifPrefs.cookingEnabled}
+                          onValueChange={(v) => { void handleToggleCookingReminder(v) }}
+                          thumbColor={notifPrefs.cookingEnabled ? '#c2410c' : '#94a3b8'}
+                          trackColor={{ false: '#cbd5e1', true: '#fed7aa' }}
+                        />
+                      </View>
+                      {notifPrefs.cookingEnabled && (
+                        <TouchableOpacity
+                          className="mt-2 items-center rounded-xl border border-orange-200 bg-white py-2"
+                          onPress={() => setShowCookingTimePicker(true)}
+                        >
+                          <Text className="text-sm font-extrabold text-orange-700">
+                            Cambiar hora: {notifPrefs.cookingTime}
+                          </Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
                   </View>
                 )}
               </View>
@@ -577,6 +640,14 @@ export function SettingsScreen() {
                 label="Hora del recordatorio de hábitos"
                 onConfirm={(time) => { void handleHabitTimeConfirm(time) }}
                 onCancel={() => setShowHabitTimePicker(false)}
+              />
+
+              <TimePickerModal
+                visible={showCookingTimePicker}
+                time={notifPrefs.cookingTime}
+                label="Hora del recordatorio de cocina"
+                onConfirm={(time) => { void handleCookingTimeConfirm(time) }}
+                onCancel={() => setShowCookingTimePicker(false)}
               />
 
               {/* ── Cuenta ── */}

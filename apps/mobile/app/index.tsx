@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { useLocalSearchParams } from 'expo-router'
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -31,12 +32,26 @@ const screenThemes: Record<
   cooking:  { statusBarStyle: 'dark', navigationBarStyle: 'dark' },
 }
 
+// Valida que un string sea una MobileScreen conocida
+function isMobileScreen(value: string): value is MobileScreen {
+  return ['home', 'study', 'exercise', 'habits', 'cooking'].includes(value)
+}
+
 export function HomeScreen() {
   const { session } = useSession()
+  const params = useLocalSearchParams<{ tab?: string }>()
   const [currentScreen, setCurrentScreen] = useState<MobileScreen>('home')
   const [userName, setUserName] = useState('Student')
   const [loadingName, setLoadingName] = useState(true)
   const loadingScale = useSharedValue(1)
+
+  // Cuando llega un param `tab` (p.ej. desde una notificación de Cocina),
+  // navegamos a esa tab si es válida.
+  useEffect(() => {
+    if (params.tab && isMobileScreen(params.tab)) {
+      setCurrentScreen(params.tab)
+    }
+  }, [params.tab])
 
   useScreenTheme(screenThemes[currentScreen])
 
