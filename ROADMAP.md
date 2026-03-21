@@ -173,8 +173,7 @@
 | Task | Mobile | Web |
 |---|---|---|
 | `@mochi/ai` shared package | ❌ | ❌ |
-| Gemini 2.0 Flash primary | ✅ | ❌ |
-| OpenRouter fallback | ✅ | ❌ |
+| OpenRouter integration | ✅ | ❌ |
 | Daily motivational message | ✅ | ❌ |
 | Exercise description suggestion | ✅ | ❌ |
 | Study duration suggestion | ✅ | ❌ |
@@ -200,7 +199,7 @@
 
 | Feature | Priority |
 |---|---|
-| `@mochi/ai` shared package (Gemini + OpenRouter) | High |
+| `@mochi/ai` shared package (OpenRouter) | High |
 | `@mochi/types` or `packages/supabase/src/types.ts` shared types | High |
 | Web dashboard Phase 1 (shell + study module) | High |
 | Web analytics (study stats, habit heatmap) | Medium |

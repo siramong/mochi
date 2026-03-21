@@ -50,8 +50,7 @@ mochi/
 | Navigation | Expo Router v3 (file-based) |
 | Styling | NativeWind v4 (`className` prop, Tailwind v3 syntax) |
 | Animations | `react-native-reanimated` v4 |
-| AI (primary) | `@google/generative-ai` → Gemini 2.0 Flash |
-| AI (fallback) | OpenAI SDK → OpenRouter (`nvidia/nemotron-3-super-120b-a12b:free`) |
+| AI | OpenAI SDK → OpenRouter (`nvidia/nemotron-3-super-120b-a12b:free`) |
 | Notifications | `expo-notifications` with AsyncStorage preference persistence |
 | Auth storage | `@react-native-async-storage/async-storage` |
 | Screenshots | `react-native-view-shot` + `expo-sharing` (for voucher sharing) |
@@ -187,7 +186,7 @@ Achievement keys and their triggers:
 
 ## AI Integration (`apps/mobile/lib/ai.ts`)
 
-All AI calls follow a **primary (Gemini) → fallback (OpenRouter)** pattern via `callAI(prompt)`.
+All AI calls use **OpenRouter** via `callAI(prompt)` (OpenAI SDK to `https://openrouter.ai/api/v1`).
 
 | Function | Purpose | Caching |
 |---|---|---|
@@ -234,7 +233,6 @@ The web app currently handles auth only. The full dashboard is planned (see `WEB
 ```
 EXPO_PUBLIC_SUPABASE_URL=
 EXPO_PUBLIC_SUPABASE_ANON_KEY=
-EXPO_PUBLIC_GEMINI_API_KEY=
 EXPO_PUBLIC_OPENROUTER_API_KEY=
 ```
 
@@ -243,7 +241,6 @@ EXPO_PUBLIC_OPENROUTER_API_KEY=
 ```
 VITE_SUPABASE_URL=
 VITE_SUPABASE_ANON_KEY=
-VITE_GEMINI_API_KEY=
 VITE_OPENROUTER_API_KEY=
 ```
 

@@ -60,11 +60,10 @@ mochi/
 - New tables must have RLS enabled with user-scoped policies and explicit GRANT to `authenticated`.
 
 ### AI
-- Primary provider: **Google Gemini 2.0 Flash** (free tier) via `@google/generative-ai`
-- Fallback: **OpenRouter** free models (Llama 3, Mistral) via fetch to `https://openrouter.ai/api/v1`
-- All AI calls go through `@mochi/ai` shared package with automatic fallback logic
-- Web env vars: `VITE_GEMINI_API_KEY`, `VITE_OPENROUTER_API_KEY`
-- Mobile env vars: `EXPO_PUBLIC_GEMINI_API_KEY`, `EXPO_PUBLIC_OPENROUTER_API_KEY`
+- Provider: **OpenRouter** free models (nvidia/nemotron) via `openai` SDK to `https://openrouter.ai/api/v1`
+- All AI calls go through shared `callAI()` function in mobile app
+- Web env vars: `VITE_OPENROUTER_API_KEY`
+- Mobile env vars: `EXPO_PUBLIC_OPENROUTER_API_KEY`
 - AI responses must always be in Spanish
 
 ---

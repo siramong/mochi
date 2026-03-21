@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { ActivityIndicator, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native'
+import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { router } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { supabase } from '@/src/shared/lib/supabase'
@@ -296,8 +296,8 @@ export function OnboardingScreen() {
   // ─── Step 2: Módulos ──────────────────────────────────────────────────────
 
   return (
-    <View className="flex-1 bg-purple-50">
-      <ScrollView className="flex-1 px-6 pt-14" showsVerticalScrollIndicator={false}>
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="flex-1 bg-purple-50">
+      <ScrollView className="flex-1 px-6 pt-14" showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <View className="mb-5 items-center">
           <MochiCharacter mood="happy" size={80} />
         </View>
@@ -408,7 +408,7 @@ export function OnboardingScreen() {
 
         <View className="h-12" />
       </ScrollView>
-    </View>
+    </KeyboardAvoidingView>
   )
 }
 

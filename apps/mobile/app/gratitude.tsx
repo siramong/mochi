@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons'
 import { useCallback, useState } from 'react'
-import { ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native'
+import { KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { router } from 'expo-router'
 import { useFocusEffect } from '@react-navigation/native'
 import { SafeAreaView } from 'react-native-safe-area-context'
@@ -150,8 +150,9 @@ export function GratitudeScreen() {
 
   return (
     <>
-      <SafeAreaView className="flex-1 bg-emerald-50">
-        <ScrollView className="flex-1 px-5" showsVerticalScrollIndicator={false}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="flex-1 bg-emerald-50">
+        <SafeAreaView className="flex-1">
+          <ScrollView className="flex-1 px-5" showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
           <TouchableOpacity className="mt-4 flex-row items-center" onPress={() => router.back()}>
             <Ionicons name="chevron-back" size={22} color="#047857" />
             <Text className="ml-1 font-bold text-emerald-900">Volver</Text>
@@ -290,7 +291,8 @@ export function GratitudeScreen() {
 
           <View className="h-14" />
         </ScrollView>
-      </SafeAreaView>
+        </SafeAreaView>
+      </KeyboardAvoidingView>
       {AlertComponent}
     </>
   )

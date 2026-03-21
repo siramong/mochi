@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Modal, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native'
+import { KeyboardAvoidingView, Modal, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -349,25 +349,27 @@ export function HabitsScreen() {
       {/* Create Habit Modal */}
       <Modal visible={showModal} transparent animationType="slide">
         <View className="flex-1 justify-end bg-black/30">
-          <View className="rounded-t-3xl bg-white px-6 pb-10 pt-6">
-            <View className="mb-4 flex-row items-center justify-between">
-              <Text className="text-lg font-extrabold text-purple-900">Nuevo hábito</Text>
-              <TouchableOpacity onPress={() => setShowModal(false)}>
-                <Ionicons name="close" size={22} color="#7c3aed" />
-              </TouchableOpacity>
-            </View>
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="flex-1">
+            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+              <View className="rounded-t-3xl bg-white px-6 pb-10 pt-6">
+                <View className="mb-4 flex-row items-center justify-between">
+                  <Text className="text-lg font-extrabold text-purple-900">Nuevo hábito</Text>
+                  <TouchableOpacity onPress={() => setShowModal(false)}>
+                    <Ionicons name="close" size={22} color="#7c3aed" />
+                  </TouchableOpacity>
+                </View>
 
-            <Text className="mb-2 text-sm font-bold text-purple-800">Nombre</Text>
-            <TextInput
-              className="rounded-2xl border-2 border-purple-200 bg-purple-50 px-4 py-3 text-sm font-semibold text-slate-800"
-              placeholder="Ej. Leer 20 minutos, Meditar..."
-              placeholderTextColor="#c4b5fd"
-              value={newHabitName}
-              onChangeText={setNewHabitName}
-            />
+                <Text className="mb-2 text-sm font-bold text-purple-800">Nombre</Text>
+                <TextInput
+                  className="rounded-2xl border-2 border-purple-200 bg-purple-50 px-4 py-3 text-sm font-semibold text-slate-800"
+                  placeholder="Ej. Leer 20 minutos, Meditar..."
+                  placeholderTextColor="#c4b5fd"
+                  value={newHabitName}
+                  onChangeText={setNewHabitName}
+                />
 
-            <Text className="mb-2 mt-4 text-sm font-bold text-purple-800">Color</Text>
-            <View className="flex-row">
+                <Text className="mb-2 mt-4 text-sm font-bold text-purple-800">Color</Text>
+                <View className="flex-row">
               {COLOR_OPTIONS.map((color) => (
                 <TouchableOpacity
                   key={color}
@@ -403,7 +405,9 @@ export function HabitsScreen() {
                 {saving ? 'Creando...' : 'Crear hábito'}
               </Text>
             </TouchableOpacity>
-          </View>
+              </View>
+            </ScrollView>
+          </KeyboardAvoidingView>
         </View>
       </Modal>
       {AlertComponent}

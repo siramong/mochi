@@ -1,7 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import { GoogleGenerativeAI } from '@google/generative-ai'
 import OpenAI from 'openai'
-import type { AIRecipeResponse } from '@/src/shared/types/database'
+import type { AIRecipeResponse, RecipeDifficulty } from '@/src/shared/types/database'
 
 export interface AISuggestion {
   description: string
@@ -9,10 +8,7 @@ export interface AISuggestion {
   difficulty?: 'fácil' | 'medio' | 'difícil'
 }
 
-const API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY || ''
 const OPENROUTER_KEY = process.env.EXPO_PUBLIC_OPENROUTER_API_KEY || ''
-
-const genAI = new GoogleGenerativeAI(API_KEY)
 
 const openrouter = new OpenAI({
   baseURL: 'https://openrouter.ai/api/v1',
@@ -24,30 +20,22 @@ const openrouter = new OpenAI({
   dangerouslyAllowBrowser: true,
 })
 
-async function callGemini(prompt: string): Promise<string> {
-  if (!API_KEY) return ''
-
-  try {
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' })
-    const result = await model.generateContent(prompt)
-    const text = result.response.text()
-    console.log('🟢 Gemini OK:', text.slice(0, 80))
-    return text
-  } catch (error) {
-    console.error('🔴 Gemini error:', error)
-    return ''
-  }
-}
-
 async function callOpenRouter(prompt: string): Promise<string> {
   if (!OPENROUTER_KEY) return ''
 
   try {
     const completion = await openrouter.chat.completions.create({
       model: 'nvidia/nemotron-3-super-120b-a12b:free',
-      messages: [{ role: 'user', content: prompt }],
-      max_tokens: 200,
-      temperature: 0.7,
+      messages: [
+        {
+          role: 'system',
+          content:
+            'Responde siempre en espanol. Si te piden JSON, devuelve solo JSON valido, sin markdown ni texto extra.',
+        },
+        { role: 'user', content: prompt },
+      ],
+      max_tokens: 1400,
+      temperature: 0.4,
     })
 
     const text = completion.choices[0]?.message?.content ?? ''
@@ -60,11 +48,6 @@ async function callOpenRouter(prompt: string): Promise<string> {
 }
 
 async function callAI(prompt: string): Promise<string> {
-  if (API_KEY) {
-    const result = await callGemini(prompt)
-    if (result) return result
-  }
-
   if (OPENROUTER_KEY) {
     const result = await callOpenRouter(prompt)
     if (result) return result
@@ -153,14 +136,58 @@ export async function getDailyMotivation(
 
 // ─── Cocina ───────────────────────────────────────────────────────────────────
 
-/**
- * Genera una receta estructurada a partir del prompt libre de la usuaria.
- * Ejemplo: "quiero hacer unas quesadillas de champiñones para 2 personas"
- */
-export async function generateRecipe(userPrompt: string): Promise<AIRecipeResponse> {
-  const prompt = `Eres Mochi, una asistente de cocina adorable y experta. Una estudiante te pide:
+export type RecipeGenerationType = 'normal' | 'keto' | 'vegetariana' | 'vegana' | 'alta_proteina'
+
+export interface RecipeGenerationOptions {
+  recipeType: RecipeGenerationType
+  servings: number
+  complexity: RecipeDifficulty
+}
+
+function extractJsonObject(raw: string): string {
+  const clean = raw.replace(/```json\s*/gi, '').replace(/```\s*/gi, '').trim()
+  const firstBrace = clean.indexOf('{')
+  const lastBrace = clean.lastIndexOf('}')
+
+  if (firstBrace === -1 || lastBrace === -1 || lastBrace <= firstBrace) {
+    throw new Error('No se encontró un objeto JSON en la respuesta')
+  }
+
+  return clean.slice(firstBrace, lastBrace + 1)
+}
+
+function parseRecipeResponse(raw: string): AIRecipeResponse {
+  const parsed = JSON.parse(extractJsonObject(raw)) as AIRecipeResponse
+
+  if (!parsed.title || !Array.isArray(parsed.steps) || !Array.isArray(parsed.ingredients)) {
+    throw new Error('Respuesta de IA incompleta')
+  }
+
+  const validDifficulties: RecipeDifficulty[] = ['fácil', 'media', 'difícil']
+  if (!validDifficulties.includes(parsed.difficulty)) {
+    parsed.difficulty = 'media'
+  }
+
+  return parsed
+}
+
+function buildRecipePrompt(userPrompt: string, options: RecipeGenerationOptions): string {
+  const recipeTypeText: Record<RecipeGenerationType, string> = {
+    normal: 'Normal (sin restriccion especial)',
+    keto: 'Keto (baja en carbohidratos)',
+    vegetariana: 'Vegetariana (sin carne ni pescado)',
+    vegana: 'Vegana (sin ingredientes de origen animal)',
+    alta_proteina: 'Alta en proteina',
+  }
+
+  return `Eres Mochi, una asistente de cocina adorable y experta. Una estudiante te pide:
 
 "${userPrompt}"
+
+Configuracion obligatoria para esta receta:
+- Tipo de receta: ${recipeTypeText[options.recipeType]}
+- Cantidad de personas: ${options.servings}
+- Nivel de complejidad: ${options.complexity}
 
 Genera una receta detallada, realista y deliciosa en español. Responde ÚNICAMENTE con un objeto JSON válido (sin texto adicional, sin markdown, sin bloques de código) con esta estructura exacta:
 
@@ -169,8 +196,8 @@ Genera una receta detallada, realista y deliciosa en español. Responde ÚNICAME
   "description": "Descripción apetitosa de 1-2 oraciones",
   "prep_time_minutes": 10,
   "cook_time_minutes": 20,
-  "servings": 2,
-  "difficulty": "fácil",
+  "servings": ${options.servings},
+  "difficulty": "${options.complexity}",
   "cuisine_type": "mexicana",
   "tags": ["vegetariana", "rápida"],
   "ingredients": [
@@ -200,36 +227,38 @@ Genera una receta detallada, realista y deliciosa en español. Responde ÚNICAME
 }
 
 Reglas:
-- difficulty debe ser exactamente: "fácil", "media" o "difícil"
+- difficulty debe ser exactamente: "fácil", "media" o "difícil" y debe coincidir con el nivel solicitado
+- servings debe ser exactamente ${options.servings}
+- Ajusta ingredientes y porciones para ${options.servings} personas
+- Respeta estrictamente el tipo de receta solicitado
 - duration_seconds en los pasos: usa null si es un paso manual sin tiempo fijo
 - Los pasos deben ser suficientemente detallados para que alguien sin experiencia los siga
 - Máximo 12 ingredientes y 10 pasos
-- Los tips deben ser consejos prácticos y útiles
-- Si la usuaria no especificó porciones, usa 2 por defecto`
+- Los tips deben ser consejos prácticos y útiles`
+}
 
+/**
+ * Genera una receta estructurada a partir del prompt libre de la usuaria.
+ * Ejemplo: "quiero hacer unas quesadillas de champiñones para 2 personas"
+ */
+export async function generateRecipe(
+  userPrompt: string,
+  options: RecipeGenerationOptions
+): Promise<AIRecipeResponse> {
+  const prompt = buildRecipePrompt(userPrompt, options)
   const response = await callAI(prompt)
 
   try {
-    const clean = response
-      .replace(/```json\s*/gi, '')
-      .replace(/```\s*/gi, '')
-      .trim()
-
-    const parsed = JSON.parse(clean) as AIRecipeResponse
-
-    if (!parsed.title || !parsed.steps || !parsed.ingredients) {
-      throw new Error('Respuesta de IA incompleta')
+    return parseRecipeResponse(response)
+  } catch (firstError) {
+    try {
+      const repairPrompt = `Corrige y devuelve SOLO un JSON valido, sin texto adicional, usando exactamente la estructura solicitada. Mantén estos valores obligatorios: servings=${options.servings}, difficulty=${options.complexity}, tipo=${options.recipeType}. Respuesta original:\n\n${response}`
+      const repaired = await callAI(repairPrompt)
+      return parseRecipeResponse(repaired)
+    } catch (secondError) {
+      console.error('Error parseando receta de IA:', firstError, secondError, '\nRespuesta raw:', response)
+      throw new Error('No pude entender la respuesta de la IA. Intenta de nuevo.')
     }
-
-    const validDifficulties: AIRecipeResponse['difficulty'][] = ['fácil', 'media', 'difícil']
-    if (!validDifficulties.includes(parsed.difficulty)) {
-      parsed.difficulty = 'media'
-    }
-
-    return parsed
-  } catch (error) {
-    console.error('Error parseando receta de IA:', error, '\nRespuesta raw:', response)
-    throw new Error('No pude entender la respuesta de la IA. Intenta de nuevo.')
   }
 }
 

@@ -339,9 +339,10 @@ export function RecipePlayerScreen() {
 
   return (
     <>
-      <SafeAreaView className="flex-1 bg-orange-50">
-        {/* Header */}
-        <View className="px-5 pt-4">
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="flex-1 bg-orange-50">
+        <SafeAreaView className="flex-1">
+          {/* Header */}
+          <View className="px-5 pt-4">
           <View className="flex-row items-center justify-between">
             <TouchableOpacity
               className="flex-row items-center"
@@ -513,7 +514,8 @@ export function RecipePlayerScreen() {
             </TouchableOpacity>
           </View>
         </View>
-      </SafeAreaView>
+        </SafeAreaView>
+      </KeyboardAvoidingView>
 
       {/* Modal preguntarle a Mochi */}
       <Modal

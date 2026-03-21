@@ -14,8 +14,7 @@ Mochi is a personal productivity app designed specifically for women students. I
 | Routing | Expo Router v3 | React Router v7 |
 | Animations | react-native-reanimated v4 | Framer Motion |
 | Backend | Supabase (PostgreSQL + Auth + RLS) | Supabase (same instance) |
-| AI Primary | Google Gemini 2.0 Flash | Google Gemini 2.0 Flash |
-| AI Fallback | OpenRouter (nvidia/nemotron free) | OpenRouter |
+| AI | OpenRouter (nvidia/nemotron free) | — |
 | Notifications | expo-notifications | — |
 | Monorepo | Turborepo + pnpm | |
 | Deploy | EAS (Android APK planned) | Vercel |
@@ -62,7 +61,6 @@ cp apps/mobile/.env.local.example apps/mobile/.env.local
 ```
 EXPO_PUBLIC_SUPABASE_URL=
 EXPO_PUBLIC_SUPABASE_ANON_KEY=
-EXPO_PUBLIC_GEMINI_API_KEY=
 EXPO_PUBLIC_OPENROUTER_API_KEY=
 ```
 
@@ -70,7 +68,6 @@ EXPO_PUBLIC_OPENROUTER_API_KEY=
 ```
 VITE_SUPABASE_URL=
 VITE_SUPABASE_ANON_KEY=
-VITE_GEMINI_API_KEY=
 VITE_OPENROUTER_API_KEY=
 ```
 

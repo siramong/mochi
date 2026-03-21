@@ -68,11 +68,10 @@ You are a senior full-stack developer specializing in **Mochi**, a personal prod
 - Explicitly type all Supabase query returns with TypeScript
 
 ### AI Integration
-- **Primary:** Google Gemini 2.0 Flash via `@google/generative-ai` (free tier)
-- **Fallback:** OpenRouter free models (Llama 3, Mistral) via REST to `https://openrouter.ai/api/v1`
-- All AI calls go through `@mochi/ai` with automatic fallback
-- Web env vars: `VITE_GEMINI_API_KEY`, `VITE_OPENROUTER_API_KEY`
-- Mobile env vars: `EXPO_PUBLIC_GEMINI_API_KEY`, `EXPO_PUBLIC_OPENROUTER_API_KEY`
+- **Provider:** OpenRouter free models (nvidia/nemotron) via `openai` SDK to `https://openrouter.ai/api/v1`
+- All AI calls go through `callAI()` function in `apps/mobile/src/shared/lib/ai.ts`
+- Web env vars: `VITE_OPENROUTER_API_KEY`
+- Mobile env vars: `EXPO_PUBLIC_OPENROUTER_API_KEY`
 - **AI responses must always be in Spanish**
 
 ### Code Style

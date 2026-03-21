@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react'
-import { ScrollView, Text, TextInput, TouchableOpacity, View, ActivityIndicator } from 'react-native'
+import { KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, TouchableOpacity, View, ActivityIndicator } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { router } from 'expo-router'
 import { useFocusEffect } from '@react-navigation/native'
@@ -165,8 +165,8 @@ export function RoutineCreateScreen() {
   }
 
   return (
-    <>
-      <ScrollView className="flex-1 bg-teal-100">
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="flex-1">
+      <ScrollView className="flex-1 bg-teal-100" keyboardShouldPersistTaps="handled">
         <View className="px-5 py-6">
         <TouchableOpacity onPress={() => router.back()} className="mb-4 flex-row items-center">
           <Ionicons name="chevron-back" size={24} color="#0d9488" />
@@ -285,7 +285,7 @@ export function RoutineCreateScreen() {
         </View>
       </ScrollView>
       {AlertComponent}
-    </>
+    </KeyboardAvoidingView>
   )
 }
 

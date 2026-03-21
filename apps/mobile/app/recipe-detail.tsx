@@ -2,6 +2,8 @@ import { Ionicons } from '@expo/vector-icons'
 import { useCallback, useState } from 'react'
 import {
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
   ScrollView,
   Text,
   TextInput,
@@ -237,8 +239,9 @@ export function RecipeDetailScreen() {
 
   return (
     <>
-      <SafeAreaView className="flex-1 bg-orange-50">
-        <ScrollView className="flex-1 px-5" showsVerticalScrollIndicator={false}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="flex-1 bg-orange-50">
+        <SafeAreaView className="flex-1">
+          <ScrollView className="flex-1 px-5" showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
           {/* Nav */}
           <View className="mt-4 flex-row items-center justify-between">
             <TouchableOpacity className="flex-row items-center" onPress={() => router.back()}>
@@ -485,10 +488,10 @@ export function RecipeDetailScreen() {
           </View>
 
           <View className="h-32" />
-        </ScrollView>
+          </ScrollView>
 
-        {/* CTA fijo */}
-        <View className="absolute bottom-0 left-0 right-0 border-t border-orange-200 bg-orange-50 px-5 pb-8 pt-3">
+          {/* CTA fijo */}
+          <View className="absolute bottom-0 left-0 right-0 border-t border-orange-200 bg-orange-50 px-5 pb-8 pt-3">
           <TouchableOpacity
             className="flex-row items-center justify-center rounded-2xl bg-orange-500 py-4"
             onPress={handleStartCooking}
@@ -500,7 +503,8 @@ export function RecipeDetailScreen() {
             </Text>
           </TouchableOpacity>
         </View>
-      </SafeAreaView>
+        </SafeAreaView>
+      </KeyboardAvoidingView>
       {AlertComponent}
     </>
   )

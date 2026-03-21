@@ -2,7 +2,9 @@ import { Ionicons } from '@expo/vector-icons'
 import { useCallback, useState } from 'react'
 import {
   ActivityIndicator,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   ScrollView,
   Text,
   TextInput,
@@ -19,13 +21,28 @@ import { generateRecipe } from '@/src/shared/lib/ai'
 import { addPoints, checkCookingRecipeAchievements } from '@/src/shared/lib/gamification'
 import { useCustomAlert } from '@/src/shared/components/CustomAlert'
 import { MochiCharacter } from '@/src/shared/components/MochiCharacter'
-import type { Recipe, AIRecipeResponse } from '@/src/shared/types/database'
+import type { Recipe, AIRecipeResponse, RecipeDifficulty } from '@/src/shared/types/database'
+import type { RecipeGenerationType } from '@/src/shared/lib/ai'
 
 const difficultyConfig: Record<string, { label: string; className: string; textClass: string }> = {
   'fácil':   { label: 'Fácil',   className: 'bg-green-100',  textClass: 'text-green-800' },
   'media':   { label: 'Media',   className: 'bg-yellow-100', textClass: 'text-yellow-800' },
   'difícil': { label: 'Difícil', className: 'bg-red-100',    textClass: 'text-red-800' },
 }
+
+const recipeTypeOptions: Array<{ value: RecipeGenerationType; label: string }> = [
+  { value: 'normal', label: 'Normal' },
+  { value: 'keto', label: 'Keto' },
+  { value: 'vegetariana', label: 'Vegetariana' },
+  { value: 'vegana', label: 'Vegana' },
+  { value: 'alta_proteina', label: 'Alta proteína' },
+]
+
+const complexityOptions: Array<{ value: RecipeDifficulty; label: string }> = [
+  { value: 'fácil', label: 'Fácil' },
+  { value: 'media', label: 'Media' },
+  { value: 'difícil', label: 'Difícil' },
+]
 
 function RecipeCard({ recipe, onPress }: { recipe: Recipe; onPress: () => void }) {
   const diff = difficultyConfig[recipe.difficulty] ?? difficultyConfig['media']
@@ -100,6 +117,9 @@ export function CookingScreen() {
 
   const [showGenerateModal, setShowGenerateModal] = useState(false)
   const [prompt, setPrompt] = useState('')
+  const [recipeType, setRecipeType] = useState<RecipeGenerationType>('normal')
+  const [servings, setServings] = useState(2)
+  const [complexity, setComplexity] = useState<RecipeDifficulty>('media')
   const [generating, setGenerating] = useState(false)
   const [generatingStep, setGeneratingStep] = useState('')
 
@@ -132,7 +152,11 @@ export function CookingScreen() {
       setGenerating(true)
       setGeneratingStep('Pensando en tu receta...')
 
-      const aiRecipe: AIRecipeResponse = await generateRecipe(prompt.trim())
+      const aiRecipe: AIRecipeResponse = await generateRecipe(prompt.trim(), {
+        recipeType,
+        servings,
+        complexity,
+      })
       setGeneratingStep('Guardando receta...')
 
       const totalTime = aiRecipe.prep_time_minutes + aiRecipe.cook_time_minutes
@@ -150,7 +174,7 @@ export function CookingScreen() {
           difficulty: aiRecipe.difficulty,
           cuisine_type: aiRecipe.cuisine_type || null,
           tags: aiRecipe.tags ?? [],
-          user_prompt: prompt.trim(),
+          user_prompt: `${prompt.trim()} | Tipo: ${recipeType} | Personas: ${servings} | Complejidad: ${complexity}`,
         })
         .select('id')
         .single()
@@ -186,6 +210,9 @@ export function CookingScreen() {
 
       setShowGenerateModal(false)
       setPrompt('')
+      setRecipeType('normal')
+      setServings(2)
+      setComplexity('media')
       await loadRecipes()
       router.push(`/recipe-detail?recipeId=${recipeId}`)
     } catch (err) {
@@ -260,8 +287,10 @@ export function CookingScreen() {
         <TouchableWithoutFeedback onPress={() => { if (!generating) setShowGenerateModal(false) }}>
           <View className="flex-1 justify-end bg-black/40">
             <TouchableWithoutFeedback onPress={() => undefined}>
-              <View className="rounded-t-3xl bg-white px-5 pb-10 pt-5">
-                <View className="mb-4 h-1.5 w-16 self-center rounded-full bg-slate-200" />
+              <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="flex-1">
+                <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+                  <View className="rounded-t-3xl bg-white px-5 pb-10 pt-5">
+                    <View className="mb-4 h-1.5 w-16 self-center rounded-full bg-slate-200" />
 
                 {generating ? (
                   <View className="items-center py-8">
@@ -285,6 +314,62 @@ export function CookingScreen() {
                         • "pollo al horno fácil para 4, menos de 40 minutos"
                       </Text>
                     </View>
+                    <View className="mt-4 rounded-2xl border-2 border-orange-200 bg-orange-50 px-4 py-3">
+                      <Text className="text-xs font-bold text-orange-700">Tipo de receta</Text>
+                      <View className="mt-2 flex-row flex-wrap gap-2">
+                        {recipeTypeOptions.map((option) => {
+                          const selected = recipeType === option.value
+                          return (
+                            <TouchableOpacity
+                              key={option.value}
+                              className={`rounded-full border px-3 py-1 ${selected ? 'border-orange-500 bg-orange-500' : 'border-orange-200 bg-white'}`}
+                              onPress={() => setRecipeType(option.value)}
+                            >
+                              <Text className={`text-xs font-bold ${selected ? 'text-white' : 'text-orange-700'}`}>
+                                {option.label}
+                              </Text>
+                            </TouchableOpacity>
+                          )
+                        })}
+                      </View>
+
+                      <Text className="mt-4 text-xs font-bold text-orange-700">Cantidad de personas</Text>
+                      <View className="mt-2 flex-row items-center justify-between rounded-2xl border border-orange-200 bg-white px-3 py-2">
+                        <TouchableOpacity
+                          className="rounded-full border border-orange-200 bg-orange-50 px-3 py-1"
+                          onPress={() => setServings((prev) => Math.max(1, prev - 1))}
+                        >
+                          <Text className="text-sm font-extrabold text-orange-700">-</Text>
+                        </TouchableOpacity>
+                        <Text className="text-base font-extrabold text-orange-900">
+                          {servings} {servings === 1 ? 'persona' : 'personas'}
+                        </Text>
+                        <TouchableOpacity
+                          className="rounded-full border border-orange-200 bg-orange-50 px-3 py-1"
+                          onPress={() => setServings((prev) => Math.min(12, prev + 1))}
+                        >
+                          <Text className="text-sm font-extrabold text-orange-700">+</Text>
+                        </TouchableOpacity>
+                      </View>
+
+                      <Text className="mt-4 text-xs font-bold text-orange-700">Nivel de complejidad</Text>
+                      <View className="mt-2 flex-row gap-2">
+                        {complexityOptions.map((option) => {
+                          const selected = complexity === option.value
+                          return (
+                            <TouchableOpacity
+                              key={option.value}
+                              className={`flex-1 rounded-xl border px-3 py-2 ${selected ? 'border-orange-500 bg-orange-500' : 'border-orange-200 bg-white'}`}
+                              onPress={() => setComplexity(option.value)}
+                            >
+                              <Text className={`text-center text-xs font-bold ${selected ? 'text-white' : 'text-orange-700'}`}>
+                                {option.label}
+                              </Text>
+                            </TouchableOpacity>
+                          )
+                        })}
+                      </View>
+                    </View>
                     <TextInput
                       className="mt-4 min-h-24 rounded-2xl border-2 border-orange-200 bg-white px-4 py-3 text-sm font-semibold text-slate-800"
                       placeholder="Quiero hacer..."
@@ -298,7 +383,13 @@ export function CookingScreen() {
                     <View className="mt-5 flex-row gap-3">
                       <TouchableOpacity
                         className="flex-1 rounded-2xl border-2 border-orange-200 py-3"
-                        onPress={() => { setShowGenerateModal(false); setPrompt('') }}
+                        onPress={() => {
+                          setShowGenerateModal(false)
+                          setPrompt('')
+                          setRecipeType('normal')
+                          setServings(2)
+                          setComplexity('media')
+                        }}
                       >
                         <Text className="text-center font-bold text-orange-700">Cancelar</Text>
                       </TouchableOpacity>
@@ -312,7 +403,9 @@ export function CookingScreen() {
                     </View>
                   </>
                 )}
-              </View>
+                  </View>
+                </ScrollView>
+              </KeyboardAvoidingView>
             </TouchableWithoutFeedback>
           </View>
         </TouchableWithoutFeedback>
