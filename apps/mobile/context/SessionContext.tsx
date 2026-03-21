@@ -1,4 +1,13 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react'
+import { AppState, type AppStateStatus } from 'react-native'
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 
@@ -16,6 +25,16 @@ type SessionProviderProps = {
   children: ReactNode
 }
 
+async function fetchOnboardingStatus(userId: string): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('full_name')
+    .eq('id', userId)
+    .single()
+  if (error) throw error
+  return !data?.full_name?.trim()
+}
+
 export function SessionProvider({ children }: SessionProviderProps) {
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
@@ -24,23 +43,16 @@ export function SessionProvider({ children }: SessionProviderProps) {
 
   const refreshProfile = useCallback(async () => {
     if (!session?.user.id) return
-
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('full_name')
-        .eq('id', session.user.id)
-        .single()
-
-      if (error) throw error
-
-      setRequiresOnboarding(!data?.full_name?.trim())
+      const needsOnboarding = await fetchOnboardingStatus(session.user.id)
+      setRequiresOnboarding(needsOnboarding)
       setProfileError(null)
     } catch (error) {
       setProfileError(error instanceof Error ? error.message : 'Error cargando perfil')
     }
   }, [session?.user.id])
 
+  // ─── Inicialización y listener de auth ───────────────────────────────────────
   useEffect(() => {
     let mounted = true
 
@@ -55,21 +67,19 @@ export function SessionProvider({ children }: SessionProviderProps) {
 
       if (initialSession?.user.id) {
         try {
-          const { data, error } = await supabase
-            .from('profiles')
-            .select('full_name')
-            .eq('id', initialSession.user.id)
-            .single()
-
-          if (error) throw error
-          setRequiresOnboarding(!data?.full_name?.trim())
-          setProfileError(null)
+          const needsOnboarding = await fetchOnboardingStatus(initialSession.user.id)
+          if (mounted) {
+            setRequiresOnboarding(needsOnboarding)
+            setProfileError(null)
+          }
         } catch (error) {
-          setProfileError(error instanceof Error ? error.message : 'Error cargando perfil')
+          if (mounted) {
+            setProfileError(error instanceof Error ? error.message : 'Error cargando perfil')
+          }
         }
       }
 
-      setLoading(false)
+      if (mounted) setLoading(false)
     }
 
     void initializeSession()
@@ -89,17 +99,15 @@ export function SessionProvider({ children }: SessionProviderProps) {
         }
 
         try {
-          const { data, error } = await supabase
-            .from('profiles')
-            .select('full_name')
-            .eq('id', nextSession.user.id)
-            .single()
-
-          if (error) throw error
-          setRequiresOnboarding(!data?.full_name?.trim())
-          setProfileError(null)
+          const needsOnboarding = await fetchOnboardingStatus(nextSession.user.id)
+          if (mounted) {
+            setRequiresOnboarding(needsOnboarding)
+            setProfileError(null)
+          }
         } catch (error) {
-          setProfileError(error instanceof Error ? error.message : 'Error cargando perfil')
+          if (mounted) {
+            setProfileError(error instanceof Error ? error.message : 'Error cargando perfil')
+          }
         }
       }
     )
@@ -108,6 +116,38 @@ export function SessionProvider({ children }: SessionProviderProps) {
       mounted = false
       subscription.unsubscribe()
     }
+  }, [])
+
+  // ─── AppState: refrescar sesión al volver al primer plano ────────────────────
+  // Cuando Android/iOS suspende la app, el autoRefresh se pausa.
+  // Al volver al primer plano llamamos getSession() para que Supabase
+  // detecte si el token expiró y lo refresque antes de que el usuario
+  // intente hacer cualquier acción.
+  useEffect(() => {
+    const handleAppStateChange = async (nextState: AppStateStatus) => {
+      if (nextState !== 'active') return
+
+      try {
+        const { data, error } = await supabase.auth.getSession()
+        if (error || !data.session) return
+
+        // Si la sesión cambió (nuevo access_token tras refresh), actualizamos
+        setSession((prev) => {
+          if (prev?.access_token !== data.session?.access_token) {
+            return data.session
+          }
+          return prev
+        })
+      } catch {
+        // Silencioso — el listener de onAuthStateChange se encargará
+      }
+    }
+
+    const subscription = AppState.addEventListener('change', (state) => {
+      void handleAppStateChange(state)
+    })
+
+    return () => subscription.remove()
   }, [])
 
   const value = useMemo(
@@ -126,10 +166,8 @@ export function SessionProvider({ children }: SessionProviderProps) {
 
 export function useSession() {
   const context = useContext(SessionContext)
-
   if (!context) {
     throw new Error('useSession debe usarse dentro de SessionProvider')
   }
-
   return context
 }
