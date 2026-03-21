@@ -3,10 +3,10 @@ import { ActivityIndicator, ScrollView, Text, TextInput, TouchableOpacity, View 
 import { Ionicons } from '@expo/vector-icons'
 import { router, useLocalSearchParams } from 'expo-router'
 import { useFocusEffect } from '@react-navigation/native'
-import TimePickerModal from '@/components/TimePickerModal'
-import { useCustomAlert } from '@/components/CustomAlert'
-import { useSession } from '@/context/SessionContext'
-import { supabase } from '@/lib/supabase'
+import TimePickerModal from '@/src/shared/components/TimePickerModal'
+import { useCustomAlert } from '@/src/shared/components/CustomAlert'
+import { useSession } from '@/src/core/providers/SessionContext'
+import { supabase } from '@/src/shared/lib/supabase'
 
 const daysOfWeek = [
   { value: 0, label: 'Domingo' },

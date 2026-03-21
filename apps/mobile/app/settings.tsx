@@ -4,11 +4,11 @@ import { Linking, ScrollView, Switch, Text, TextInput, TouchableOpacity, View } 
 import { router } from 'expo-router'
 import { useFocusEffect } from '@react-navigation/native'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { MochiCharacter } from '@/components/MochiCharacter'
-import TimePickerModal from '@/components/TimePickerModal'
-import { useCustomAlert } from '@/components/CustomAlert'
-import { useSession } from '@/context/SessionContext'
-import { supabase } from '@/lib/supabase'
+import { MochiCharacter } from '@/src/shared/components/MochiCharacter'
+import TimePickerModal from '@/src/shared/components/TimePickerModal'
+import { useCustomAlert } from '@/src/shared/components/CustomAlert'
+import { useSession } from '@/src/core/providers/SessionContext'
+import { supabase } from '@/src/shared/lib/supabase'
 import {
   cancelAllNotifications,
   cancelAllStudyBlockReminders,
@@ -24,8 +24,8 @@ import {
   scheduleMorningReminder,
   scheduleStudyBlockReminders,
   type NotificationPrefs,
-} from '@/lib/notifications'
-import type { StudyBlock, UserSettings } from '@/types/database'
+} from '@/src/shared/lib/notifications'
+import type { StudyBlock, UserSettings } from '@/src/shared/types/database'
 
 type ProfileSettings = {
   full_name: string | null

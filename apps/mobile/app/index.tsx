@@ -10,14 +10,14 @@ import Animated, {
   withSequence,
   withTiming,
 } from 'react-native-reanimated'
-import { supabase } from '@/lib/supabase'
-import { useSession } from '@/context/SessionContext'
-import { useScreenTheme } from '@/hooks/useScreenTheme'
-import { BottomNav, MobileScreen } from '@/components/BottomNav'
-import { ExerciseRoutine } from '@/components/ExerciseRoutine'
-import { HomeDashboard } from '@/components/HomeDashboard'
-import { StudySchedule } from '@/components/StudySchedule'
-import { MochiCharacter } from '@/components/MochiCharacter'
+import { supabase } from '@/src/shared/lib/supabase'
+import { useSession } from '@/src/core/providers/SessionContext'
+import { useScreenTheme } from '@/src/shared/hooks/useScreenTheme'
+import { BottomNav, MobileScreen } from '@/src/features/home/components/BottomNav'
+import { ExerciseRoutine } from '@/src/features/exercise/components/ExerciseRoutine'
+import { HomeDashboard } from '@/src/features/home/components/HomeDashboard'
+import { StudySchedule } from '@/src/features/study/components/StudySchedule'
+import { MochiCharacter } from '@/src/shared/components/MochiCharacter'
 import { HabitsScreen } from '@/app/habits'
 import { CookingScreen } from '@/app/cooking'
 

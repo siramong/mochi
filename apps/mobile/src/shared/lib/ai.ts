@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import OpenAI from 'openai'
-import type { AIRecipeResponse } from '@/types/database'
+import type { AIRecipeResponse } from '@/src/shared/types/database'
 
 export interface AISuggestion {
   description: string

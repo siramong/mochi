@@ -3,10 +3,10 @@ import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'rea
 import { Ionicons } from '@expo/vector-icons'
 import { router } from 'expo-router'
 import { useFocusEffect } from '@react-navigation/native'
-import { supabase } from '@/lib/supabase'
-import { useSession } from '@/context/SessionContext'
-import { useCustomAlert } from '@/components/CustomAlert'
-import type { Exercise } from '@/types/database'
+import { supabase } from '@/src/shared/lib/supabase'
+import { useSession } from '@/src/core/providers/SessionContext'
+import { useCustomAlert } from '@/src/shared/components/CustomAlert'
+import type { Exercise } from '@/src/shared/types/database'
 
 export function ExerciseListScreen() {
   const { session } = useSession()

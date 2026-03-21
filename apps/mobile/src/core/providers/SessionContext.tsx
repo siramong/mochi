@@ -9,7 +9,7 @@ import {
 } from 'react'
 import { AppState, type AppStateStatus } from 'react-native'
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js'
-import { supabase } from '@/lib/supabase'
+import { supabase } from '@/src/shared/lib/supabase'
 
 type SessionContextValue = {
   session: Session | null

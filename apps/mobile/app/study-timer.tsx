@@ -9,12 +9,12 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated'
-import { supabase } from '@/lib/supabase'
-import { useSession } from '@/context/SessionContext'
-import { useAchievement } from '@/context/AchievementContext'
-import { MochiCharacter } from '@/components/MochiCharacter'
-import { addPoints, checkStudyAchievements, updateStreak, checkStreakAchievements } from '@/lib/gamification'
-import type { StudyBlock } from '@/types/database'
+import { supabase } from '@/src/shared/lib/supabase'
+import { useSession } from '@/src/core/providers/SessionContext'
+import { useAchievement } from '@/src/core/providers/AchievementContext'
+import { MochiCharacter } from '@/src/shared/components/MochiCharacter'
+import { addPoints, checkStudyAchievements, updateStreak, checkStreakAchievements } from '@/src/shared/lib/gamification'
+import type { StudyBlock } from '@/src/shared/types/database'
 
 function parseTimeToSeconds(timeStr: string): number {
   const [hours, minutes] = timeStr.split(':').map(Number)

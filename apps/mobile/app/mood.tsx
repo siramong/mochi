@@ -4,11 +4,11 @@ import { ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-nativ
 import { router } from 'expo-router'
 import { useFocusEffect } from '@react-navigation/native'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { MochiCharacter } from '@/components/MochiCharacter'
-import { useCustomAlert } from '@/components/CustomAlert'
-import { useSession } from '@/context/SessionContext'
-import { supabase } from '@/lib/supabase'
-import type { MoodLog } from '@/types/database'
+import { MochiCharacter } from '@/src/shared/components/MochiCharacter'
+import { useCustomAlert } from '@/src/shared/components/CustomAlert'
+import { useSession } from '@/src/core/providers/SessionContext'
+import { supabase } from '@/src/shared/lib/supabase'
+import type { MoodLog } from '@/src/shared/types/database'
 
 type MoodOption = {
   value: number

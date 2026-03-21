@@ -13,11 +13,11 @@ import Animated, {
   withSpring,
   withTiming,
 } from 'react-native-reanimated'
-import { supabase } from '@/lib/supabase'
-import { useSession } from '@/context/SessionContext'
-import type { StudyBlock } from '@/types/database'
-import { MochiCharacter } from '@/components/MochiCharacter'
-import { useCustomAlert } from '@/components/CustomAlert'
+import { supabase } from '@/src/shared/lib/supabase'
+import { useSession } from '@/src/core/providers/SessionContext'
+import type { StudyBlock } from '@/src/shared/types/database'
+import { MochiCharacter } from '@/src/shared/components/MochiCharacter'
+import { useCustomAlert } from '@/src/shared/components/CustomAlert'
 
 const days = ['L', 'M', 'X', 'J', 'V', 'S', 'D']
 const dayOfWeekMap: Record<string, number> = {

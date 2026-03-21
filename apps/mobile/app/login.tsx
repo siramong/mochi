@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { ActivityIndicator, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
-import { supabase } from '@/lib/supabase'
+import { supabase } from '@/src/shared/lib/supabase'
 
 export function LoginScreen() {
   const [email, setEmail] = useState('')

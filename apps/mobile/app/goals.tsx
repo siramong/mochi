@@ -13,13 +13,13 @@ import {
 import { router } from 'expo-router'
 import { useFocusEffect } from '@react-navigation/native'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { GoalCard } from '@/components/GoalCard'
-import { MochiCharacter } from '@/components/MochiCharacter'
-import { useCustomAlert } from '@/components/CustomAlert'
-import { useSession } from '@/context/SessionContext'
-import { addPoints } from '@/lib/gamification'
-import { supabase } from '@/lib/supabase'
-import type { Goal } from '@/types/database'
+import { GoalCard } from '@/src/features/goals/components/GoalCard'
+import { MochiCharacter } from '@/src/shared/components/MochiCharacter'
+import { useCustomAlert } from '@/src/shared/components/CustomAlert'
+import { useSession } from '@/src/core/providers/SessionContext'
+import { addPoints } from '@/src/shared/lib/gamification'
+import { supabase } from '@/src/shared/lib/supabase'
+import type { Goal } from '@/src/shared/types/database'
 
 type GoalColor = {
   key: string

@@ -12,10 +12,10 @@ import Animated, {
 } from "react-native-reanimated";
 import * as Notifications from "expo-notifications";
 import { SystemBars } from "react-native-edge-to-edge";
-import { SessionProvider, useSession } from "@/context/SessionContext";
-import { SystemBarsProvider, useSystemBars } from "@/context/SystemBarsContext";
-import { AchievementProvider } from "@/context/AchievementContext";
-import { MochiCharacter } from "@/components/MochiCharacter";
+import { SessionProvider, useSession } from "@/src/core/providers/SessionContext";
+import { SystemBarsProvider, useSystemBars } from "@/src/core/providers/SystemBarsContext";
+import { AchievementProvider } from "@/src/core/providers/AchievementContext";
+import { MochiCharacter } from "@/src/shared/components/MochiCharacter";
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({

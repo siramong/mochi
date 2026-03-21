@@ -12,10 +12,10 @@ import Animated, {
   withSequence,
   withTiming,
 } from 'react-native-reanimated'
-import { supabase } from '@/lib/supabase'
-import { useSession } from '@/context/SessionContext'
-import { MochiCharacter } from '@/components/MochiCharacter'
-import type { Achievement, UserAchievement, Streak } from '@/types/database'
+import { supabase } from '@/src/shared/lib/supabase'
+import { useSession } from '@/src/core/providers/SessionContext'
+import { MochiCharacter } from '@/src/shared/components/MochiCharacter'
+import type { Achievement, UserAchievement, Streak } from '@/src/shared/types/database'
 
 interface Profile {
   full_name: string

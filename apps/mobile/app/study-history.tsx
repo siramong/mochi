@@ -12,10 +12,10 @@ import Animated, {
   withSequence,
   withTiming,
 } from 'react-native-reanimated'
-import { supabase } from '@/lib/supabase'
-import { useSession } from '@/context/SessionContext'
-import { MochiCharacter } from '@/components/MochiCharacter'
-import type { StudySession } from '@/types/database'
+import { supabase } from '@/src/shared/lib/supabase'
+import { useSession } from '@/src/core/providers/SessionContext'
+import { MochiCharacter } from '@/src/shared/components/MochiCharacter'
+import type { StudySession } from '@/src/shared/types/database'
 
 function formatDuration(seconds: number): string {
   const h = Math.floor(seconds / 3600)

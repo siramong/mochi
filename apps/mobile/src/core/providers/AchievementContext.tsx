@@ -5,7 +5,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import { AchievementToast } from '@/components/AchievementToast'
+import { AchievementToast } from '@/src/shared/components/AchievementToast'
 
 type AchievementToastData = {
   title: string

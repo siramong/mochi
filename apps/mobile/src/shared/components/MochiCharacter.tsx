@@ -49,7 +49,7 @@ export function MochiCharacter({ mood, size = 80 }: MochiCharacterProps) {
 
   return (
     <AnimatedImage
-      source={require('../assets/icon.png')}
+      source={require('../../../assets/icon.png')}
       style={[{ width: resolvedSize, height: resolvedSize }, animatedStyle]}
       resizeMode="contain"
     />

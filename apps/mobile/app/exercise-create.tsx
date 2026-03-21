@@ -2,10 +2,10 @@ import { useState } from 'react'
 import { ActivityIndicator, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { router, useLocalSearchParams } from 'expo-router'
-import { supabase } from '@/lib/supabase'
-import { useSession } from '@/context/SessionContext'
-import { suggestExerciseDescription } from '@/lib/ai'
-import { useCustomAlert } from '@/components/CustomAlert'
+import { supabase } from '@/src/shared/lib/supabase'
+import { useSession } from '@/src/core/providers/SessionContext'
+import { suggestExerciseDescription } from '@/src/shared/lib/ai'
+import { useCustomAlert } from '@/src/shared/components/CustomAlert'
 
 export function CreateExerciseScreen() {
   const { session } = useSession()

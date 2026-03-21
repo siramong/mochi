@@ -11,12 +11,12 @@ import Animated, {
   withSequence,
   withTiming,
 } from 'react-native-reanimated'
-import { supabase } from '@/lib/supabase'
-import { useSession } from '@/context/SessionContext'
-import type { StudyBlock, RoutineWithExercises, Recipe } from '@/types/database'
-import { MochiCharacter } from '@/components/MochiCharacter'
-import { DailyMotivation } from '@/components/DailyMotivation'
-import { getGreeting, getTimeColor, getTimeIcon, getTimeOfDay, type TimeOfDay } from '@/lib/timeContext'
+import { supabase } from '@/src/shared/lib/supabase'
+import { useSession } from '@/src/core/providers/SessionContext'
+import type { StudyBlock, RoutineWithExercises, Recipe } from '@/src/shared/types/database'
+import { MochiCharacter } from '@/src/shared/components/MochiCharacter'
+import { DailyMotivation } from '@/src/features/home/components/DailyMotivation'
+import { getGreeting, getTimeColor, getTimeIcon, getTimeOfDay, type TimeOfDay } from '@/src/shared/lib/timeContext'
 
 type HomeDashboardProps = {
   userName: string

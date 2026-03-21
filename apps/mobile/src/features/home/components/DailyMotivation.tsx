@@ -8,8 +8,8 @@ import Animated, {
   withSequence,
   withTiming,
 } from 'react-native-reanimated'
-import { getDailyMotivation } from '@/lib/ai'
-import { MochiCharacter } from '@/components/MochiCharacter'
+import { getDailyMotivation } from '@/src/shared/lib/ai'
+import { MochiCharacter } from '@/src/shared/components/MochiCharacter'
 
 type DailyMotivationProps = {
   userName: string

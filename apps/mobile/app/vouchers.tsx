@@ -6,11 +6,11 @@ import { useFocusEffect } from '@react-navigation/native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { captureRef } from 'react-native-view-shot'
 import * as Sharing from 'expo-sharing'
-import { MochiCharacter } from '@/components/MochiCharacter'
-import { useCustomAlert } from '@/components/CustomAlert'
-import { useSession } from '@/context/SessionContext'
-import { supabase } from '@/lib/supabase'
-import type { Voucher, VoucherTemplate } from '@/types/database'
+import { MochiCharacter } from '@/src/shared/components/MochiCharacter'
+import { useCustomAlert } from '@/src/shared/components/CustomAlert'
+import { useSession } from '@/src/core/providers/SessionContext'
+import { supabase } from '@/src/shared/lib/supabase'
+import type { Voucher, VoucherTemplate } from '@/src/shared/types/database'
 
 type ProfilePoints = {
   total_points: number

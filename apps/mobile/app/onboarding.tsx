@@ -2,14 +2,14 @@ import { useMemo, useState } from 'react'
 import { ActivityIndicator, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { router } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
-import { supabase } from '@/lib/supabase'
-import { MochiCharacter } from '@/components/MochiCharacter'
-import TimePickerModal from '@/components/TimePickerModal'
+import { supabase } from '@/src/shared/lib/supabase'
+import { MochiCharacter } from '@/src/shared/components/MochiCharacter'
+import TimePickerModal from '@/src/shared/components/TimePickerModal'
 import {
   requestNotificationPermissions,
   saveNotificationPrefs,
   scheduleMorningReminder,
-} from '@/lib/notifications'
+} from '@/src/shared/lib/notifications'
 
 type Step = 'profile' | 'modules'
 

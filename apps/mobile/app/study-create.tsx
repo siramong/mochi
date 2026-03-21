@@ -2,11 +2,11 @@ import { useState } from 'react'
 import { ActivityIndicator, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { router } from 'expo-router'
-import { supabase } from '@/lib/supabase'
-import { useSession } from '@/context/SessionContext'
-import TimePickerModal from '@/components/TimePickerModal'
-import { suggestStudyDuration } from '@/lib/ai'
-import { useCustomAlert } from '@/components/CustomAlert'
+import { supabase } from '@/src/shared/lib/supabase'
+import { useSession } from '@/src/core/providers/SessionContext'
+import TimePickerModal from '@/src/shared/components/TimePickerModal'
+import { suggestStudyDuration } from '@/src/shared/lib/ai'
+import { useCustomAlert } from '@/src/shared/components/CustomAlert'
 
 const daysOfWeek = [
   { value: 0, label: 'Domingo' },

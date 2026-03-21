@@ -6,7 +6,7 @@ import Animated, {
   useSharedValue,
   withSpring,
 } from 'react-native-reanimated'
-import type { Habit } from '@/types/database'
+import type { Habit } from '@/src/shared/types/database'
 
 type HabitCardProps = {
   habit: Habit

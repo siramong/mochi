@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons'
 import { Text, TouchableOpacity, View } from 'react-native'
-import type { Goal } from '@/types/database'
+import type { Goal } from '@/src/shared/types/database'
 
 type GoalCardProps = {
   goal: Goal

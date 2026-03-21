@@ -12,14 +12,14 @@ import {
 } from 'react-native'
 import { router } from 'expo-router'
 import { useFocusEffect } from '@react-navigation/native'
-import { supabase } from '@/lib/supabase'
-import { useSession } from '@/context/SessionContext'
-import { useAchievement } from '@/context/AchievementContext'
-import { generateRecipe } from '@/lib/ai'
-import { addPoints, checkCookingRecipeAchievements } from '@/lib/gamification'
-import { useCustomAlert } from '@/components/CustomAlert'
-import { MochiCharacter } from '@/components/MochiCharacter'
-import type { Recipe, AIRecipeResponse } from '@/types/database'
+import { supabase } from '@/src/shared/lib/supabase'
+import { useSession } from '@/src/core/providers/SessionContext'
+import { useAchievement } from '@/src/core/providers/AchievementContext'
+import { generateRecipe } from '@/src/shared/lib/ai'
+import { addPoints, checkCookingRecipeAchievements } from '@/src/shared/lib/gamification'
+import { useCustomAlert } from '@/src/shared/components/CustomAlert'
+import { MochiCharacter } from '@/src/shared/components/MochiCharacter'
+import type { Recipe, AIRecipeResponse } from '@/src/shared/types/database'
 
 const difficultyConfig: Record<string, { label: string; className: string; textClass: string }> = {
   'fácil':   { label: 'Fácil',   className: 'bg-green-100',  textClass: 'text-green-800' },

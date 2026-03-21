@@ -11,12 +11,12 @@ import Animated, {
   withSpring,
   withTiming,
 } from 'react-native-reanimated'
-import { supabase } from '@/lib/supabase'
-import { useSession } from '@/context/SessionContext'
-import { useAchievement } from '@/context/AchievementContext'
-import { MochiCharacter } from '@/components/MochiCharacter'
-import { addPoints, checkExerciseAchievements, updateStreak, checkStreakAchievements } from '@/lib/gamification'
-import type { RoutineWithExercises } from '@/types/database'
+import { supabase } from '@/src/shared/lib/supabase'
+import { useSession } from '@/src/core/providers/SessionContext'
+import { useAchievement } from '@/src/core/providers/AchievementContext'
+import { MochiCharacter } from '@/src/shared/components/MochiCharacter'
+import { addPoints, checkExerciseAchievements, updateStreak, checkStreakAchievements } from '@/src/shared/lib/gamification'
+import type { RoutineWithExercises } from '@/src/shared/types/database'
 
 type Phase = 'exercise' | 'rest' | 'complete'
 

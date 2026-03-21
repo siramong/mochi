@@ -10,12 +10,12 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated'
 import { useFocusEffect } from '@react-navigation/native'
-import { supabase } from '@/lib/supabase'
-import { useSession } from '@/context/SessionContext'
-import { useCustomAlert } from '@/components/CustomAlert'
-import { MochiCharacter } from '@/components/MochiCharacter'
-import { HabitCard } from '@/components/HabitCard'
-import type { Habit } from '@/types/database'
+import { supabase } from '@/src/shared/lib/supabase'
+import { useSession } from '@/src/core/providers/SessionContext'
+import { useCustomAlert } from '@/src/shared/components/CustomAlert'
+import { MochiCharacter } from '@/src/shared/components/MochiCharacter'
+import { HabitCard } from '@/src/features/habits/components/HabitCard'
+import type { Habit } from '@/src/shared/types/database'
 
 const COLOR_OPTIONS = ['pink', 'yellow', 'blue', 'teal', 'purple'] as const
 const ICON_OPTIONS = ['leaf', 'water', 'book', 'heart', 'fitness'] as const

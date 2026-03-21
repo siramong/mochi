@@ -13,10 +13,10 @@ import Animated, {
   withSpring,
   withTiming,
 } from 'react-native-reanimated'
-import { supabase } from '@/lib/supabase'
-import { useSession } from '@/context/SessionContext'
-import type { RoutineWithExercises } from '@/types/database'
-import { MochiCharacter } from '@/components/MochiCharacter'
+import { supabase } from '@/src/shared/lib/supabase'
+import { useSession } from '@/src/core/providers/SessionContext'
+import type { RoutineWithExercises } from '@/src/shared/types/database'
+import { MochiCharacter } from '@/src/shared/components/MochiCharacter'
 
 const colorMap: Record<string, string> = {
   teal: 'bg-teal-200',

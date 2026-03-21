@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import * as Notifications from 'expo-notifications'
-import type { StudyBlock } from '@/types/database'
+import type { StudyBlock } from '@/src/shared/types/database'
 
 // ─── AsyncStorage keys ───────────────────────────────────────────────────────
 

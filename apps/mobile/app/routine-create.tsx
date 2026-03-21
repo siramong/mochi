@@ -3,10 +3,10 @@ import { ScrollView, Text, TextInput, TouchableOpacity, View, ActivityIndicator 
 import { Ionicons } from '@expo/vector-icons'
 import { router } from 'expo-router'
 import { useFocusEffect } from '@react-navigation/native'
-import { supabase } from '@/lib/supabase'
-import { useSession } from '@/context/SessionContext'
-import type { Exercise } from '@/types/database'
-import { useCustomAlert } from '@/components/CustomAlert'
+import { supabase } from '@/src/shared/lib/supabase'
+import { useSession } from '@/src/core/providers/SessionContext'
+import type { Exercise } from '@/src/shared/types/database'
+import { useCustomAlert } from '@/src/shared/components/CustomAlert'
 
 const days = [
   { id: 1, short: 'L', label: 'Lunes' },

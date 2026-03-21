@@ -13,11 +13,11 @@ import {
 import { router } from 'expo-router'
 import { useFocusEffect } from '@react-navigation/native'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { supabase } from '@/lib/supabase'
-import { useSession } from '@/context/SessionContext'
-import { useAchievement } from '@/context/AchievementContext'
-import { MochiCharacter } from '@/components/MochiCharacter'
-import { addPoints, unlockAchievement } from '@/lib/gamification'
+import { supabase } from '@/src/shared/lib/supabase'
+import { useSession } from '@/src/core/providers/SessionContext'
+import { useAchievement } from '@/src/core/providers/AchievementContext'
+import { MochiCharacter } from '@/src/shared/components/MochiCharacter'
+import { addPoints, unlockAchievement } from '@/src/shared/lib/gamification'
 
 export function ExamLogScreen() {
   const { session } = useSession()

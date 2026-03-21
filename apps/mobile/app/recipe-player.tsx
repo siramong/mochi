@@ -18,18 +18,18 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated'
-import { supabase } from '@/lib/supabase'
-import { useSession } from '@/context/SessionContext'
-import { useAchievement } from '@/context/AchievementContext'
-import { askMochiWhileCooking } from '@/lib/ai'
+import { supabase } from '@/src/shared/lib/supabase'
+import { useSession } from '@/src/core/providers/SessionContext'
+import { useAchievement } from '@/src/core/providers/AchievementContext'
+import { askMochiWhileCooking } from '@/src/shared/lib/ai'
 import {
   addPoints,
   checkCookingSessionAchievements,
   checkPerfectRecipeAchievement,
-} from '@/lib/gamification'
-import { MochiCharacter } from '@/components/MochiCharacter'
-import { useCustomAlert } from '@/components/CustomAlert'
-import type { Recipe, RecipeStep, RecipeCookSession } from '@/types/database'
+} from '@/src/shared/lib/gamification'
+import { MochiCharacter } from '@/src/shared/components/MochiCharacter'
+import { useCustomAlert } from '@/src/shared/components/CustomAlert'
+import type { Recipe, RecipeStep, RecipeCookSession } from '@/src/shared/types/database'
 
 function formatTime(seconds: number): string {
   const m = Math.floor(seconds / 60)

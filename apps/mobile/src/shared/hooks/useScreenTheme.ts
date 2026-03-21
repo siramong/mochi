@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { useSystemBars } from '@/context/SystemBarsContext'
+import { useSystemBars } from '@/src/core/providers/SystemBarsContext'
 
 type SystemBarsTheme = {
   statusBarStyle: 'light' | 'dark'
