@@ -13,6 +13,7 @@ import { useFocusEffect } from '@react-navigation/native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { supabase } from '@/lib/supabase'
 import { useSession } from '@/context/SessionContext'
+import { useAchievement } from '@/context/AchievementContext'
 import { useCustomAlert } from '@/components/CustomAlert'
 import { MochiCharacter } from '@/components/MochiCharacter'
 import { checkFavoriteRecipeAchievement } from '@/lib/gamification'
@@ -42,6 +43,7 @@ function scaleAmount(amount: number | null, baseServings: number, targetServings
 export function RecipeDetailScreen() {
   const { recipeId } = useLocalSearchParams<{ recipeId: string }>()
   const { session } = useSession()
+  const { showAchievement } = useAchievement()
   const { showAlert, AlertComponent } = useCustomAlert()
 
   const [recipe, setRecipe] = useState<Recipe | null>(null)
@@ -133,7 +135,7 @@ export function RecipeDetailScreen() {
       .eq('id', recipe.id)
       .eq('user_id', userId)
     // Logro: primera receta marcada como favorita
-    if (next) await checkFavoriteRecipeAchievement(userId)
+    if (next) await checkFavoriteRecipeAchievement(userId, showAchievement)
   }
 
   const handleSaveNotes = async () => {

@@ -20,6 +20,7 @@ import Animated, {
 } from 'react-native-reanimated'
 import { supabase } from '@/lib/supabase'
 import { useSession } from '@/context/SessionContext'
+import { useAchievement } from '@/context/AchievementContext'
 import { askMochiWhileCooking } from '@/lib/ai'
 import {
   addPoints,
@@ -43,6 +44,7 @@ export function RecipePlayerScreen() {
     fresh?: string
   }>()
   const { session } = useSession()
+  const { showAchievement } = useAchievement()
   const { showAlert, AlertComponent } = useCustomAlert()
 
   const [recipe, setRecipe] = useState<Recipe | null>(null)
@@ -241,7 +243,7 @@ export function RecipePlayerScreen() {
 
     // Puntos y logros de cocina
     await addPoints(userId, 15)
-    await checkCookingSessionAchievements(userId)
+    await checkCookingSessionAchievements(userId, showAchievement)
 
     setCompleted(true)
   }
@@ -254,7 +256,7 @@ export function RecipePlayerScreen() {
       .update({ rating: stars })
       .eq('id', cookSession.id)
     // Logro: 5 estrellas
-    if (stars === 5 && userId) await checkPerfectRecipeAchievement(userId)
+    if (stars === 5 && userId) await checkPerfectRecipeAchievement(userId, showAchievement)
   }
 
   const handleAskMochi = async () => {

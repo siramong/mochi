@@ -15,11 +15,13 @@ import { useFocusEffect } from '@react-navigation/native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { supabase } from '@/lib/supabase'
 import { useSession } from '@/context/SessionContext'
+import { useAchievement } from '@/context/AchievementContext'
 import { MochiCharacter } from '@/components/MochiCharacter'
 import { addPoints, unlockAchievement } from '@/lib/gamification'
 
 export function ExamLogScreen() {
   const { session } = useSession()
+  const { showAchievement } = useAchievement()
   const [subject, setSubject] = useState('')
   const [grade, setGrade] = useState('')
   const [notes, setNotes] = useState('')
@@ -131,7 +133,8 @@ export function ExamLogScreen() {
       const percentage = gradeNum / 10
       if (percentage >= 0.7) {
         await addPoints(session.user.id, 20)
-        await unlockAchievement(session.user.id, 'exam_ace')
+        const unlockedExam = await unlockAchievement(session.user.id, 'exam_ace')
+        if (unlockedExam) showAchievement(unlockedExam)
       }
       await loadExamHistory()
       setSubject('')

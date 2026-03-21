@@ -13,6 +13,7 @@ import Animated, {
 } from 'react-native-reanimated'
 import { supabase } from '@/lib/supabase'
 import { useSession } from '@/context/SessionContext'
+import { useAchievement } from '@/context/AchievementContext'
 import { MochiCharacter } from '@/components/MochiCharacter'
 import { addPoints, checkExerciseAchievements, updateStreak, checkStreakAchievements } from '@/lib/gamification'
 import type { RoutineWithExercises } from '@/types/database'
@@ -46,6 +47,7 @@ function StarIcon({ delay }: { delay: number }) {
 export function RoutinePlayerScreen() {
   const { routineId } = useLocalSearchParams<{ routineId: string }>()
   const { session } = useSession()
+  const { showAchievement } = useAchievement()
   const [routine, setRoutine] = useState<RoutineWithExercises | null>(null)
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0)
   const [phase, setPhase] = useState<Phase>('exercise')
@@ -180,8 +182,8 @@ export function RoutinePlayerScreen() {
       })
       await addPoints(session.user.id, 10)
       await updateStreak(session.user.id)
-      await checkExerciseAchievements(session.user.id)
-      await checkStreakAchievements(session.user.id)
+      await checkExerciseAchievements(session.user.id, showAchievement)
+      await checkStreakAchievements(session.user.id, showAchievement)
     } catch (err) {
       console.error('Error completing routine:', err)
     }

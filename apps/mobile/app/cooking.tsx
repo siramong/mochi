@@ -14,6 +14,7 @@ import { router } from 'expo-router'
 import { useFocusEffect } from '@react-navigation/native'
 import { supabase } from '@/lib/supabase'
 import { useSession } from '@/context/SessionContext'
+import { useAchievement } from '@/context/AchievementContext'
 import { generateRecipe } from '@/lib/ai'
 import { addPoints, checkCookingRecipeAchievements } from '@/lib/gamification'
 import { useCustomAlert } from '@/components/CustomAlert'
@@ -90,6 +91,7 @@ function RecipeCard({ recipe, onPress }: { recipe: Recipe; onPress: () => void }
 
 export function CookingScreen() {
   const { session } = useSession()
+  const { showAchievement } = useAchievement()
   const { showAlert, AlertComponent } = useCustomAlert()
 
   const [recipes, setRecipes] = useState<Recipe[]>([])
@@ -180,7 +182,7 @@ export function CookingScreen() {
 
       // Puntos y logros
       await addPoints(userId, 5)
-      await checkCookingRecipeAchievements(userId)
+      await checkCookingRecipeAchievements(userId, showAchievement)
 
       setShowGenerateModal(false)
       setPrompt('')

@@ -11,6 +11,7 @@ import Animated, {
 } from 'react-native-reanimated'
 import { supabase } from '@/lib/supabase'
 import { useSession } from '@/context/SessionContext'
+import { useAchievement } from '@/context/AchievementContext'
 import { MochiCharacter } from '@/components/MochiCharacter'
 import { addPoints, checkStudyAchievements, updateStreak, checkStreakAchievements } from '@/lib/gamification'
 import type { StudyBlock } from '@/types/database'
@@ -51,6 +52,7 @@ const colorBorderMap: Record<string, string> = {
 export function StudyTimerScreen() {
   const { blockId } = useLocalSearchParams<{ blockId: string }>()
   const { session } = useSession()
+  const { showAchievement } = useAchievement()
   const [block, setBlock] = useState<StudyBlock | null>(null)
   const [totalSeconds, setTotalSeconds] = useState(0)
   const [timeLeft, setTimeLeft] = useState(0)
@@ -139,8 +141,8 @@ export function StudyTimerScreen() {
       if (insertError) throw insertError
       await addPoints(session.user.id, 5)
       await updateStreak(session.user.id)
-      await checkStudyAchievements(session.user.id)
-      await checkStreakAchievements(session.user.id)
+      await checkStudyAchievements(session.user.id, showAchievement)
+      await checkStreakAchievements(session.user.id, showAchievement)
       setCompleted(true)
     } catch (err) {
       console.error('Error completing study session:', err)
