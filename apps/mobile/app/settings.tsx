@@ -428,6 +428,12 @@ export function SettingsScreen() {
           buttons: [{ text: 'Entendido', style: 'cancel' }],
         })
       }
+    } catch (err) {
+      showAlert({
+        title: 'No se pudo conectar',
+        message: err instanceof Error ? err.message : 'Ocurrio un error al abrir permisos de Health Connect.',
+        buttons: [{ text: 'Entendido', style: 'cancel' }],
+      })
     } finally {
       setHealthSyncing(false)
     }

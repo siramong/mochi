@@ -17,6 +17,9 @@
     },
     "android": {
       "package": "com.siramong.mochi",
+      "permissions": [
+        "android.permission.health.READ_MENSTRUATION"
+      ],
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -58,12 +61,7 @@
         }
       ],
       [
-        "react-native-health-connect",
-        {
-          "permissions": [
-            "android.permission.health.READ_MENSTRUATION"
-          ]
-        }
+        "react-native-health-connect"
       ]
     ],
     "extra": {

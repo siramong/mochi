@@ -3,6 +3,7 @@ import { AppState, type AppStateStatus } from 'react-native'
 import {
   getCurrentCyclePhase,
   hasCyclePermissions,
+  isHealthConnectAvailable,
   requestCyclePermissions,
   type CyclePhaseData,
 } from '@/src/shared/lib/healthConnect'
@@ -10,6 +11,7 @@ import {
 type CycleContextValue = {
   cycleData: CyclePhaseData | null
   loading: boolean
+  isAvailable: boolean
   hasPermission: boolean
   requestPermission: () => Promise<void>
   refresh: () => Promise<void>
@@ -18,6 +20,7 @@ type CycleContextValue = {
 const CycleContext = createContext<CycleContextValue>({
   cycleData: null,
   loading: true,
+  isAvailable: false,
   hasPermission: false,
   requestPermission: async () => {},
   refresh: async () => {},
@@ -26,12 +29,22 @@ const CycleContext = createContext<CycleContextValue>({
 export function CycleProvider({ children }: { children: ReactNode }) {
   const [cycleData, setCycleData] = useState<CyclePhaseData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [isAvailable, setIsAvailable] = useState(false)
   const [hasPermission, setHasPermission] = useState(false)
 
   const refresh = useCallback(async () => {
     setLoading(true)
 
     try {
+      const available = await isHealthConnectAvailable()
+      setIsAvailable(available)
+
+      if (!available) {
+        setHasPermission(false)
+        setCycleData(null)
+        return
+      }
+
       const granted = await hasCyclePermissions()
       setHasPermission(granted)
 
@@ -43,6 +56,7 @@ export function CycleProvider({ children }: { children: ReactNode }) {
       const phase = await getCurrentCyclePhase()
       setCycleData(phase)
     } catch {
+      setIsAvailable(false)
       setHasPermission(false)
       setCycleData(null)
     } finally {
@@ -52,6 +66,15 @@ export function CycleProvider({ children }: { children: ReactNode }) {
 
   const requestPermission = useCallback(async () => {
     try {
+      const available = await isHealthConnectAvailable()
+      setIsAvailable(available)
+
+      if (!available) {
+        setHasPermission(false)
+        setCycleData(null)
+        return
+      }
+
       const granted = await requestCyclePermissions()
       setHasPermission(granted)
 
@@ -62,6 +85,7 @@ export function CycleProvider({ children }: { children: ReactNode }) {
         setCycleData(null)
       }
     } catch {
+      setIsAvailable(false)
       setHasPermission(false)
       setCycleData(null)
     }
@@ -87,11 +111,12 @@ export function CycleProvider({ children }: { children: ReactNode }) {
     () => ({
       cycleData,
       loading,
+      isAvailable,
       hasPermission,
       requestPermission,
       refresh,
     }),
-    [cycleData, hasPermission, loading, refresh, requestPermission]
+    [cycleData, hasPermission, isAvailable, loading, refresh, requestPermission]
   )
 
   return <CycleContext.Provider value={value}>{children}</CycleContext.Provider>

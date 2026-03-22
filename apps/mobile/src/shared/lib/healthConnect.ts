@@ -37,6 +37,11 @@ type CachedCyclePayload = {
 const PHASE_CACHE_KEY = 'cycle:phase:cache'
 const PHASE_CACHE_TTL_MS = 6 * 60 * 60 * 1000
 
+function logHealthConnectError(scope: string, error: unknown): void {
+  const message = error instanceof Error ? error.message : String(error)
+  console.error(`[health-connect] ${scope}: ${message}`)
+}
+
 export const CYCLE_PERMISSIONS: Permission[] = [
   { accessType: 'read', recordType: 'MenstruationPeriod' },
   { accessType: 'read', recordType: 'MenstruationFlow' },
@@ -132,12 +137,20 @@ function estimatePeriodLength(records: MenstruationRecord[]): number {
 async function ensureHealthConnectInitialized(): Promise<boolean> {
   if (Platform.OS !== 'android') return false
 
-  const status = await getSdkStatus()
+  let status: SdkAvailabilityStatus
+  try {
+    status = await getSdkStatus()
+  } catch (error) {
+    logHealthConnectError('getSdkStatus', error)
+    return false
+  }
+
   if (status !== SdkAvailabilityStatus.SDK_AVAILABLE) return false
 
   try {
     return await initialize()
-  } catch {
+  } catch (error) {
+    logHealthConnectError('initialize', error)
     return false
   }
 }
@@ -145,7 +158,8 @@ async function ensureHealthConnectInitialized(): Promise<boolean> {
 export async function isHealthConnectAvailable(): Promise<boolean> {
   try {
     return await ensureHealthConnectInitialized()
-  } catch {
+  } catch (error) {
+    logHealthConnectError('isHealthConnectAvailable', error)
     return false
   }
 }
@@ -163,7 +177,8 @@ export async function requestCyclePermissions(): Promise<boolean> {
     return CYCLE_PERMISSIONS.every((permission) =>
       grantedKeys.has(`${permission.accessType}:${permission.recordType}`)
     )
-  } catch {
+  } catch (error) {
+    logHealthConnectError('requestCyclePermissions', error)
     return false
   }
 }
@@ -181,7 +196,8 @@ export async function hasCyclePermissions(): Promise<boolean> {
     return CYCLE_PERMISSIONS.every((permission) =>
       grantedKeys.has(`${permission.accessType}:${permission.recordType}`)
     )
-  } catch {
+  } catch (error) {
+    logHealthConnectError('hasCyclePermissions', error)
     return false
   }
 }
@@ -194,7 +210,8 @@ export async function revokeCyclePermissions(): Promise<boolean> {
     await revokeAllPermissions()
     await AsyncStorage.removeItem(PHASE_CACHE_KEY)
     return true
-  } catch {
+  } catch (error) {
+    logHealthConnectError('revokeCyclePermissions', error)
     return false
   }
 }
@@ -247,7 +264,8 @@ export async function readMenstruationRecords(): Promise<MenstruationRecord[]> {
     const grouped = groupConsecutiveDays(flowDays)
 
     return grouped.sort((a, b) => (a.startDate < b.startDate ? 1 : -1))
-  } catch {
+  } catch (error) {
+    logHealthConnectError('readMenstruationRecords', error)
     return []
   }
 }

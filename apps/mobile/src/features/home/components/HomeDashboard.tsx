@@ -110,7 +110,7 @@ function AnimatedDashboardCard({ children, delay, animationSeed, className }: An
 
 export function HomeDashboard({ userName, onNavigateToCooking }: HomeDashboardProps) {
   const { session } = useSession()
-  const { cycleData, hasPermission, requestPermission } = useCycle()
+  const { cycleData, isAvailable, hasPermission, requestPermission } = useCycle()
   const todayRaw = new Date().toLocaleDateString('es-ES', {
     weekday: 'long', day: 'numeric', month: 'long',
   })
@@ -247,6 +247,7 @@ export function HomeDashboard({ userName, onNavigateToCooking }: HomeDashboardPr
 
       <CycleWidget
         cycleData={cycleData}
+        isAvailable={isAvailable}
         hasPermission={hasPermission}
         onRequestPermission={requestPermission}
       />
