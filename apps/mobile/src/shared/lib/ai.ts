@@ -34,7 +34,7 @@ async function callOpenRouter(prompt: string): Promise<string> {
         },
         { role: 'user', content: prompt },
       ],
-      max_tokens: 2600,
+      max_tokens: 8192,
       temperature: 0.4,
     })
 
