@@ -9,7 +9,7 @@ type Section = {
 
 const LAST_UPDATED = '1 de enero de 2026'
 const APP_NAME = 'Mochi'
-const CONTACT_EMAIL = 'privacidad@mochi.app'
+const CONTACT_EMAIL = 'privacidad@siramong.tech'
 const COMPANY_NAME = 'SirAmong'
 
 const sections: Section[] = [

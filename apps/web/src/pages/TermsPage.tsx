@@ -9,7 +9,7 @@ type Section = {
 
 const LAST_UPDATED = '1 de enero de 2026'
 const APP_NAME = 'Mochi'
-const CONTACT_EMAIL = 'soporte@mochi.app'
+const CONTACT_EMAIL = 'soporte@siramong.tech'
 const COMPANY_NAME = 'SirAmong'
 const APP_URL = 'mochi.siramong.tech'
 
@@ -397,10 +397,10 @@ const sections: Section[] = [
           <p className="mt-1 text-sm text-purple-800">
             Privacidad:{' '}
             <a
-              href="mailto:privacidad@mochi.app"
+              href="mailto:privacidad@siramong.tech"
               className="font-semibold text-purple-600 underline underline-offset-2 hover:text-purple-800"
             >
-              privacidad@mochi.app
+              privacidad@siramong.tech
             </a>
           </p>
           <p className="mt-1 text-sm text-purple-800">

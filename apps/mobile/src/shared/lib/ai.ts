@@ -14,7 +14,7 @@ const openrouter = new OpenAI({
   baseURL: 'https://openrouter.ai/api/v1',
   apiKey: OPENROUTER_KEY,
   defaultHeaders: {
-    'HTTP-Referer': 'mochi.app',
+    'HTTP-Referer': 'mochi.siramong.tech',
     'X-Title': 'Mochi',
   },
   dangerouslyAllowBrowser: true,
