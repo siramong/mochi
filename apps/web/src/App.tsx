@@ -9,6 +9,7 @@ import { ExercisePage } from '@/pages/ExercisePage'
 import { GoalsPage } from '@/pages/GoalsPage'
 import { GratitudePage } from '@/pages/GratitudePage'
 import { HabitsPage } from '@/pages/HabitsPage'
+import { LandingPage } from '@/pages/LandingPage'
 import { LoginPage } from '@/pages/LoginPage'
 import { MoodPage } from '@/pages/MoodPage'
 import { PrivacyPage } from '@/pages/PrivacyPage'
@@ -66,6 +67,9 @@ export default function App() {
   return (
     <SessionProvider>
       <Routes>
+        {/* ── Landing pública ── */}
+        <Route path="/" element={<LandingPage />} />
+
         {/* ── Rutas de auth ── */}
         <Route path="/auth/callback" element={<AuthCallback />} />
 
@@ -85,7 +89,7 @@ export default function App() {
 
         {/* ── Rutas protegidas ── */}
         <Route element={<ProtectedLayout />}>
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/app" element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/study" element={<StudyPage />} />
           <Route path="/study/new" element={<StudyFormPage />} />
