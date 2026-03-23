@@ -11,8 +11,10 @@ import { GratitudePage } from '@/pages/GratitudePage'
 import { HabitsPage } from '@/pages/HabitsPage'
 import { LoginPage } from '@/pages/LoginPage'
 import { MoodPage } from '@/pages/MoodPage'
+import { PrivacyPage } from '@/pages/PrivacyPage'
 import { ProfilePage } from '@/pages/ProfilePage'
 import { SettingsPage } from '@/pages/SettingsPage'
+import { TermsPage } from '@/pages/TermsPage'
 import { VouchersPage } from '@/pages/VouchersPage'
 import { StudyExamsPage } from '@/pages/study/StudyExamsPage'
 import { StudyFormPage } from '@/pages/study/StudyFormPage'
@@ -64,7 +66,14 @@ export default function App() {
   return (
     <SessionProvider>
       <Routes>
+        {/* ── Rutas de auth ── */}
         <Route path="/auth/callback" element={<AuthCallback />} />
+
+        {/* ── Rutas legales — accesibles sin sesión ── */}
+        <Route path="/privacy" element={<PrivacyPage />} />
+        <Route path="/terms" element={<TermsPage />} />
+
+        {/* ── Login — solo sin sesión ── */}
         <Route
           path="/login"
           element={
@@ -74,6 +83,7 @@ export default function App() {
           }
         />
 
+        {/* ── Rutas protegidas ── */}
         <Route element={<ProtectedLayout />}>
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<DashboardPage />} />
