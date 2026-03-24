@@ -60,6 +60,7 @@
           "iosDisplayInForeground": true
         }
       ],
+      "./plugins/with-health-connect-permission-delegate.js",
       [
         "react-native-health-connect"
       ]

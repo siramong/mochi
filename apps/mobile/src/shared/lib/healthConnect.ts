@@ -36,6 +36,7 @@ type CachedCyclePayload = {
 
 const PHASE_CACHE_KEY = 'cycle:phase:cache'
 const PHASE_CACHE_TTL_MS = 6 * 60 * 60 * 1000
+let permissionRequestInFlight: Promise<boolean> | null = null
 
 function logHealthConnectError(scope: string, error: unknown): void {
   const message = error instanceof Error ? error.message : String(error)
@@ -165,21 +166,33 @@ export async function isHealthConnectAvailable(): Promise<boolean> {
 }
 
 export async function requestCyclePermissions(): Promise<boolean> {
-  const isReady = await ensureHealthConnectInitialized()
-  if (!isReady) return false
+  if (permissionRequestInFlight) {
+    return permissionRequestInFlight
+  }
+
+  permissionRequestInFlight = (async () => {
+    const isReady = await ensureHealthConnectInitialized()
+    if (!isReady) return false
+
+    try {
+      const granted = await requestPermission(CYCLE_PERMISSIONS)
+      const grantedKeys = new Set(
+        granted.map((permission) => `${permission.accessType}:${permission.recordType}`)
+      )
+
+      return CYCLE_PERMISSIONS.every((permission) =>
+        grantedKeys.has(`${permission.accessType}:${permission.recordType}`)
+      )
+    } catch (error) {
+      logHealthConnectError('requestCyclePermissions', error)
+      return false
+    }
+  })()
 
   try {
-    const granted = await requestPermission(CYCLE_PERMISSIONS)
-    const grantedKeys = new Set(
-      granted.map((permission) => `${permission.accessType}:${permission.recordType}`)
-    )
-
-    return CYCLE_PERMISSIONS.every((permission) =>
-      grantedKeys.has(`${permission.accessType}:${permission.recordType}`)
-    )
-  } catch (error) {
-    logHealthConnectError('requestCyclePermissions', error)
-    return false
+    return await permissionRequestInFlight
+  } finally {
+    permissionRequestInFlight = null
   }
 }
 
