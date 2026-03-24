@@ -1,4 +1,7 @@
-const { withMainActivity } = require('expo/config-plugins')
+const { createRunOncePlugin, withMainActivity } = require('expo/config-plugins')
+
+const PLUGIN_NAME = 'with-health-connect-permission-delegate'
+const PLUGIN_VERSION = '1.0.0'
 
 function appendImport(contents, importLine) {
   if (contents.includes(importLine)) return contents
@@ -62,5 +65,10 @@ function withHealthConnectPermissionDelegate(config) {
   })
 }
 
-module.exports = withHealthConnectPermissionDelegate
-module.exports.default = withHealthConnectPermissionDelegate
+const withHealthConnectPermissionDelegatePlugin = createRunOncePlugin(
+  withHealthConnectPermissionDelegate,
+  PLUGIN_NAME,
+  PLUGIN_VERSION
+)
+
+module.exports = withHealthConnectPermissionDelegatePlugin
