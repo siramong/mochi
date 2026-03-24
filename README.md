@@ -10,7 +10,7 @@
 
 ---
 
-🌸 **[mochi.siramong.tech](https://mochi.siramong.tech)** · 📱 [Descargar app](https://github.com/siramong/mochi/releases)
+🌸 **[mochi.siramong.tech](https://mochi.siramong.tech)** · 📱 [Descargar app](https://github.com/siramong/mochi/releases/latest)
 
 </div>
 
