@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react'
@@ -40,6 +41,7 @@ export function SessionProvider({ children }: SessionProviderProps) {
   const [loading, setLoading] = useState(true)
   const [requiresOnboarding, setRequiresOnboarding] = useState(false)
   const [profileError, setProfileError] = useState<string | null>(null)
+  const isRefreshingForegroundSessionRef = useRef(false)
 
   const refreshProfile = useCallback(async () => {
     if (!session?.user.id) return
@@ -124,22 +126,69 @@ export function SessionProvider({ children }: SessionProviderProps) {
   // detecte si el token expiró y lo refresque antes de que el usuario
   // intente hacer cualquier acción.
   useEffect(() => {
+    let currentAppState: AppStateStatus = AppState.currentState
+
+    if (currentAppState === 'active') {
+      void supabase.auth.startAutoRefresh()
+    }
+
+    const resetSessionState = () => {
+      setSession(null)
+      setRequiresOnboarding(false)
+      setProfileError(null)
+    }
+
     const handleAppStateChange = async (nextState: AppStateStatus) => {
-      if (nextState !== 'active') return
+      const wasInBackground = currentAppState !== 'active'
+      currentAppState = nextState
 
+      if (nextState !== 'active') {
+        try {
+          await supabase.auth.stopAutoRefresh()
+        } catch {
+          // No-op: evitar rechazos no manejados al pausar auto-refresh.
+        }
+        return
+      }
+
+      if (!wasInBackground || isRefreshingForegroundSessionRef.current) return
+
+      isRefreshingForegroundSessionRef.current = true
       try {
-        const { data, error } = await supabase.auth.getSession()
-        if (error || !data.session) return
+        // Al volver a primer plano, forzamos ciclo de refresh para evitar tokens colgados.
+        await supabase.auth.startAutoRefresh()
 
-        // Si la sesión cambió (nuevo access_token tras refresh), actualizamos
+        const { data: currentData } = await supabase.auth.getSession()
+        if (!currentData.session) {
+          resetSessionState()
+          return
+        }
+
+        const { data: refreshedData, error: refreshError } = await supabase.auth.refreshSession()
+
+        if (refreshError || !refreshedData.session) {
+          const message = refreshError?.message?.toLowerCase() ?? ''
+          const isInvalidSession =
+            message.includes('refresh token') ||
+            message.includes('jwt') ||
+            message.includes('session')
+
+          if (isInvalidSession) {
+            resetSessionState()
+          }
+          return
+        }
+
         setSession((prev) => {
-          if (prev?.access_token !== data.session?.access_token) {
-            return data.session
+          if (prev?.access_token !== refreshedData.session?.access_token) {
+            return refreshedData.session
           }
           return prev
         })
       } catch {
-        // Silencioso — el listener de onAuthStateChange se encargará
+        // Silencioso: si fue un error temporal de red, mantenemos estado actual.
+      } finally {
+        isRefreshingForegroundSessionRef.current = false
       }
     }
 
@@ -147,7 +196,10 @@ export function SessionProvider({ children }: SessionProviderProps) {
       void handleAppStateChange(state)
     })
 
-    return () => subscription.remove()
+    return () => {
+      subscription.remove()
+      void supabase.auth.stopAutoRefresh()
+    }
   }, [])
 
   const value = useMemo(
