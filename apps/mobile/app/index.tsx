@@ -21,6 +21,42 @@ import { MochiCharacter } from '@/src/shared/components/MochiCharacter'
 import { HabitsScreen } from '@/app/habits'
 import { CookingScreen } from '@/app/cooking'
 
+type ModuleVisibility = {
+  partner_features_enabled: boolean
+  study_enabled: boolean
+  exercise_enabled: boolean
+  habits_enabled: boolean
+  goals_enabled: boolean
+  mood_enabled: boolean
+  gratitude_enabled: boolean
+  vouchers_enabled: boolean
+  cooking_enabled: boolean
+}
+
+const defaultModuleVisibility: ModuleVisibility = {
+  partner_features_enabled: false,
+  study_enabled: true,
+  exercise_enabled: true,
+  habits_enabled: true,
+  goals_enabled: true,
+  mood_enabled: true,
+  gratitude_enabled: true,
+  vouchers_enabled: false,
+  cooking_enabled: true,
+}
+
+const tabOrder: MobileScreen[] = ['home', 'study', 'exercise', 'habits', 'cooking']
+
+function getVisibleTabs(settings: ModuleVisibility): MobileScreen[] {
+  return tabOrder.filter((tab) => {
+    if (tab === 'home') return true
+    if (tab === 'study') return settings.study_enabled
+    if (tab === 'exercise') return settings.exercise_enabled
+    if (tab === 'habits') return settings.habits_enabled
+    return settings.cooking_enabled
+  })
+}
+
 const screenThemes: Record<
   MobileScreen,
   { statusBarStyle: 'light' | 'dark'; navigationBarStyle: 'light' | 'dark' }
@@ -49,6 +85,7 @@ export function HomeScreen() {
   const { session } = useSession()
   const params = useLocalSearchParams<{ tab?: string }>()
   const [currentScreen, setCurrentScreen] = useState<MobileScreen>('home')
+  const [moduleVisibility, setModuleVisibility] = useState<ModuleVisibility>(defaultModuleVisibility)
   const [userName, setUserName] = useState('Student')
   const [loadingName, setLoadingName] = useState(true)
   const loadingScale = useSharedValue(1)
@@ -60,16 +97,66 @@ export function HomeScreen() {
     return undefined
   }, [params.tab])
 
+  const visibleTabs = useMemo(() => getVisibleTabs(moduleVisibility), [moduleVisibility])
+
   useEffect(() => {
-    if (tabParam && isMobileScreen(tabParam)) {
+    let mounted = true
+
+    async function loadModuleVisibility() {
+      if (!session?.user.id) {
+        if (mounted) setModuleVisibility(defaultModuleVisibility)
+        return
+      }
+
+      const { data, error } = await supabase
+        .from('user_settings')
+        .select(
+          'partner_features_enabled, study_enabled, exercise_enabled, habits_enabled, goals_enabled, mood_enabled, gratitude_enabled, vouchers_enabled, cooking_enabled'
+        )
+        .eq('user_id', session.user.id)
+        .maybeSingle()
+
+      if (!mounted) return
+      if (error) {
+        setModuleVisibility(defaultModuleVisibility)
+        return
+      }
+
+      setModuleVisibility({
+        ...defaultModuleVisibility,
+        ...((data as Partial<ModuleVisibility> | null) ?? {}),
+      })
+    }
+
+    void loadModuleVisibility()
+
+    return () => {
+      mounted = false
+    }
+  }, [session?.user.id])
+
+  useEffect(() => {
+    if (tabParam && isMobileScreen(tabParam) && visibleTabs.includes(tabParam)) {
       setCurrentScreen(tabParam)
       return
     }
 
     setCurrentScreen('home')
-  }, [tabParam])
+  }, [tabParam, visibleTabs])
+
+  useEffect(() => {
+    if (visibleTabs.includes(currentScreen)) return
+    setCurrentScreen('home')
+    router.replace('/')
+  }, [currentScreen, visibleTabs])
 
   const navigateToScreen = useCallback((screen: MobileScreen) => {
+    if (!visibleTabs.includes(screen)) {
+      setCurrentScreen('home')
+      router.replace('/')
+      return
+    }
+
     // Actualización optimista: el color activo del bottom nav cambia al instante.
     setCurrentScreen(screen)
 
@@ -79,7 +166,7 @@ export function HomeScreen() {
     }
 
     router.replace({ pathname: '/', params: { tab: screen } })
-  }, [])
+  }, [visibleTabs])
 
   useScreenTheme(screenThemes[currentScreen])
 
@@ -141,6 +228,7 @@ export function HomeScreen() {
           <HomeDashboard
             userName={userName}
             onNavigateToCooking={() => navigateToScreen('cooking')}
+            moduleVisibility={moduleVisibility}
           />
         )
       case 'study':    return <StudySchedule />
@@ -166,7 +254,7 @@ export function HomeScreen() {
       <Animated.View className="flex-1" style={contentAnimatedStyle}>
         {renderContent()}
       </Animated.View>
-      <BottomNav currentScreen={currentScreen} onNavigate={navigateToScreen} />
+      <BottomNav currentScreen={currentScreen} onNavigate={navigateToScreen} visibleTabs={visibleTabs} />
     </SafeAreaView>
   )
 }

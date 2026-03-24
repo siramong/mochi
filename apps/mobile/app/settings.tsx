@@ -40,6 +40,7 @@ type ProfileSettings = {
 }
 
 type ModuleToggleKey =
+  | 'partner_features_enabled'
   | 'study_enabled'
   | 'exercise_enabled'
   | 'habits_enabled'
@@ -62,12 +63,13 @@ const moduleItems: ModuleItem[] = [
   { key: 'goals_enabled', label: 'Metas', icon: 'flag-outline' },
   { key: 'mood_enabled', label: 'Estado de ánimo', icon: 'heart-outline' },
   { key: 'gratitude_enabled', label: 'Gratitud', icon: 'flower-outline' },
-  { key: 'vouchers_enabled', label: 'Vales', icon: 'ticket-outline' },
+  { key: 'vouchers_enabled', label: 'Vales (pareja)', icon: 'ticket-outline' },
   { key: 'cooking_enabled', label: 'Cocina', icon: 'restaurant-outline' },
 ]
 
 const defaultModuleSettings: Pick<
   UserSettings,
+  | 'partner_features_enabled'
   | 'study_enabled'
   | 'exercise_enabled'
   | 'habits_enabled'
@@ -77,13 +79,14 @@ const defaultModuleSettings: Pick<
   | 'vouchers_enabled'
   | 'cooking_enabled'
 > = {
+  partner_features_enabled: false,
   study_enabled: true,
   exercise_enabled: true,
   habits_enabled: true,
   goals_enabled: true,
   mood_enabled: true,
   gratitude_enabled: true,
-  vouchers_enabled: true,
+  vouchers_enabled: false,
   cooking_enabled: true,
 }
 
@@ -143,7 +146,7 @@ export function SettingsScreen() {
         supabase
           .from('user_settings')
           .select(
-            'study_enabled, exercise_enabled, habits_enabled, goals_enabled, mood_enabled, gratitude_enabled, vouchers_enabled, cooking_enabled'
+            'partner_features_enabled, study_enabled, exercise_enabled, habits_enabled, goals_enabled, mood_enabled, gratitude_enabled, vouchers_enabled, cooking_enabled'
           )
           .eq('user_id', userId)
           .maybeSingle(),
@@ -159,9 +162,15 @@ export function SettingsScreen() {
       if (settingsRes.error) throw settingsRes.error
 
       setProfile((profileRes.data as ProfileSettings | null) ?? { full_name: '', wake_up_time: '' })
-      setModuleSettings({
+      const mergedModuleSettings = {
         ...defaultModuleSettings,
         ...((settingsRes.data as Partial<typeof defaultModuleSettings> | null) ?? {}),
+      }
+
+      setModuleSettings({
+        ...mergedModuleSettings,
+        vouchers_enabled:
+          mergedModuleSettings.partner_features_enabled && mergedModuleSettings.vouchers_enabled,
       })
       setStudyBlocks((blocksRes.data as StudyBlock[] | null) ?? [])
       setNotifPrefs(prefs)
@@ -236,14 +245,19 @@ export function SettingsScreen() {
   const handleToggleModule = async (key: ModuleToggleKey, value: boolean) => {
     if (!userId) return
 
-    const previous = moduleSettings[key]
-    setModuleSettings((prev) => ({ ...prev, [key]: value }))
+    const previousSettings = moduleSettings
+    const nextSettings = {
+      ...moduleSettings,
+      [key]: value,
+      ...(key === 'partner_features_enabled' && !value ? { vouchers_enabled: false } : {}),
+    }
+
+    setModuleSettings(nextSettings)
 
     try {
       const payload = {
         user_id: userId,
-        ...moduleSettings,
-        [key]: value,
+        ...nextSettings,
       }
 
       const { error: upsertError } = await supabase
@@ -252,7 +266,7 @@ export function SettingsScreen() {
 
       if (upsertError) throw upsertError
     } catch (err) {
-      setModuleSettings((prev) => ({ ...prev, [key]: previous }))
+      setModuleSettings(previousSettings)
       showAlert({
         title: 'Error',
         message: err instanceof Error ? err.message : 'No se pudo guardar el cambio',
@@ -546,6 +560,25 @@ export function SettingsScreen() {
               <View className="mt-6 rounded-3xl border-2 border-blue-200 bg-white p-4">
                 <Text className="text-lg font-extrabold text-blue-900">Módulos</Text>
 
+                <View className="mt-4 mb-4 rounded-2xl border border-violet-200 bg-violet-50 px-3 py-3">
+                  <View className="flex-row items-center justify-between">
+                    <View className="flex-1 pr-3">
+                      <Text className="text-sm font-bold text-violet-900">Funciones privadas y premium</Text>
+                      <Text className="mt-1 text-xs font-semibold text-violet-700">
+                        Activa este perfil para mostrar funciones exclusivas como Vales para pareja.
+                      </Text>
+                    </View>
+                    <Switch
+                      value={moduleSettings.partner_features_enabled}
+                      onValueChange={(nextValue) => {
+                        void handleToggleModule('partner_features_enabled', nextValue)
+                      }}
+                      thumbColor={moduleSettings.partner_features_enabled ? '#7c3aed' : '#94a3b8'}
+                      trackColor={{ false: '#cbd5e1', true: '#ddd6fe' }}
+                    />
+                  </View>
+                </View>
+
                 <View className="mt-4">
                   {moduleItems.map((module) => (
                     <View
@@ -558,6 +591,9 @@ export function SettingsScreen() {
                       </View>
                       <Switch
                         value={moduleSettings[module.key]}
+                        disabled={
+                          module.key === 'vouchers_enabled' && !moduleSettings.partner_features_enabled
+                        }
                         onValueChange={(nextValue) => {
                           void handleToggleModule(module.key, nextValue)
                         }}

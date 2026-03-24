@@ -23,11 +23,23 @@ import { getGreeting, getTimeColor, getTimeIcon, getTimeOfDay, type TimeOfDay } 
 type HomeDashboardProps = {
   userName: string
   onNavigateToCooking: () => void
+  moduleVisibility: {
+    partner_features_enabled: boolean
+    study_enabled: boolean
+    exercise_enabled: boolean
+    habits_enabled: boolean
+    goals_enabled: boolean
+    mood_enabled: boolean
+    gratitude_enabled: boolean
+    vouchers_enabled: boolean
+    cooking_enabled: boolean
+  }
 }
 
 type QuickAccessItem = {
   label: string
   route: '/goals' | '/vouchers' | '/mood' | '/gratitude'
+  enabledKey: 'goals_enabled' | 'vouchers_enabled' | 'mood_enabled' | 'gratitude_enabled'
   icon: keyof typeof Ionicons.glyphMap
   cardClass: string
   iconColor: string
@@ -47,6 +59,7 @@ const quickAccessItems: QuickAccessItem[] = [
   {
     label: 'Metas',
     route: '/goals',
+    enabledKey: 'goals_enabled',
     icon: 'flag-outline',
     cardClass: 'border-pink-200 bg-pink-100',
     iconColor: '#be185d',
@@ -55,6 +68,7 @@ const quickAccessItems: QuickAccessItem[] = [
   {
     label: 'Vales',
     route: '/vouchers',
+    enabledKey: 'vouchers_enabled',
     icon: 'ticket-outline',
     cardClass: 'border-yellow-200 bg-yellow-100',
     iconColor: '#92400e',
@@ -63,6 +77,7 @@ const quickAccessItems: QuickAccessItem[] = [
   {
     label: 'Estado de ánimo',
     route: '/mood',
+    enabledKey: 'mood_enabled',
     icon: 'heart-outline',
     cardClass: 'border-orange-200 bg-orange-100',
     iconColor: '#c2410c',
@@ -71,6 +86,7 @@ const quickAccessItems: QuickAccessItem[] = [
   {
     label: 'Gratitud',
     route: '/gratitude',
+    enabledKey: 'gratitude_enabled',
     icon: 'flower-outline',
     cardClass: 'border-emerald-200 bg-emerald-100',
     iconColor: '#047857',
@@ -108,7 +124,7 @@ function AnimatedDashboardCard({ children, delay, animationSeed, className }: An
   )
 }
 
-export function HomeDashboard({ userName, onNavigateToCooking }: HomeDashboardProps) {
+export function HomeDashboard({ userName, onNavigateToCooking, moduleVisibility }: HomeDashboardProps) {
   const { session } = useSession()
   const { cycleData, isAvailable, hasPermission, requestPermission } = useCycle()
   const todayRaw = new Date().toLocaleDateString('es-ES', {
@@ -153,6 +169,13 @@ export function HomeDashboard({ userName, onNavigateToCooking }: HomeDashboardPr
   const loadingAnimatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: loadingScale.value }],
   }))
+
+  const visibleQuickAccessItems = quickAccessItems.filter((item) => {
+    if (item.enabledKey === 'vouchers_enabled') {
+      return moduleVisibility.vouchers_enabled && moduleVisibility.partner_features_enabled
+    }
+    return moduleVisibility[item.enabledKey]
+  })
 
   useEffect(() => {
     const userId = session?.user.id
@@ -253,47 +276,50 @@ export function HomeDashboard({ userName, onNavigateToCooking }: HomeDashboardPr
       />
 
       {/* Quick access */}
-      <ScrollView
-        horizontal showsHorizontalScrollIndicator={false} className="mt-4"
-        contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}
-      >
-        {quickAccessItems.map((item) => (
-          <TouchableOpacity
-            key={item.route}
-            className={`mr-3 w-20 items-center rounded-2xl border-2 px-3 py-3 ${item.cardClass}`}
-            onPress={() => router.push(item.route)}
-          >
-            <Ionicons name={item.icon} size={20} color={item.iconColor} />
-            <Text className={`mt-2 text-center text-xs font-bold ${item.textClass}`} numberOfLines={2}>
-              {item.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+      {visibleQuickAccessItems.length > 0 && (
+        <ScrollView
+          horizontal showsHorizontalScrollIndicator={false} className="mt-4"
+          contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}
+        >
+          {visibleQuickAccessItems.map((item) => (
+            <TouchableOpacity
+              key={item.route}
+              className={`mr-3 w-20 items-center rounded-2xl border-2 px-3 py-3 ${item.cardClass}`}
+              onPress={() => router.push(item.route)}
+            >
+              <Ionicons name={item.icon} size={20} color={item.iconColor} />
+              <Text className={`mt-2 text-center text-xs font-bold ${item.textClass}`} numberOfLines={2}>
+                {item.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      )}
 
-      {/* Hábitos */}
-      <TouchableOpacity
-        className="mt-4 rounded-3xl border-2 border-green-200 bg-white p-4"
-        onPress={() => router.push('/habits')}
-      >
-        <View className="flex-row items-center justify-between">
-          <View className="flex-row items-center">
-            <Ionicons name="leaf" size={18} color="#15803d" />
-            <Text className="ml-2 text-base font-bold text-green-900">Hábitos de hoy</Text>
+      {moduleVisibility.habits_enabled && (
+        <TouchableOpacity
+          className="mt-4 rounded-3xl border-2 border-green-200 bg-white p-4"
+          onPress={() => router.push('/habits')}
+        >
+          <View className="flex-row items-center justify-between">
+            <View className="flex-row items-center">
+              <Ionicons name="leaf" size={18} color="#15803d" />
+              <Text className="ml-2 text-base font-bold text-green-900">Hábitos de hoy</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color="#166534" />
           </View>
-          <Ionicons name="chevron-forward" size={18} color="#166534" />
-        </View>
-        <Text className="mt-2 text-sm font-semibold text-green-700">
-          {loading ? 'Cargando hábitos...' : `${habitLogsCount}/${habitCount} hábitos completados hoy`}
-        </Text>
-      </TouchableOpacity>
+          <Text className="mt-2 text-sm font-semibold text-green-700">
+            {loading ? 'Cargando hábitos...' : `${habitLogsCount}/${habitCount} hábitos completados hoy`}
+          </Text>
+        </TouchableOpacity>
+      )}
 
-      {/* Bloques de estudio */}
-      <AnimatedDashboardCard delay={0} animationSeed={animationSeed} className="mt-4 rounded-3xl border-2 border-blue-200 bg-white p-5">
-        <View className="mb-3 flex-row items-center">
-          <Ionicons name="book" size={18} color="#1e40af" />
-          <Text className="ml-2 text-base font-bold text-blue-900">Bloques de estudio</Text>
-        </View>
+      {moduleVisibility.study_enabled && (
+        <AnimatedDashboardCard delay={0} animationSeed={animationSeed} className="mt-4 rounded-3xl border-2 border-blue-200 bg-white p-5">
+          <View className="mb-3 flex-row items-center">
+            <Ionicons name="book" size={18} color="#1e40af" />
+            <Text className="ml-2 text-base font-bold text-blue-900">Bloques de estudio</Text>
+          </View>
 
         {loading ? (
           <View className="items-center py-6">
@@ -333,23 +359,25 @@ export function HomeDashboard({ userName, onNavigateToCooking }: HomeDashboardPr
             </TouchableOpacity>
           ))
         )}
-      </AnimatedDashboardCard>
+        </AnimatedDashboardCard>
+      )}
 
-      {/* Registrar examen */}
-      <TouchableOpacity
-        className="mt-4 flex-row items-center justify-center rounded-2xl border-2 border-pink-300 bg-pink-200 py-4"
-        onPress={() => router.push('/exam-log')}
-      >
-        <Ionicons name="document-text" size={18} color="#9d174d" />
-        <Text className="ml-2 font-bold text-pink-900">Registrar examen</Text>
-      </TouchableOpacity>
+      {moduleVisibility.study_enabled && (
+        <TouchableOpacity
+          className="mt-4 flex-row items-center justify-center rounded-2xl border-2 border-pink-300 bg-pink-200 py-4"
+          onPress={() => router.push('/exam-log')}
+        >
+          <Ionicons name="document-text" size={18} color="#9d174d" />
+          <Text className="ml-2 font-bold text-pink-900">Registrar examen</Text>
+        </TouchableOpacity>
+      )}
 
-      {/* Rutinas */}
-      <AnimatedDashboardCard delay={100} animationSeed={animationSeed} className="mt-4 rounded-3xl border-2 border-teal-200 bg-white p-5">
-        <View className="mb-2 flex-row items-center">
-          <Ionicons name="barbell" size={18} color="#0d9488" />
-          <Text className="ml-2 text-base font-bold text-blue-900">Rutinas de hoy</Text>
-        </View>
+      {moduleVisibility.exercise_enabled && (
+        <AnimatedDashboardCard delay={100} animationSeed={animationSeed} className="mt-4 rounded-3xl border-2 border-teal-200 bg-white p-5">
+          <View className="mb-2 flex-row items-center">
+            <Ionicons name="barbell" size={18} color="#0d9488" />
+            <Text className="ml-2 text-base font-bold text-blue-900">Rutinas de hoy</Text>
+          </View>
         {loading ? (
           <View className="items-center py-6">
             <Animated.View style={loadingAnimatedStyle}>
@@ -379,23 +407,26 @@ export function HomeDashboard({ userName, onNavigateToCooking }: HomeDashboardPr
             <Text className="mt-3 text-sm font-semibold text-slate-500">Crea tu primera rutina</Text>
           </View>
         )}
-      </AnimatedDashboardCard>
+        </AnimatedDashboardCard>
+      )}
 
       {/* ─── Cocina ─── */}
-      <AnimatedDashboardCard delay={200} animationSeed={animationSeed} className="mt-4 rounded-3xl border-2 border-orange-200 bg-white p-5">
-        <View className="mb-3 flex-row items-center justify-between">
-          <View className="flex-row items-center">
-            <Ionicons name="restaurant" size={18} color="#c2410c" />
-            <Text className="ml-2 text-base font-bold text-orange-900">Cocina</Text>
-          </View>
-          {recipeCount > 0 && (
-            <View className="rounded-full bg-orange-100 px-3 py-1">
-              <Text className="text-xs font-bold text-orange-700">
-                {recipeCount} {recipeCount === 1 ? 'receta' : 'recetas'}
-              </Text>
+      {moduleVisibility.cooking_enabled && (
+        <AnimatedDashboardCard delay={200} animationSeed={animationSeed} className="mt-4 rounded-3xl border-2 border-orange-200 bg-white p-5">
+          <View className="mb-3 flex-row items-center justify-between">
+            <View className="flex-row items-center">
+              <Ionicons name="restaurant" size={18} color="#c2410c" />
+              <Text className="ml-2 text-base font-bold text-orange-900">Cocina</Text>
             </View>
-          )}
-        </View>
+            {recipeCount > 0 && (
+              <View className="rounded-full bg-orange-100 px-3 py-1">
+                <Text className="text-xs font-bold text-orange-700">
+                  {recipeCount} {recipeCount === 1 ? 'receta' : 'recetas'}
+                </Text>
+              </View>
+            )}
+          </View>
+ 
 
         {loading ? (
           <View className="items-center py-4">
@@ -465,7 +496,8 @@ export function HomeDashboard({ userName, onNavigateToCooking }: HomeDashboardPr
             </Text>
           </TouchableOpacity>
         )}
-      </AnimatedDashboardCard>
+        </AnimatedDashboardCard>
+      )}
 
       <View className="mb-12" />
     </ScrollView>

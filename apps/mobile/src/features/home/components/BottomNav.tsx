@@ -14,6 +14,7 @@ export type MobileScreen = 'home' | 'study' | 'exercise' | 'habits' | 'cooking'
 type BottomNavProps = {
   currentScreen: MobileScreen
   onNavigate: (screen: MobileScreen) => void
+  visibleTabs?: MobileScreen[]
 }
 
 type TabPalette = {
@@ -127,13 +128,16 @@ function BottomTabItem({ id, label, icon, active, palette, onNavigate }: BottomT
   )
 }
 
-export function BottomNav({ currentScreen, onNavigate }: BottomNavProps) {
+export function BottomNav({ currentScreen, onNavigate, visibleTabs }: BottomNavProps) {
   const palette = tabPalettes[currentScreen]
+  const filteredTabs = visibleTabs?.length
+    ? tabs.filter((tab) => visibleTabs.includes(tab.id))
+    : tabs
 
   return (
     <View className={`border-t px-3 pb-6 pt-3 ${palette.border} ${palette.container}`}>
       <View className="flex-row items-center justify-between">
-        {tabs.map((tab) => (
+        {filteredTabs.map((tab) => (
           <BottomTabItem
             key={tab.id}
             id={tab.id}

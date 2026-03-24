@@ -29,7 +29,7 @@ const defaultEnabledModules: EnabledModules = {
   goals: true,
   mood: true,
   gratitude: true,
-  vouchers: true,
+  vouchers: false,
   cooking: true,
 }
 
@@ -85,7 +85,7 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
       goals: settings.goals_enabled,
       mood: settings.mood_enabled,
       gratitude: settings.gratitude_enabled,
-      vouchers: settings.vouchers_enabled,
+      vouchers: settings.vouchers_enabled && settings.partner_features_enabled,
       cooking: settings.cooking_enabled,
     }
   }, [settings])

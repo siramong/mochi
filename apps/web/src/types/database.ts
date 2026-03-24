@@ -167,6 +167,7 @@ export interface Profile {
 export interface UserSettings {
   id: string
   user_id: string
+  partner_features_enabled: boolean
   study_enabled: boolean
   exercise_enabled: boolean
   habits_enabled: boolean

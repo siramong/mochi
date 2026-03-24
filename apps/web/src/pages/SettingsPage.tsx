@@ -6,6 +6,7 @@ import { useUserSettings } from '@/hooks/useUserSettings'
 type FormSettings = {
   full_name: string
   wake_up_time: string
+  partner_features_enabled: boolean
   study_enabled: boolean
   exercise_enabled: boolean
   habits_enabled: boolean
@@ -19,13 +20,14 @@ type FormSettings = {
 const defaultForm: FormSettings = {
   full_name: '',
   wake_up_time: '05:20',
+  partner_features_enabled: false,
   study_enabled: true,
   exercise_enabled: true,
   habits_enabled: true,
   goals_enabled: true,
   mood_enabled: true,
   gratitude_enabled: true,
-  vouchers_enabled: true,
+  vouchers_enabled: false,
   cooking_enabled: true,
 }
 
@@ -51,13 +53,15 @@ export function SettingsPage() {
         ...prev,
         full_name: profileRes.data?.full_name ?? '',
         wake_up_time: profileRes.data?.wake_up_time ?? '05:20',
+        partner_features_enabled: settings?.partner_features_enabled ?? false,
         study_enabled: settings?.study_enabled ?? true,
         exercise_enabled: settings?.exercise_enabled ?? true,
         habits_enabled: settings?.habits_enabled ?? true,
         goals_enabled: settings?.goals_enabled ?? true,
         mood_enabled: settings?.mood_enabled ?? true,
         gratitude_enabled: settings?.gratitude_enabled ?? true,
-        vouchers_enabled: settings?.vouchers_enabled ?? true,
+        vouchers_enabled:
+          (settings?.partner_features_enabled ?? false) && (settings?.vouchers_enabled ?? false),
         cooking_enabled: settings?.cooking_enabled ?? true,
       }))
     }
@@ -83,6 +87,7 @@ export function SettingsPage() {
         .eq('id', userId),
       supabase.from('user_settings').upsert({
         user_id: userId,
+        partner_features_enabled: form.partner_features_enabled,
         study_enabled: form.study_enabled,
         exercise_enabled: form.exercise_enabled,
         habits_enabled: form.habits_enabled,
@@ -105,6 +110,7 @@ export function SettingsPage() {
   }
 
   const moduleToggles: Array<{ key: keyof FormSettings; label: string }> = [
+    { key: 'partner_features_enabled', label: 'Funciones privadas y premium' },
     { key: 'study_enabled', label: 'Estudio' },
     { key: 'exercise_enabled', label: 'Ejercicio' },
     { key: 'habits_enabled', label: 'Hábitos' },
@@ -149,9 +155,19 @@ export function SettingsPage() {
                 <input
                   type="checkbox"
                   checked={Boolean(form[item.key])}
+                  disabled={item.key === 'vouchers_enabled' && !form.partner_features_enabled}
                   onChange={(event) => {
                     const checked = event.target.checked
-                    setForm((prev) => ({ ...prev, [item.key]: checked }))
+                    setForm((prev) => {
+                      if (item.key === 'partner_features_enabled' && !checked) {
+                        return {
+                          ...prev,
+                          partner_features_enabled: false,
+                          vouchers_enabled: false,
+                        }
+                      }
+                      return { ...prev, [item.key]: checked }
+                    })
                   }}
                 />
                 {item.label}

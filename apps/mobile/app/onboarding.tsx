@@ -178,6 +178,7 @@ export function OnboardingScreen() {
       // Guardar ajustes de módulos
       const modulePayload = {
         user_id: user.id,
+        partner_features_enabled: selectedModules.has('vouchers_enabled'),
         study_enabled: selectedModules.has('study_enabled'),
         exercise_enabled: selectedModules.has('exercise_enabled'),
         habits_enabled: selectedModules.has('habits_enabled'),
