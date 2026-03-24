@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useSession } from '@/hooks/useSession'
+import { addPoints, unlockAchievement } from '@/lib/gamification'
 import type { ExamLog } from '@/types/database'
 import { EmptyState } from '@/components/common/EmptyState'
 
@@ -84,6 +85,17 @@ export function StudyExamsPage() {
     } else if (data) {
       setRows((prev) => [data, ...prev])
       setForm(initialState)
+
+      // Añadir gamificación: +20 puntos y desbloquear exam_ace
+      const gradeNum = Number(form.grade)
+      const maxGradeNum = Number(form.max_grade)
+      const percentage = (gradeNum / maxGradeNum) * 100
+
+      if (percentage >= 70) {
+        await addPoints(userId, 20)
+        await unlockAchievement(userId, 'exam_ace')
+        setError(null) // Asegurarse que el mensaje de éxito se vea
+      }
     }
 
     setSaving(false)

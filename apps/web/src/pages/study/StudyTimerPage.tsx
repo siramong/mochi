@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { useSession } from '@/hooks/useSession'
 import { useStudyBlocks } from '@/hooks/useStudyBlocks'
 import { MochiCompanion } from '@/components/common/MochiCompanion'
+import { addPoints, checkStudyAchievements } from '@/lib/gamification'
 import type { StudyBlock } from '@/types/database'
 
 function parseTimeToSeconds(timeValue: string): number {
@@ -137,7 +138,11 @@ export function StudyTimerPage() {
       return
     }
 
-    setSavedMessage('Sesion guardada en tu historial de estudio')
+    // Añadir gamificación: +5 puntos y verificar achievements
+    await addPoints(userId, 5)
+    await checkStudyAchievements(userId)
+
+    setSavedMessage('Sesion guardada en tu historial de estudio - ¡+5 puntos!')
     setIsSaving(false)
   }
 
