@@ -319,7 +319,7 @@ export function PrivacyPage() {
       <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
         {/* Back link */}
         <Link
-          to="/login"
+          to="/"
           className="mb-8 inline-flex items-center gap-2 rounded-xl bg-white/70 px-3 py-2 text-sm font-semibold text-purple-700 shadow-sm backdrop-blur transition-colors hover:bg-white hover:text-purple-900"
         >
           <ArrowLeft className="h-4 w-4" />
