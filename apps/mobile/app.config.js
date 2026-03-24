@@ -1,4 +1,4 @@
-const withHealthConnectPermissionDelegate = require('./plugins/with-health-connect-permission-delegate.js')
+const withMochiHealthConnectPermissionDelegate = require('./plugins/with-mochi-health-connect-delegate.js')
 
 module.exports = ({ config }) => {
   const baseConfig = config
@@ -6,11 +6,11 @@ module.exports = ({ config }) => {
 
   const plugins = basePlugins.filter((plugin) => {
     if (typeof plugin !== 'string') return true
-    return plugin !== './plugins/with-health-connect-permission-delegate.js'
+    return plugin !== './plugins/with-mochi-health-connect-delegate.js'
   })
 
   return {
     ...baseConfig,
-    plugins: [...plugins, withHealthConnectPermissionDelegate],
+    plugins: [...plugins, withMochiHealthConnectPermissionDelegate],
   }
 }
