@@ -14,7 +14,6 @@ import { getCyclePersonality } from '@/src/shared/lib/cyclePersonality'
 import type { CyclePhase } from '@/src/shared/lib/healthConnect'
 
 type DailyMotivationProps = {
-  userName: string
   studyBlockCount: number
   hasRoutine: boolean
   timeOfDay: string
@@ -22,7 +21,6 @@ type DailyMotivationProps = {
 }
 
 export function DailyMotivation({
-  userName,
   studyBlockCount,
   hasRoutine,
   timeOfDay,
@@ -52,7 +50,6 @@ export function DailyMotivation({
     let mounted = true
     async function load() {
       const msg = await getDailyMotivation(
-        userName,
         studyBlockCount,
         hasRoutine,
         timeOfDay,
@@ -68,7 +65,7 @@ export function DailyMotivation({
     return () => {
       mounted = false
     }
-  }, [userName, studyBlockCount, hasRoutine, timeOfDay, shimmerOpacity, personality?.phaseLabel])
+  }, [studyBlockCount, hasRoutine, timeOfDay, shimmerOpacity, personality?.phaseLabel])
 
   return (
     <View className="rounded-3xl border-2 border-yellow-200 bg-yellow-50 p-4 flex-row items-center">

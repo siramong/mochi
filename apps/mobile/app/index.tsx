@@ -86,7 +86,7 @@ export function HomeScreen() {
   const params = useLocalSearchParams<{ tab?: string }>()
   const [currentScreen, setCurrentScreen] = useState<MobileScreen>('home')
   const [moduleVisibility, setModuleVisibility] = useState<ModuleVisibility>(defaultModuleVisibility)
-  const [userName, setUserName] = useState('Student')
+  const [userName, setUserName] = useState('Amiga')
   const [loadingName, setLoadingName] = useState(true)
   const loadingScale = useSharedValue(1)
   const contentOpacity = useSharedValue(1)
@@ -204,7 +204,7 @@ export function HomeScreen() {
     let mounted = true
     async function loadName() {
       if (!session?.user.id) {
-        if (mounted) { setUserName('Student'); setLoadingName(false) }
+        if (mounted) { setUserName('Amiga'); setLoadingName(false) }
         return
       }
       setLoadingName(true)
@@ -214,7 +214,7 @@ export function HomeScreen() {
         .eq('id', session.user.id)
         .single()
       if (!mounted) return
-      setUserName(data?.full_name?.trim() || 'Student')
+      setUserName(data?.full_name?.trim() || 'Amiga')
       setLoadingName(false)
     }
     void loadName()

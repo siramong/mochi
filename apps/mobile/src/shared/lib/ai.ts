@@ -56,6 +56,24 @@ async function callAI(prompt: string): Promise<string> {
   return ''
 }
 
+function sanitizeDailyMotivationMessage(raw: string): string {
+  const text = raw.replace(/\s+/g, ' ').trim()
+  if (!text) return ''
+
+  // Evita saludos redundantes en el dashboard y limpia menciones genéricas en inglés.
+  const withoutGreeting = text.replace(
+    /^(?:¡?hola(?:\s+[\p{L}\p{M}'-]+)?!?|buen(?:os|as)?\s+d[ií]as(?:\s+[\p{L}\p{M}'-]+)?!?|buenas\s+tardes(?:\s+[\p{L}\p{M}'-]+)?!?|buenas\s+noches(?:\s+[\p{L}\p{M}'-]+)?!?|good\s+morning(?:\s+[\w'-]+)?!?|good\s+afternoon(?:\s+[\w'-]+)?!?|good\s+evening(?:\s+[\w'-]+)?!?|good\s+night(?:\s+[\w'-]+)?!?)[,:\s-]*/iu,
+    ''
+  )
+
+  const cleaned = withoutGreeting
+    .replace(/\bstudent\b/giu, 'estudiante')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  return cleaned
+}
+
 export async function suggestExerciseDescription(exerciseName: string): Promise<AISuggestion> {
   const cacheKey = `ai-exercise-${exerciseName}`
 
@@ -100,7 +118,6 @@ export async function suggestStudyDuration(subject: string): Promise<number> {
 }
 
 export async function getDailyMotivation(
-  userName: string,
   studyBlockCount: number,
   hasRoutine: boolean,
   timeOfDay: string,
@@ -108,7 +125,7 @@ export async function getDailyMotivation(
 ): Promise<string> {
   const today = new Date().toISOString().slice(0, 10)
   const cycleKey = cyclePhaseLabel ? cyclePhaseLabel.toLowerCase().replace(/\s+/g, '-') : 'sin-fase'
-  const cacheKey = `daily-motivation-${today}-${timeOfDay}-${cycleKey}`
+  const cacheKey = `daily-motivation-v2-${today}-${timeOfDay}-${cycleKey}`
 
   try {
     const cached = await AsyncStorage.getItem(cacheKey)
@@ -128,10 +145,11 @@ export async function getDailyMotivation(
     ? ` La usuaria está en su ${cyclePhaseLabel}. Ten en cuenta esto con un tono cálido y sin presión.`
     : ''
 
-  const prompt = `Eres Mochi, una asistente adorable. Es ${timeText}. Saluda a ${userName} de forma breve y motivadora (máximo 2 oraciones) considerando que hoy tiene ${studyBlockCount} bloques de estudio${hasRoutine ? ' y una rutina de ejercicio' : ''}.${cycleHint} Responde solo el mensaje, sin comillas.`
+  const prompt = `Eres Mochi, una asistente adorable. Es ${timeText}. Escribe un mensaje breve y motivador (máximo 2 oraciones) considerando que hoy la usuaria tiene ${studyBlockCount} bloques de estudio${hasRoutine ? ' y una rutina de ejercicio' : ''}.${cycleHint} Reglas estrictas: no saludes, no uses nombre propio, no uses inglés, no uses emojis. Responde solo el mensaje, sin comillas.`
 
   const response = await callAI(prompt)
-  const message = response || `¡Hola ${userName}! Hoy es un gran día para alcanzar tus metas.`
+  const cleaned = sanitizeDailyMotivationMessage(response)
+  const message = cleaned || 'Hoy es un gran día para avanzar un paso más hacia tus metas.'
 
   try {
     await AsyncStorage.setItem(cacheKey, message)

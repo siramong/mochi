@@ -260,7 +260,6 @@ export function HomeDashboard({ userName, onNavigateToCooking, moduleVisibility 
       {/* Motivación */}
       <View className="mt-4">
         <DailyMotivation
-          userName={userName}
           studyBlockCount={todayBlocks.length}
           hasRoutine={todayRoutines.length > 0}
           timeOfDay={timeOfDay}
