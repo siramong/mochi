@@ -27,10 +27,11 @@ import {
   cancelMorningReminder,
   getNotificationPermissionStatus,
   loadNotificationPrefs,
+  loadHabitNotificationMap,
   requestNotificationPermissions,
+  scheduleHabitRemindersForHabits,
   saveNotificationPrefs,
   scheduleCookingReminder,
-  scheduleHabitReminder,
   scheduleMorningReminder,
   scheduleStudyBlockReminders,
   type NotificationPrefs,
@@ -43,6 +44,11 @@ import {
   revokeCyclePermissions,
 } from '@/src/shared/lib/healthConnect'
 import type { StudyBlock, UserSettings } from '@/src/shared/types/database'
+
+type HabitNotificationTarget = {
+  id: string
+  name: string
+}
 
 type ProfileSettings = {
   full_name: string | null
@@ -130,6 +136,8 @@ export function SettingsScreen() {
   const [showHabitTimePicker, setShowHabitTimePicker] = useState(false)
   const [showCookingTimePicker, setShowCookingTimePicker] = useState(false)
   const [studyBlocks, setStudyBlocks] = useState<StudyBlock[]>([])
+  const [habitTargets, setHabitTargets] = useState<HabitNotificationTarget[]>([])
+  const [habitNotificationMap, setHabitNotificationMap] = useState<Record<string, boolean>>({})
   const [savingNotif, setSavingNotif] = useState(false)
   const [healthAvailable, setHealthAvailable] = useState(false)
   const [healthPermission, setHealthPermission] = useState(false)
@@ -152,7 +160,7 @@ export function SettingsScreen() {
       setLoading(true)
       setError(null)
 
-      const [profileRes, settingsRes, blocksRes, prefs, permStatus, cycleAvailable, cyclePermission, cycleSync] = await Promise.all([
+      const [profileRes, settingsRes, blocksRes, habitsRes, prefs, habitPrefs, permStatus, cycleAvailable, cyclePermission, cycleSync] = await Promise.all([
         supabase.from('profiles').select('full_name, wake_up_time').eq('id', userId).single(),
         supabase
           .from('user_settings')
@@ -162,7 +170,9 @@ export function SettingsScreen() {
           .eq('user_id', userId)
           .maybeSingle(),
         supabase.from('study_blocks').select('*').eq('user_id', userId),
+        supabase.from('habits').select('id, name').eq('user_id', userId).order('created_at', { ascending: true }),
         loadNotificationPrefs(),
+        loadHabitNotificationMap(),
         getNotificationPermissionStatus(),
         isHealthConnectAvailable(),
         hasCyclePermissions(),
@@ -171,6 +181,7 @@ export function SettingsScreen() {
 
       if (profileRes.error) throw profileRes.error
       if (settingsRes.error) throw settingsRes.error
+      if (habitsRes.error) throw habitsRes.error
 
       setProfile((profileRes.data as ProfileSettings | null) ?? { full_name: '', wake_up_time: '' })
       const mergedModuleSettings = {
@@ -184,7 +195,9 @@ export function SettingsScreen() {
           mergedModuleSettings.partner_features_enabled && mergedModuleSettings.vouchers_enabled,
       })
       setStudyBlocks((blocksRes.data as StudyBlock[] | null) ?? [])
+      setHabitTargets((habitsRes.data as HabitNotificationTarget[] | null) ?? [])
       setNotifPrefs(prefs)
+      setHabitNotificationMap(habitPrefs)
       setPermissionStatus(permStatus)
       setHealthAvailable(cycleAvailable)
       setHealthPermission(cyclePermission)
@@ -193,6 +206,8 @@ export function SettingsScreen() {
       setError(err instanceof Error ? err.message : 'No se pudieron cargar los ajustes')
       setProfile({ full_name: '', wake_up_time: '' })
       setModuleSettings(defaultModuleSettings)
+      setHabitTargets([])
+      setHabitNotificationMap({})
       setHealthAvailable(false)
       setHealthPermission(false)
       setLastCycleSync(null)
@@ -256,11 +271,19 @@ export function SettingsScreen() {
   const handleToggleModule = async (key: ModuleToggleKey, value: boolean) => {
     if (!userId) return
 
+    if (key === 'partner_features_enabled') {
+      showAlert({
+        title: 'Cambio restringido',
+        message: 'Las funciones de pareja solo se pueden activar desde administración.',
+        buttons: [{ text: 'Entendido', style: 'cancel' }],
+      })
+      return
+    }
+
     const previousSettings = moduleSettings
     const nextSettings = {
       ...moduleSettings,
       [key]: value,
-      ...(key === 'partner_features_enabled' && !value ? { vouchers_enabled: false } : {}),
     }
 
     setModuleSettings(nextSettings)
@@ -322,7 +345,9 @@ export function SettingsScreen() {
       const wakeUpTime = profile.wake_up_time ?? '06:00'
       if (updated.morningEnabled) await scheduleMorningReminder(wakeUpTime)
       if (updated.studyEnabled) await scheduleStudyBlockReminders(studyBlocks)
-      if (updated.habitEnabled) await scheduleHabitReminder(updated.habitTime)
+      if (updated.habitEnabled) {
+        await scheduleHabitRemindersForHabits(habitTargets, updated.habitTime, habitNotificationMap)
+      }
       if (updated.cookingEnabled) await scheduleCookingReminder(updated.cookingTime)
     } catch {
       setNotifPrefs((prev) => ({ ...prev, enabled: !value }))
@@ -369,7 +394,7 @@ export function SettingsScreen() {
 
     if (!notifPrefs.enabled) return
     if (value) {
-      await scheduleHabitReminder(notifPrefs.habitTime)
+      await scheduleHabitRemindersForHabits(habitTargets, notifPrefs.habitTime, habitNotificationMap)
     } else {
       await cancelHabitReminder()
     }
@@ -382,7 +407,7 @@ export function SettingsScreen() {
     await saveNotificationPrefs({ habitTime: time })
 
     if (notifPrefs.enabled && notifPrefs.habitEnabled) {
-      await scheduleHabitReminder(time)
+      await scheduleHabitRemindersForHabits(habitTargets, time, habitNotificationMap)
     }
   }
 
@@ -582,22 +607,10 @@ export function SettingsScreen() {
                 <Text className="text-lg font-extrabold text-blue-900">Módulos</Text>
 
                 <View className="mt-4 mb-4 rounded-2xl border border-violet-200 bg-violet-50 px-3 py-3">
-                  <View className="flex-row items-center justify-between">
-                    <View className="flex-1 pr-3">
-                      <Text className="text-sm font-bold text-violet-900">Funciones privadas y premium</Text>
-                      <Text className="mt-1 text-xs font-semibold text-violet-700">
-                        Activa este perfil para mostrar funciones exclusivas como Vales para pareja.
-                      </Text>
-                    </View>
-                    <Switch
-                      value={moduleSettings.partner_features_enabled}
-                      onValueChange={(nextValue) => {
-                        void handleToggleModule('partner_features_enabled', nextValue)
-                      }}
-                      thumbColor={moduleSettings.partner_features_enabled ? '#7c3aed' : '#94a3b8'}
-                      trackColor={{ false: '#cbd5e1', true: '#ddd6fe' }}
-                    />
-                  </View>
+                  <Text className="text-sm font-bold text-violet-900">Funciones de pareja</Text>
+                  <Text className="mt-1 text-xs font-semibold text-violet-700">
+                    Este estado se administra desde base de datos y no se puede cambiar desde la app.
+                  </Text>
                 </View>
 
                 <View className="mt-4">

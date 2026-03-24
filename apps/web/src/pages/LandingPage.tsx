@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { ArrowRight, BookOpenText, Dumbbell, Sparkles, Trophy } from 'lucide-react'
+import { ArrowRight, BookOpenText, Download, Dumbbell, Sparkles, Trophy } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { MochiCompanion } from '@/components/common/MochiCompanion'
 import { Button } from '@/components/ui/button'
@@ -31,6 +31,8 @@ const featureCards = [
     iconColor: 'text-sky-500',
   },
 ] as const
+
+const APK_RELEASE_URL = 'https://github.com/siramong/mochi/releases/latest'
 
 export function LandingPage() {
   const { session, loading } = useSession()
@@ -104,6 +106,18 @@ export function LandingPage() {
                 className="h-11 rounded-2xl border-purple-200 bg-white/80 px-6 text-purple-900 hover:bg-purple-50"
               >
                 <a href="#que-es-mochi">Ver cómo funciona</a>
+              </Button>
+
+              <Button
+                asChild
+                size="lg"
+                variant="outline"
+                className="h-11 rounded-2xl border-emerald-200 bg-emerald-50/80 px-6 text-emerald-900 hover:bg-emerald-100"
+              >
+                <a href={APK_RELEASE_URL} target="_blank" rel="noreferrer noopener">
+                  Instalar app en Android
+                  <Download className="h-4 w-4" />
+                </a>
               </Button>
             </div>
 

@@ -23,74 +23,6 @@ interface Profile {
   wake_up_time: string | null
 }
 
-type QuickAccessItem = {
-  label: string
-  route: '/goals' | '/vouchers' | '/mood' | '/gratitude' | '/settings' | '/study-history' | '/cooking'
-  icon: keyof typeof Ionicons.glyphMap
-  cardClass: string
-  iconColor: string
-  textClass: string
-}
-
-const quickAccessItems: QuickAccessItem[] = [
-  {
-    label: 'Mis metas',
-    route: '/goals',
-    icon: 'flag-outline',
-    cardClass: 'border-pink-200 bg-pink-100',
-    iconColor: '#be185d',
-    textClass: 'text-pink-900',
-  },
-  {
-    label: 'Mis vales',
-    route: '/vouchers',
-    icon: 'ticket-outline',
-    cardClass: 'border-yellow-200 bg-yellow-100',
-    iconColor: '#92400e',
-    textClass: 'text-yellow-900',
-  },
-  {
-    label: 'Historial de estudio',
-    route: '/study-history',
-    icon: 'time-outline',
-    cardClass: 'border-indigo-200 bg-indigo-100',
-    iconColor: '#3730a3',
-    textClass: 'text-indigo-900',
-  },
-  {
-    label: 'Estado de ánimo',
-    route: '/mood',
-    icon: 'heart-outline',
-    cardClass: 'border-orange-200 bg-orange-100',
-    iconColor: '#c2410c',
-    textClass: 'text-orange-900',
-  },
-  {
-    label: 'Gratitud',
-    route: '/gratitude',
-    icon: 'flower-outline',
-    cardClass: 'border-emerald-200 bg-emerald-100',
-    iconColor: '#047857',
-    textClass: 'text-emerald-900',
-  },
-  {
-    label: 'Cocina',
-    route: '/cooking',
-    icon: 'restaurant-outline',
-    cardClass: 'border-orange-200 bg-orange-100',
-    iconColor: '#c2410c',
-    textClass: 'text-orange-900',
-  },
-  {
-    label: 'Ajustes',
-    route: '/settings',
-    icon: 'settings-outline',
-    cardClass: 'border-blue-200 bg-blue-100',
-    iconColor: '#1d4ed8',
-    textClass: 'text-blue-900',
-  },
-]
-
 export function ProfileScreen() {
   const { session } = useSession()
   const [profile, setProfile] = useState<Profile | null>(null)
@@ -245,26 +177,6 @@ export function ProfileScreen() {
               Racha más larga: {streak.longest_streak} días
             </Text>
           )}
-        </View>
-
-        <View className="mt-8 rounded-3xl border-2 border-purple-200 bg-white p-4">
-          <Text className="text-lg font-extrabold text-purple-900">Accesos rápidos</Text>
-          <View className="mt-4 flex-row flex-wrap">
-            {quickAccessItems.map((item) => (
-              <TouchableOpacity
-                key={item.route}
-                className="mb-3 w-1/2 pr-3"
-                onPress={() => router.push(item.route)}
-              >
-                <View className={`rounded-2xl border-2 px-3 py-4 ${item.cardClass}`}>
-                  <View className="h-9 w-9 items-center justify-center rounded-xl bg-white">
-                    <Ionicons name={item.icon} size={18} color={item.iconColor} />
-                  </View>
-                  <Text className={`mt-2 text-sm font-extrabold ${item.textClass}`}>{item.label}</Text>
-                </View>
-              </TouchableOpacity>
-            ))}
-          </View>
         </View>
 
         <View className="mt-8">

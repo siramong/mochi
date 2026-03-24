@@ -190,12 +190,13 @@ export function HomeDashboard({ userName, onNavigateToCooking, moduleVisibility 
       setIsCyclePromptDismissed(false)
       return
     }
+    const scopedUserId: string = userId
 
     let mounted = true
 
     async function loadDismissedState() {
       try {
-        const value = await AsyncStorage.getItem(buildCycleDismissKey(userId))
+        const value = await AsyncStorage.getItem(buildCycleDismissKey(scopedUserId))
         if (!mounted) return
         setIsCyclePromptDismissed(value === 'true')
       } catch {

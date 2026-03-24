@@ -1,7 +1,10 @@
 import { Navigate } from 'react-router-dom'
+import { Download } from 'lucide-react'
 import { AuthComponent } from '@/components/Auth'
 import { MochiCompanion } from '@/components/common/MochiCompanion'
 import { useSession } from '@/hooks/useSession'
+
+const APK_RELEASE_URL = 'https://github.com/siramong/mochi/releases/latest'
 
 export function LoginPage() {
   const { session, loading } = useSession()
@@ -29,6 +32,15 @@ export function LoginPage() {
         />
         <h1 className="text-center text-2xl font-black text-purple-950">Bienvenida a Mochi</h1>
         <p className="mt-2 text-center text-sm text-purple-700">Inicia sesión para abrir tu dashboard</p>
+        <a
+          href={APK_RELEASE_URL}
+          target="_blank"
+          rel="noreferrer noopener"
+          className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-800 transition-colors hover:bg-emerald-100"
+        >
+          <Download className="h-4 w-4" />
+          Instalar app en Android
+        </a>
         <div className="mt-6">
           <AuthComponent />
         </div>

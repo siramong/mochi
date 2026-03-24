@@ -13,6 +13,8 @@ type HabitCardProps = {
   isCompleted: boolean
   onToggle: () => void
   onLongPress?: () => void
+  isReminderEnabled?: boolean
+  onToggleReminder?: () => void
   weeklyDots?: boolean[]
   weeklyDayLabels?: string[]
 }
@@ -57,7 +59,16 @@ const colorDotMap: Record<string, string> = {
   purple: '#c4b5fd',
 }
 
-export function HabitCard({ habit, isCompleted, onToggle, onLongPress, weeklyDots, weeklyDayLabels }: HabitCardProps) {
+export function HabitCard({
+  habit,
+  isCompleted,
+  onToggle,
+  onLongPress,
+  isReminderEnabled = true,
+  onToggleReminder,
+  weeklyDots,
+  weeklyDayLabels,
+}: HabitCardProps) {
   const scale = useSharedValue(1)
   const isCompletedShared = useDerivedValue(() => isCompleted)
 
@@ -113,10 +124,26 @@ export function HabitCard({ habit, isCompleted, onToggle, onLongPress, weeklyDot
             </View>
           )}
         </View>
-        <View
-          className={`h-8 w-8 items-center justify-center rounded-full ${isCompleted ? 'bg-green-400' : 'border-2 border-slate-300 bg-white'}`}
-        >
-          {isCompleted && <Ionicons name="checkmark" size={16} color="white" />}
+        <View className="ml-2 items-center">
+          <TouchableOpacity
+            className={`mb-2 h-8 w-8 items-center justify-center rounded-full border ${isReminderEnabled ? 'border-violet-300 bg-violet-100' : 'border-slate-300 bg-white'}`}
+            onPress={(event) => {
+              event.stopPropagation()
+              onToggleReminder?.()
+            }}
+          >
+            <Ionicons
+              name={isReminderEnabled ? 'notifications' : 'notifications-off-outline'}
+              size={14}
+              color={isReminderEnabled ? '#7c3aed' : '#94a3b8'}
+            />
+          </TouchableOpacity>
+
+          <View
+            className={`h-8 w-8 items-center justify-center rounded-full ${isCompleted ? 'bg-green-400' : 'border-2 border-slate-300 bg-white'}`}
+          >
+            {isCompleted && <Ionicons name="checkmark" size={16} color="white" />}
+          </View>
         </View>
       </Animated.View>
     </TouchableOpacity>

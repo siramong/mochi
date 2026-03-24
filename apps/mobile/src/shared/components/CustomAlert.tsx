@@ -27,7 +27,7 @@ const defaultButtonClass = 'bg-purple-500'
 const defaultTextClass = 'text-white'
 const cancelButtonClass = 'border-2 border-purple-200 bg-white'
 const cancelTextClass = 'text-purple-700'
-const destructiveButtonClass = 'bg-red-400'
+const destructiveButtonClass = 'border-2 border-red-700 bg-red-600'
 const destructiveTextClass = 'text-white'
 
 function getButtonClasses(style: CustomAlertButtonStyle | undefined) {
@@ -53,6 +53,7 @@ function getButtonClasses(style: CustomAlertButtonStyle | undefined) {
 
 export function CustomAlert({ visible, title, message, buttons }: CustomAlertProps) {
   const scale = useSharedValue(0.85)
+  const isDualAction = buttons.length === 2
 
   useEffect(() => {
     if (visible) {
@@ -84,15 +85,16 @@ export function CustomAlert({ visible, title, message, buttons }: CustomAlertPro
             {message}
           </Text>
 
-          <View className="mt-6 gap-3">
+          <View className={`mt-6 ${isDualAction ? 'flex-row' : ''}`}>
             {buttons.map((button, index) => {
               const { buttonClass, textClass } = getButtonClasses(button.style)
 
               return (
                 <TouchableOpacity
                   key={`${button.text}-${index}`}
-                  className={`rounded-2xl px-4 py-3 ${buttonClass}`}
+                  className={`rounded-2xl px-4 py-3 ${buttonClass} ${isDualAction ? `flex-1 ${index === 0 ? 'mr-2' : 'ml-2'}` : index > 0 ? 'mt-3' : ''}`}
                   onPress={button.onPress}
+                  activeOpacity={0.85}
                 >
                   <Text className={`text-center text-base font-extrabold ${textClass}`}>
                     {button.text}

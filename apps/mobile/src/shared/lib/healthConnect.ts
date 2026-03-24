@@ -138,7 +138,7 @@ function estimatePeriodLength(records: MenstruationRecord[]): number {
 async function ensureHealthConnectInitialized(): Promise<boolean> {
   if (Platform.OS !== 'android') return false
 
-  let status: SdkAvailabilityStatus
+  let status: number
   try {
     status = await getSdkStatus()
   } catch (error) {

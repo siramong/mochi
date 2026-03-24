@@ -2,6 +2,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import * as Notifications from 'expo-notifications'
 import type { StudyBlock } from '@/src/shared/types/database'
 
+type HabitReminderTarget = {
+  id: string
+  name: string
+}
+
 // ─── AsyncStorage keys ───────────────────────────────────────────────────────
 
 const STORAGE_KEY = {
@@ -10,6 +15,7 @@ const STORAGE_KEY = {
   STUDY_ENABLED: 'notifications:study_enabled',
   HABIT_ENABLED: 'notifications:habit_enabled',
   HABIT_TIME: 'notifications:habit_time',
+  HABIT_ITEM_PREFIX: 'notifications:habit_item:',
   COOKING_ENABLED: 'notifications:cooking_enabled',
   COOKING_TIME: 'notifications:cooking_time',
 } as const
@@ -18,7 +24,8 @@ const STORAGE_KEY = {
 
 const NOTIFICATION_ID = {
   MORNING: 'morning-reminder',
-  HABIT: 'habit-reminder',
+  HABIT_LEGACY: 'habit-reminder',
+  habit: (habitId: string) => `habit-reminder-${habitId}`,
   COOKING: 'cooking-reminder',
   studyBlock: (blockId: string) => `study-block-${blockId}`,
 } as const
@@ -97,6 +104,36 @@ export async function saveNotificationPrefs(prefs: Partial<NotificationPrefs>): 
     entries.push([STORAGE_KEY.COOKING_TIME, prefs.cookingTime])
 
   await AsyncStorage.multiSet(entries)
+}
+
+function habitNotificationStorageKey(habitId: string): string {
+  return `${STORAGE_KEY.HABIT_ITEM_PREFIX}${habitId}`
+}
+
+export async function loadHabitNotificationMap(): Promise<Record<string, boolean>> {
+  const allKeys = await AsyncStorage.getAllKeys()
+  const reminderKeys = allKeys.filter((key) => key.startsWith(STORAGE_KEY.HABIT_ITEM_PREFIX))
+
+  if (reminderKeys.length === 0) {
+    return {}
+  }
+
+  const entries = await AsyncStorage.multiGet(reminderKeys)
+  return entries.reduce<Record<string, boolean>>((acc, [key, value]) => {
+    const habitId = key.replace(STORAGE_KEY.HABIT_ITEM_PREFIX, '')
+    if (habitId) {
+      acc[habitId] = value !== 'false'
+    }
+    return acc
+  }, {})
+}
+
+export async function saveHabitNotificationEnabled(habitId: string, enabled: boolean): Promise<void> {
+  await AsyncStorage.setItem(habitNotificationStorageKey(habitId), enabled ? 'true' : 'false')
+}
+
+export async function removeHabitNotificationPreference(habitId: string): Promise<void> {
+  await AsyncStorage.removeItem(habitNotificationStorageKey(habitId))
 }
 
 // ─── Parse helpers ───────────────────────────────────────────────────────────
@@ -191,7 +228,7 @@ export async function scheduleHabitReminder(time: string): Promise<void> {
   const { hour, minute } = parseTime(time)
 
   await Notifications.scheduleNotificationAsync({
-    identifier: NOTIFICATION_ID.HABIT,
+    identifier: NOTIFICATION_ID.HABIT_LEGACY,
     content: {
       title: '¿Ya completaste tus hábitos?',
       body: 'No olvides registrar tus hábitos de hoy',
@@ -206,8 +243,75 @@ export async function scheduleHabitReminder(time: string): Promise<void> {
   })
 }
 
-export async function cancelHabitReminder(): Promise<void> {
-  await Notifications.cancelScheduledNotificationAsync(NOTIFICATION_ID.HABIT).catch(() => {})
+export async function scheduleHabitReminderForHabit(
+  habit: HabitReminderTarget,
+  time: string
+): Promise<void> {
+  await cancelHabitReminder(habit.id)
+  const { hour, minute } = parseTime(time)
+
+  await Notifications.scheduleNotificationAsync({
+    identifier: NOTIFICATION_ID.habit(habit.id),
+    content: {
+      title: 'Hábito pendiente',
+      body: `No olvides completar: ${habit.name}`,
+      sound: true,
+      data: { screen: 'habits', habitId: habit.id },
+    },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.DAILY,
+      hour,
+      minute,
+    },
+  })
+}
+
+export async function scheduleHabitRemindersForHabits(
+  habits: HabitReminderTarget[],
+  time: string,
+  enabledByHabit: Record<string, boolean> = {}
+): Promise<void> {
+  await cancelHabitReminder()
+  const { hour, minute } = parseTime(time)
+
+  for (const habit of habits) {
+    if (enabledByHabit[habit.id] === false) {
+      continue
+    }
+
+    await Notifications.scheduleNotificationAsync({
+      identifier: NOTIFICATION_ID.habit(habit.id),
+      content: {
+        title: 'Hábito pendiente',
+        body: `No olvides completar: ${habit.name}`,
+        sound: true,
+        data: { screen: 'habits', habitId: habit.id },
+      },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.DAILY,
+        hour,
+        minute,
+      },
+    })
+  }
+}
+
+export async function cancelHabitReminder(habitId?: string): Promise<void> {
+  if (habitId) {
+    await Notifications.cancelScheduledNotificationAsync(NOTIFICATION_ID.habit(habitId)).catch(() => {})
+    return
+  }
+
+  await Notifications.cancelScheduledNotificationAsync(NOTIFICATION_ID.HABIT_LEGACY).catch(() => {})
+
+  const scheduled = await Notifications.getAllScheduledNotificationsAsync()
+  const habitIds = scheduled
+    .map((notification) => notification.identifier)
+    .filter((id) => id.startsWith('habit-reminder-'))
+
+  await Promise.all(
+    habitIds.map((id) => Notifications.cancelScheduledNotificationAsync(id).catch(() => {}))
+  )
 }
 
 // ─── Cooking reminder ─────────────────────────────────────────────────────────

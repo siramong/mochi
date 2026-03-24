@@ -17,6 +17,14 @@ import { MochiCharacter } from '@/src/shared/components/MochiCharacter'
 import { HabitCard } from '@/src/features/habits/components/HabitCard'
 import type { Habit } from '@/src/shared/types/database'
 import { useCycleRecommendation } from '@/src/shared/hooks/useCycleRecommendation'
+import {
+  cancelHabitReminder,
+  loadHabitNotificationMap,
+  loadNotificationPrefs,
+  removeHabitNotificationPreference,
+  saveHabitNotificationEnabled,
+  scheduleHabitReminderForHabit,
+} from '@/src/shared/lib/notifications'
 
 const COLOR_OPTIONS = ['pink', 'yellow', 'blue', 'teal', 'purple'] as const
 const ICON_OPTIONS = ['leaf', 'water', 'book', 'heart', 'fitness'] as const
@@ -64,6 +72,10 @@ export function HabitsScreen() {
   const [selectedColor, setSelectedColor] = useState<string>('pink')
   const [selectedIcon, setSelectedIcon] = useState<string>('leaf')
   const [saving, setSaving] = useState(false)
+  const [habitReminderMap, setHabitReminderMap] = useState<Record<string, boolean>>({})
+  const [habitNotifEnabled, setHabitNotifEnabled] = useState(true)
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false)
+  const [habitNotifTime, setHabitNotifTime] = useState('21:00')
   const celebrationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const loadingScale = useSharedValue(1)
@@ -130,7 +142,7 @@ export function HabitsScreen() {
 
       const weekStart = last7Days[0]
 
-      const [habitsRes, todayLogsRes, weekLogsRes] = await Promise.all([
+      const [habitsRes, todayLogsRes, weekLogsRes, notifPrefs, habitPrefs] = await Promise.all([
         supabase
           .from('habits')
           .select('*')
@@ -147,6 +159,8 @@ export function HabitsScreen() {
           .eq('user_id', userId)
           .gte('log_date', weekStart)
           .lte('log_date', todayISO),
+        loadNotificationPrefs(),
+        loadHabitNotificationMap(),
       ])
 
       if (habitsRes.error) throw habitsRes.error
@@ -166,6 +180,10 @@ export function HabitsScreen() {
       setHabits(habitsRes.data ?? [])
       setCompletedToday(new Set(todayLogsRes.data?.map((l) => l.habit_id) ?? []))
       setWeeklyLogs(weekMap)
+      setHabitReminderMap(habitPrefs)
+      setNotificationsEnabled(notifPrefs.enabled)
+      setHabitNotifEnabled(notifPrefs.habitEnabled)
+      setHabitNotifTime(notifPrefs.habitTime)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error cargando hábitos')
     } finally {
@@ -236,13 +254,26 @@ export function HabitsScreen() {
 
     setSaving(true)
     try {
-      const { error: sbError } = await supabase.from('habits').insert({
-        user_id: userId,
-        name: newHabitName.trim(),
-        color: selectedColor,
-        icon: selectedIcon,
-      })
+      const { data: createdHabit, error: sbError } = await supabase
+        .from('habits')
+        .insert({
+          user_id: userId,
+          name: newHabitName.trim(),
+          color: selectedColor,
+          icon: selectedIcon,
+        })
+        .select('id, name')
+        .single()
+
       if (sbError) throw sbError
+
+      if (createdHabit) {
+        await saveHabitNotificationEnabled(createdHabit.id, true)
+        if (notificationsEnabled && habitNotifEnabled) {
+          await scheduleHabitReminderForHabit(createdHabit, habitNotifTime)
+        }
+      }
+
       setNewHabitName('')
       setSelectedColor('pink')
       setSelectedIcon('leaf')
@@ -267,10 +298,42 @@ export function HabitsScreen() {
         .eq('user_id', userId)
 
       if (deleteError) throw deleteError
+
+      await cancelHabitReminder(habitId)
+      await removeHabitNotificationPreference(habitId)
+      setHabitReminderMap((prev) => {
+        const next = { ...prev }
+        delete next[habitId]
+        return next
+      })
+
       await loadHabits()
     } catch (err) {
       console.error('handleDeleteHabit error:', err)
       setError(err instanceof Error ? err.message : 'No se pudo eliminar el hábito')
+    }
+  }
+
+  async function handleToggleHabitNotification(habit: Habit) {
+    const currentEnabled = habitReminderMap[habit.id] !== false
+    const nextEnabled = !currentEnabled
+
+    setHabitReminderMap((prev) => ({ ...prev, [habit.id]: nextEnabled }))
+
+    try {
+      await saveHabitNotificationEnabled(habit.id, nextEnabled)
+
+      if (!notificationsEnabled || !habitNotifEnabled) {
+        return
+      }
+
+      if (nextEnabled) {
+        await scheduleHabitReminderForHabit({ id: habit.id, name: habit.name }, habitNotifTime)
+      } else {
+        await cancelHabitReminder(habit.id)
+      }
+    } catch {
+      setHabitReminderMap((prev) => ({ ...prev, [habit.id]: currentEnabled }))
     }
   }
 
@@ -331,6 +394,10 @@ export function HabitsScreen() {
                 key={habit.id}
                 habit={habit}
                 isCompleted={completedToday.has(habit.id)}
+                isReminderEnabled={habitReminderMap[habit.id] !== false}
+                onToggleReminder={() => {
+                  void handleToggleHabitNotification(habit)
+                }}
                 weeklyDots={last7Days.map((d) => weeklyLogs.get(habit.id)?.has(d) ?? false)}
                 weeklyDayLabels={last7Days}
                 onToggle={() => void handleToggle(habit.id)}
