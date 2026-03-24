@@ -1,9 +1,17 @@
 import { Ionicons } from '@expo/vector-icons'
 import { useCallback, useState } from 'react'
-import { ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native'
+import {
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native'
 import { router } from 'expo-router'
 import { useFocusEffect } from '@react-navigation/native'
-import { SafeAreaView } from 'react-native-safe-area-context'
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { MochiCharacter } from '@/src/shared/components/MochiCharacter'
 import { useCustomAlert } from '@/src/shared/components/CustomAlert'
 import { useSession } from '@/src/core/providers/SessionContext'
@@ -26,6 +34,7 @@ function formatDate(isoDate: string): string {
 }
 
 export function GratitudeScreen() {
+  const insets = useSafeAreaInsets()
   const { session } = useSession()
   const { showAlert, AlertComponent } = useCustomAlert()
 
@@ -152,8 +161,18 @@ export function GratitudeScreen() {
     <>
       <View className="flex-1 bg-emerald-50">
         <SafeAreaView className="flex-1">
-          <ScrollView className="flex-1 px-5" showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-          <TouchableOpacity className="mt-4 flex-row items-center" onPress={() => router.back()}>
+          <KeyboardAvoidingView
+            className="flex-1"
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          >
+            <ScrollView
+              className="flex-1 px-5"
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
+              contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
+            >
+            <TouchableOpacity className="mt-4 flex-row items-center" onPress={() => router.back()}>
             <Ionicons name="chevron-back" size={22} color="#047857" />
             <Text className="ml-1 font-bold text-emerald-900">Volver</Text>
           </TouchableOpacity>
@@ -289,8 +308,8 @@ export function GratitudeScreen() {
             </>
           )}
 
-          <View className="h-14" />
-        </ScrollView>
+            </ScrollView>
+          </KeyboardAvoidingView>
         </SafeAreaView>
       </View>
       {AlertComponent}

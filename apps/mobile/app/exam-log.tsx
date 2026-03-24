@@ -2,6 +2,8 @@ import { Ionicons } from '@expo/vector-icons'
 import { useCallback, useState } from 'react'
 import {
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
   ScrollView,
   Text,
   TextInput,
@@ -10,7 +12,7 @@ import {
 } from 'react-native'
 import { router } from 'expo-router'
 import { useFocusEffect } from '@react-navigation/native'
-import { SafeAreaView } from 'react-native-safe-area-context'
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { supabase } from '@/src/shared/lib/supabase'
 import { useSession } from '@/src/core/providers/SessionContext'
 import { useAchievement } from '@/src/core/providers/AchievementContext'
@@ -18,6 +20,7 @@ import { MochiCharacter } from '@/src/shared/components/MochiCharacter'
 import { addPoints, unlockAchievement } from '@/src/shared/lib/gamification'
 
 export function ExamLogScreen() {
+  const insets = useSafeAreaInsets()
   const { session } = useSession()
   const { showAchievement } = useAchievement()
   const [subject, setSubject] = useState('')
@@ -147,8 +150,16 @@ export function ExamLogScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-pink-50">
-      <View className="flex-1">
-        <ScrollView className="flex-1 px-6" keyboardShouldPersistTaps="handled">
+      <KeyboardAvoidingView
+        className="flex-1"
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <ScrollView
+          className="flex-1 px-6"
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
+        >
           <TouchableOpacity className="mt-4 flex-row items-center" onPress={() => router.back()}>
             <Ionicons name="chevron-back" size={22} color="#9d174d" />
             <Text className="ml-1 font-bold text-pink-800">Volver</Text>
@@ -258,7 +269,7 @@ export function ExamLogScreen() {
           ) : null}
 
           <TouchableOpacity
-            className={`mt-6 mb-8 items-center rounded-2xl py-4 ${saving ? 'bg-pink-300' : 'bg-pink-500'}`}
+            className={`mt-6 items-center rounded-2xl py-4 ${saving ? 'bg-pink-300' : 'bg-pink-500'}`}
             onPress={() => void handleSave()}
             disabled={saving}
           >
@@ -267,7 +278,7 @@ export function ExamLogScreen() {
             </Text>
           </TouchableOpacity>
         </ScrollView>
-      </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   )
 }

@@ -1,7 +1,17 @@
 import { useState } from 'react'
-import { ActivityIndicator, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native'
+import {
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { router } from 'expo-router'
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { supabase } from '@/src/shared/lib/supabase'
 import { useSession } from '@/src/core/providers/SessionContext'
 import TimePickerModal from '@/src/shared/components/TimePickerModal'
@@ -28,6 +38,7 @@ const colors = [
 ]
 
 export function CreateStudyBlockScreen() {
+  const insets = useSafeAreaInsets()
   const { session } = useSession()
   const { showAlert, AlertComponent } = useCustomAlert()
   const [subject, setSubject] = useState('')
@@ -120,8 +131,18 @@ export function CreateStudyBlockScreen() {
 
   return (
     <>
-      <ScrollView className="flex-1 bg-purple-100">
-        <View className="px-5 py-6">
+      <SafeAreaView className="flex-1 bg-purple-100">
+        <KeyboardAvoidingView
+          className="flex-1"
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          <ScrollView
+            className="flex-1 bg-purple-100"
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+            contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
+          >
+            <View className="px-5 py-6">
         {/* Header */}
         <TouchableOpacity onPress={() => router.back()} className="mb-4 flex-row items-center">
           <Ionicons name="chevron-back" size={24} color="#7c3aed" />
@@ -244,31 +265,33 @@ export function CreateStudyBlockScreen() {
               <Text className="text-center text-lg font-extrabold text-white">Crear bloque de estudio</Text>
             )}
           </TouchableOpacity>
-        </View>
+            </View>
 
-        {/* Time pickers */}
-        <TimePickerModal
-          visible={showStartPicker}
-          time={startTime}
-          label="Hora de inicio"
-          onConfirm={(time) => {
-            setStartTime(time)
-            setShowStartPicker(false)
-          }}
-          onCancel={() => setShowStartPicker(false)}
-        />
+            {/* Time pickers */}
+            <TimePickerModal
+              visible={showStartPicker}
+              time={startTime}
+              label="Hora de inicio"
+              onConfirm={(time) => {
+                setStartTime(time)
+                setShowStartPicker(false)
+              }}
+              onCancel={() => setShowStartPicker(false)}
+            />
 
-        <TimePickerModal
-          visible={showEndPicker}
-          time={endTime}
-          label="Hora de fin"
-          onConfirm={(time) => {
-            setEndTime(time)
-            setShowEndPicker(false)
-          }}
-          onCancel={() => setShowEndPicker(false)}
-        />
-      </ScrollView>
+            <TimePickerModal
+              visible={showEndPicker}
+              time={endTime}
+              label="Hora de fin"
+              onConfirm={(time) => {
+                setEndTime(time)
+                setShowEndPicker(false)
+              }}
+              onCancel={() => setShowEndPicker(false)}
+            />
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
       {AlertComponent}
     </>
   )

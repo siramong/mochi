@@ -1,8 +1,18 @@
 import { useCallback, useState } from 'react'
-import { ScrollView, Text, TextInput, TouchableOpacity, View, ActivityIndicator } from 'react-native'
+import {
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { router } from 'expo-router'
 import { useFocusEffect } from '@react-navigation/native'
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { supabase } from '@/src/shared/lib/supabase'
 import { useSession } from '@/src/core/providers/SessionContext'
 import type { Exercise } from '@/src/shared/types/database'
@@ -19,6 +29,7 @@ const days = [
 ]
 
 export function RoutineCreateScreen() {
+  const insets = useSafeAreaInsets()
   const { session } = useSession()
   const { showAlert, AlertComponent } = useCustomAlert()
   const [routineName, setRoutineName] = useState('')
@@ -165,9 +176,18 @@ export function RoutineCreateScreen() {
   }
 
   return (
-    <View className="flex-1">
-      <ScrollView className="flex-1 bg-teal-100" keyboardShouldPersistTaps="handled">
-        <View className="px-5 py-6">
+    <SafeAreaView className="flex-1 bg-teal-100">
+      <KeyboardAvoidingView
+        className="flex-1"
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <ScrollView
+          className="flex-1 bg-teal-100"
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
+        >
+          <View className="px-5 py-6">
         <TouchableOpacity onPress={() => router.back()} className="mb-4 flex-row items-center">
           <Ionicons name="chevron-back" size={24} color="#0d9488" />
           <Text className="ml-2 text-lg font-bold text-teal-700">Volver</Text>
@@ -282,10 +302,11 @@ export function RoutineCreateScreen() {
               <Text className="text-center text-lg font-extrabold text-white">Guardar rutina</Text>
             )}
           </TouchableOpacity>
-        </View>
-      </ScrollView>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
       {AlertComponent}
-    </View>
+    </SafeAreaView>
   )
 }
 

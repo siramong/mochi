@@ -1,8 +1,18 @@
 import { useCallback, useState } from 'react'
-import { ActivityIndicator, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native'
+import {
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { router, useLocalSearchParams } from 'expo-router'
 import { useFocusEffect } from '@react-navigation/native'
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import TimePickerModal from '@/src/shared/components/TimePickerModal'
 import { useCustomAlert } from '@/src/shared/components/CustomAlert'
 import { useSession } from '@/src/core/providers/SessionContext'
@@ -28,6 +38,7 @@ const colors = [
 ]
 
 export function EditStudyBlockScreen() {
+  const insets = useSafeAreaInsets()
   const { blockId } = useLocalSearchParams<{ blockId?: string | string[] }>()
   const { session } = useSession()
   const { showAlert, AlertComponent } = useCustomAlert()
@@ -146,8 +157,18 @@ export function EditStudyBlockScreen() {
 
   return (
     <>
-      <ScrollView className="flex-1 bg-purple-100">
-        <View className="px-5 py-6">
+      <SafeAreaView className="flex-1 bg-purple-100">
+        <KeyboardAvoidingView
+          className="flex-1"
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          <ScrollView
+            className="flex-1 bg-purple-100"
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+            contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
+          >
+            <View className="px-5 py-6">
           <TouchableOpacity onPress={() => router.back()} className="mb-4 flex-row items-center">
             <Ionicons name="chevron-back" size={24} color="#7c3aed" />
             <Text className="ml-2 text-lg font-bold text-purple-700">Volver</Text>
@@ -268,30 +289,32 @@ export function EditStudyBlockScreen() {
               </TouchableOpacity>
             </>
           )}
-        </View>
+            </View>
 
-        <TimePickerModal
-          visible={showStartPicker}
-          time={startTime}
-          label="Hora de inicio"
-          onConfirm={(time) => {
-            setStartTime(time)
-            setShowStartPicker(false)
-          }}
-          onCancel={() => setShowStartPicker(false)}
-        />
+            <TimePickerModal
+              visible={showStartPicker}
+              time={startTime}
+              label="Hora de inicio"
+              onConfirm={(time) => {
+                setStartTime(time)
+                setShowStartPicker(false)
+              }}
+              onCancel={() => setShowStartPicker(false)}
+            />
 
-        <TimePickerModal
-          visible={showEndPicker}
-          time={endTime}
-          label="Hora de fin"
-          onConfirm={(time) => {
-            setEndTime(time)
-            setShowEndPicker(false)
-          }}
-          onCancel={() => setShowEndPicker(false)}
-        />
-      </ScrollView>
+            <TimePickerModal
+              visible={showEndPicker}
+              time={endTime}
+              label="Hora de fin"
+              onConfirm={(time) => {
+                setEndTime(time)
+                setShowEndPicker(false)
+              }}
+              onCancel={() => setShowEndPicker(false)}
+            />
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
       {AlertComponent}
     </>
   )

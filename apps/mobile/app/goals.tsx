@@ -2,7 +2,9 @@ import { Ionicons } from '@expo/vector-icons'
 import { useCallback, useMemo, useState } from 'react'
 import {
   ActivityIndicator,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   ScrollView,
   Text,
   TextInput,
@@ -377,16 +379,21 @@ export function GoalsScreen() {
         <TouchableWithoutFeedback onPress={closeCreateSheet}>
           <View className="flex-1 justify-end bg-black/30">
             <TouchableWithoutFeedback onPress={() => undefined}>
-              <View className="rounded-t-3xl bg-white px-5 pb-8 pt-5">
-                <View className="mb-4 h-1.5 w-16 self-center rounded-full bg-slate-200" />
-                <Text className="text-xl font-extrabold text-purple-900">Nueva meta</Text>
-                {phase === 'folicular' && personality && (
-                  <View className={`mt-3 self-start rounded-2xl border px-3 py-2 ${personality.phaseBadgeClass}`}>
-                    <Text className="text-xs font-semibold text-slate-700">
-                      Estás en tu fase folicular: ideal para empezar metas nuevas.
-                    </Text>
-                  </View>
-                )}
+              <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                className="rounded-t-3xl bg-white"
+              >
+                <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
+                  <View className="px-5 pb-8 pt-5">
+                    <View className="mb-4 h-1.5 w-16 self-center rounded-full bg-slate-200" />
+                    <Text className="text-xl font-extrabold text-purple-900">Nueva meta</Text>
+                    {phase === 'folicular' && personality && (
+                      <View className={`mt-3 self-start rounded-2xl border px-3 py-2 ${personality.phaseBadgeClass}`}>
+                        <Text className="text-xs font-semibold text-slate-700">
+                          Estás en tu fase folicular: ideal para empezar metas nuevas.
+                        </Text>
+                      </View>
+                    )}
 
                 <View className="mt-4">
                   <Text className="text-xs font-bold uppercase tracking-wide text-purple-700">Título</Text>
@@ -459,27 +466,29 @@ export function GoalsScreen() {
                   </View>
                 </View>
 
-                <View className="mt-6 flex-row gap-3">
-                  <TouchableOpacity
-                    className="flex-1 rounded-2xl border border-purple-200 py-3"
-                    onPress={closeCreateSheet}
-                    disabled={creating}
-                  >
-                    <Text className="text-center font-bold text-purple-700">Cancelar</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    className="flex-1 rounded-2xl bg-purple-600 py-3"
-                    onPress={() => void handleCreateGoal()}
-                    disabled={creating}
-                  >
-                    {creating ? (
-                      <ActivityIndicator size="small" color="white" />
-                    ) : (
-                      <Text className="text-center font-extrabold text-white">Crear meta</Text>
-                    )}
-                  </TouchableOpacity>
-                </View>
-              </View>
+                    <View className="mt-6 flex-row gap-3">
+                      <TouchableOpacity
+                        className="flex-1 rounded-2xl border border-purple-200 py-3"
+                        onPress={closeCreateSheet}
+                        disabled={creating}
+                      >
+                        <Text className="text-center font-bold text-purple-700">Cancelar</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        className="flex-1 rounded-2xl bg-purple-600 py-3"
+                        onPress={() => void handleCreateGoal()}
+                        disabled={creating}
+                      >
+                        {creating ? (
+                          <ActivityIndicator size="small" color="white" />
+                        ) : (
+                          <Text className="text-center font-extrabold text-white">Crear meta</Text>
+                        )}
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </ScrollView>
+              </KeyboardAvoidingView>
             </TouchableWithoutFeedback>
           </View>
         </TouchableWithoutFeedback>
@@ -489,9 +498,14 @@ export function GoalsScreen() {
         <TouchableWithoutFeedback onPress={closeEditSheet}>
           <View className="flex-1 justify-end bg-black/30">
             <TouchableWithoutFeedback onPress={() => undefined}>
-              <View className="rounded-t-3xl bg-white px-5 pb-8 pt-5">
-                <View className="mb-4 h-1.5 w-16 self-center rounded-full bg-slate-200" />
-                <Text className="text-xl font-extrabold text-purple-900">Actualizar meta</Text>
+              <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                className="rounded-t-3xl bg-white"
+              >
+                <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
+                  <View className="px-5 pb-8 pt-5">
+                    <View className="mb-4 h-1.5 w-16 self-center rounded-full bg-slate-200" />
+                    <Text className="text-xl font-extrabold text-purple-900">Actualizar meta</Text>
 
                 <View className="mt-4">
                   <Text className="text-xs font-bold uppercase tracking-wide text-purple-700">Título</Text>
@@ -602,27 +616,29 @@ export function GoalsScreen() {
                   </TouchableOpacity>
                 ) : null}
 
-                <View className="mt-6 flex-row gap-3">
-                  <TouchableOpacity
-                    className="flex-1 rounded-2xl border border-purple-200 py-3"
-                    onPress={closeEditSheet}
-                    disabled={savingEdit}
-                  >
-                    <Text className="text-center font-bold text-purple-700">Cancelar</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    className="flex-1 rounded-2xl bg-purple-600 py-3"
-                    onPress={() => void handleSaveGoalEdit()}
-                    disabled={savingEdit}
-                  >
-                    {savingEdit ? (
-                      <ActivityIndicator size="small" color="white" />
-                    ) : (
-                      <Text className="text-center font-extrabold text-white">Guardar cambios</Text>
-                    )}
-                  </TouchableOpacity>
-                </View>
-              </View>
+                    <View className="mt-6 flex-row gap-3">
+                      <TouchableOpacity
+                        className="flex-1 rounded-2xl border border-purple-200 py-3"
+                        onPress={closeEditSheet}
+                        disabled={savingEdit}
+                      >
+                        <Text className="text-center font-bold text-purple-700">Cancelar</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        className="flex-1 rounded-2xl bg-purple-600 py-3"
+                        onPress={() => void handleSaveGoalEdit()}
+                        disabled={savingEdit}
+                      >
+                        {savingEdit ? (
+                          <ActivityIndicator size="small" color="white" />
+                        ) : (
+                          <Text className="text-center font-extrabold text-white">Guardar cambios</Text>
+                        )}
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </ScrollView>
+              </KeyboardAvoidingView>
             </TouchableWithoutFeedback>
           </View>
         </TouchableWithoutFeedback>

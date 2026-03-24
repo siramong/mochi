@@ -1,9 +1,17 @@
 import { Ionicons } from '@expo/vector-icons'
 import { useCallback, useMemo, useState } from 'react'
-import { ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native'
+import {
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native'
 import { router } from 'expo-router'
 import { useFocusEffect } from '@react-navigation/native'
-import { SafeAreaView } from 'react-native-safe-area-context'
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { MochiCharacter } from '@/src/shared/components/MochiCharacter'
 import { useCustomAlert } from '@/src/shared/components/CustomAlert'
 import { useSession } from '@/src/core/providers/SessionContext'
@@ -98,6 +106,7 @@ function getMoodLabel(value: number): string {
 }
 
 export function MoodScreen() {
+  const insets = useSafeAreaInsets()
   const { session } = useSession()
   const { showAlert, AlertComponent } = useCustomAlert()
   const { personality, phase } = useCycleRecommendation('mood')
@@ -233,8 +242,18 @@ export function MoodScreen() {
   return (
     <>
       <SafeAreaView className="flex-1 bg-orange-50">
-        <ScrollView className="flex-1 px-5" showsVerticalScrollIndicator={false}>
-          <TouchableOpacity className="mt-4 flex-row items-center" onPress={() => router.back()}>
+        <KeyboardAvoidingView
+          className="flex-1"
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          <ScrollView
+            className="flex-1 px-5"
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+            contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
+          >
+            <TouchableOpacity className="mt-4 flex-row items-center" onPress={() => router.back()}>
             <Ionicons name="chevron-back" size={22} color="#c2410c" />
             <Text className="ml-1 font-bold text-orange-900">Volver</Text>
           </TouchableOpacity>
@@ -384,8 +403,8 @@ export function MoodScreen() {
             </>
           )}
 
-          <View className="h-14" />
-        </ScrollView>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </SafeAreaView>
       {AlertComponent}
     </>

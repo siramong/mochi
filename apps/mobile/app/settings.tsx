@@ -1,9 +1,19 @@
 import { Ionicons } from '@expo/vector-icons'
 import { useCallback, useState } from 'react'
-import { Linking, ScrollView, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native'
+import {
+  KeyboardAvoidingView,
+  Linking,
+  Platform,
+  ScrollView,
+  Switch,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native'
 import { router } from 'expo-router'
 import { useFocusEffect } from '@react-navigation/native'
-import { SafeAreaView } from 'react-native-safe-area-context'
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { MochiCharacter } from '@/src/shared/components/MochiCharacter'
 import TimePickerModal from '@/src/shared/components/TimePickerModal'
 import { useCustomAlert } from '@/src/shared/components/CustomAlert'
@@ -96,6 +106,7 @@ function isValidTime(value: string): boolean {
 }
 
 export function SettingsScreen() {
+  const insets = useSafeAreaInsets()
   const { session } = useSession()
   const { showAlert, AlertComponent } = useCustomAlert()
 
@@ -476,8 +487,18 @@ export function SettingsScreen() {
   return (
     <>
       <SafeAreaView className="flex-1 bg-blue-50">
-        <ScrollView className="flex-1 px-5" showsVerticalScrollIndicator={false}>
-          <TouchableOpacity className="mt-4 flex-row items-center" onPress={() => router.back()}>
+        <KeyboardAvoidingView
+          className="flex-1"
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          <ScrollView
+            className="flex-1 px-5"
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+            contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
+          >
+            <TouchableOpacity className="mt-4 flex-row items-center" onPress={() => router.back()}>
             <Ionicons name="chevron-back" size={22} color="#1d4ed8" />
             <Text className="ml-1 font-bold text-blue-900">Volver</Text>
           </TouchableOpacity>
@@ -824,7 +845,8 @@ export function SettingsScreen() {
               </View>
             </>
           )}
-        </ScrollView>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </SafeAreaView>
       {AlertComponent}
     </>

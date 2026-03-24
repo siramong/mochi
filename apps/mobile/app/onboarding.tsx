@@ -1,7 +1,17 @@
 import { useMemo, useState } from 'react'
-import { ActivityIndicator, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native'
+import {
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native'
 import { router } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { supabase } from '@/src/shared/lib/supabase'
 import { MochiCharacter } from '@/src/shared/components/MochiCharacter'
 import TimePickerModal from '@/src/shared/components/TimePickerModal'
@@ -117,6 +127,7 @@ const moduleOptions: ModuleOption[] = [
 ]
 
 export function OnboardingScreen() {
+  const insets = useSafeAreaInsets()
   const [step, setStep] = useState<Step>('profile')
   const [fullName, setFullName] = useState('')
   const [wakeUpTime, setWakeUpTime] = useState('05:20')
@@ -219,66 +230,79 @@ export function OnboardingScreen() {
 
   if (step === 'profile') {
     return (
-      <View className="flex-1 bg-teal-100 px-6 pt-16">
-        <View className="absolute right-10 top-10 h-12 w-12 items-center justify-center rounded-2xl bg-yellow-200">
-          <Ionicons name="star" size={22} />
-        </View>
-
-        <View className="mb-5 items-center">
-          <MochiCharacter mood="excited" size={90} />
-          <Text className="mt-3 text-sm font-semibold text-teal-700">
-            Estoy lista para acompañarte hoy
-          </Text>
-        </View>
-
-        <View className="mb-6">
-          <Text className="text-4xl font-extrabold text-teal-900">Bienvenida a Mochi</Text>
-          <Text className="mt-2 text-lg font-semibold text-teal-700">Configuremos tu perfil</Text>
-        </View>
-
-        {/* Indicador de pasos */}
-        <View className="mb-5 flex-row items-center justify-center gap-2">
-          <View className="h-2 w-8 rounded-full bg-teal-500" />
-          <View className="h-2 w-8 rounded-full bg-teal-200" />
-        </View>
-
-        <View className="rounded-3xl border-2 border-teal-200 bg-white/80 p-5">
-          <Text className="text-sm font-bold text-teal-900">¿Cuál es tu nombre?</Text>
-          <TextInput
-            className="mt-2 rounded-3xl border-2 border-teal-200 bg-white px-4 py-4 text-base text-teal-900"
-            placeholder="Tu nombre bonito"
-            value={fullName}
-            onChangeText={setFullName}
-            editable={!loading}
-            maxLength={60}
-          />
-
-          <Text className="mt-4 text-sm font-bold text-teal-900">¿A qué hora despiertas?</Text>
-          <TouchableOpacity
-            className="mt-2 rounded-3xl border-2 border-teal-200 bg-white px-4 py-4"
-            onPress={() => setShowTimePicker(true)}
-            disabled={loading}
+      <SafeAreaView className="flex-1 bg-teal-100" edges={['top', 'bottom']}>
+        <KeyboardAvoidingView
+          className="flex-1"
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          <ScrollView
+            className="flex-1 px-6 pt-10"
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+            contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
           >
-            <Text className="text-center text-2xl font-extrabold text-teal-900">{wakeUpTime}</Text>
-          </TouchableOpacity>
+            <View className="absolute right-10 top-4 h-12 w-12 items-center justify-center rounded-2xl bg-yellow-200">
+              <Ionicons name="star" size={22} />
+            </View>
 
-          {error ? <Text className="mt-3 text-sm text-red-600">{error}</Text> : null}
+            <View className="mb-5 items-center">
+              <MochiCharacter mood="excited" size={90} />
+              <Text className="mt-3 text-sm font-semibold text-teal-700">
+                Estoy lista para acompañarte hoy
+              </Text>
+            </View>
 
-          <TouchableOpacity
-            className="mt-5 flex-row items-center justify-center rounded-3xl bg-teal-500 px-4 py-4 disabled:opacity-60"
-            disabled={!formIsValid}
-            onPress={handleProfileNext}
-          >
-            <Text className="text-base font-extrabold text-white">Continuar</Text>
-            <Ionicons name="arrow-forward" size={18} color="white" style={{ marginLeft: 6 }} />
-          </TouchableOpacity>
-        </View>
+            <View className="mb-6">
+              <Text className="text-4xl font-extrabold text-teal-900">Bienvenida a Mochi</Text>
+              <Text className="mt-2 text-lg font-semibold text-teal-700">Configuremos tu perfil</Text>
+            </View>
 
-        <View className="mt-5 rounded-3xl border border-teal-200 bg-white/70 p-4">
-          <Text className="text-center text-sm text-teal-800">
-            Puedes cambiar estos datos luego desde Ajustes.
-          </Text>
-        </View>
+            {/* Indicador de pasos */}
+            <View className="mb-5 flex-row items-center justify-center gap-2">
+              <View className="h-2 w-8 rounded-full bg-teal-500" />
+              <View className="h-2 w-8 rounded-full bg-teal-200" />
+            </View>
+
+            <View className="rounded-3xl border-2 border-teal-200 bg-white/80 p-5">
+              <Text className="text-sm font-bold text-teal-900">¿Cuál es tu nombre?</Text>
+              <TextInput
+                className="mt-2 rounded-3xl border-2 border-teal-200 bg-white px-4 py-4 text-base text-teal-900"
+                placeholder="Tu nombre bonito"
+                value={fullName}
+                onChangeText={setFullName}
+                editable={!loading}
+                maxLength={60}
+              />
+
+              <Text className="mt-4 text-sm font-bold text-teal-900">¿A qué hora despiertas?</Text>
+              <TouchableOpacity
+                className="mt-2 rounded-3xl border-2 border-teal-200 bg-white px-4 py-4"
+                onPress={() => setShowTimePicker(true)}
+                disabled={loading}
+              >
+                <Text className="text-center text-2xl font-extrabold text-teal-900">{wakeUpTime}</Text>
+              </TouchableOpacity>
+
+              {error ? <Text className="mt-3 text-sm text-red-600">{error}</Text> : null}
+
+              <TouchableOpacity
+                className="mt-5 flex-row items-center justify-center rounded-3xl bg-teal-500 px-4 py-4 disabled:opacity-60"
+                disabled={!formIsValid}
+                onPress={handleProfileNext}
+              >
+                <Text className="text-base font-extrabold text-white">Continuar</Text>
+                <Ionicons name="arrow-forward" size={18} color="white" style={{ marginLeft: 6 }} />
+              </TouchableOpacity>
+            </View>
+
+            <View className="mt-5 rounded-3xl border border-teal-200 bg-white/70 p-4">
+              <Text className="text-center text-sm text-teal-800">
+                Puedes cambiar estos datos luego desde Ajustes.
+              </Text>
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
 
         <TimePickerModal
           visible={showTimePicker}
@@ -290,18 +314,28 @@ export function OnboardingScreen() {
           }}
           onCancel={() => setShowTimePicker(false)}
         />
-      </View>
+      </SafeAreaView>
     )
   }
 
   // ─── Step 2: Módulos ──────────────────────────────────────────────────────
 
   return (
-    <View className="flex-1 bg-purple-50">
-      <ScrollView className="flex-1 px-6 pt-14" showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-        <View className="mb-5 items-center">
-          <MochiCharacter mood="happy" size={80} />
-        </View>
+    <SafeAreaView className="flex-1 bg-purple-50" edges={['top', 'bottom']}>
+      <KeyboardAvoidingView
+        className="flex-1"
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <ScrollView
+          className="flex-1 px-6 pt-8"
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
+        >
+          <View className="mb-5 items-center">
+            <MochiCharacter mood="happy" size={80} />
+          </View>
 
         <View className="mb-4">
           <Text className="text-3xl font-extrabold text-purple-900">¿Qué módulos quieres?</Text>
@@ -407,9 +441,9 @@ export function OnboardingScreen() {
           </TouchableOpacity>
         </View>
 
-        <View className="h-12" />
-      </ScrollView>
-    </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   )
 }
 
