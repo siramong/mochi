@@ -1,6 +1,6 @@
 import "../global.css";
-import { useEffect, useRef } from "react";
-import { Stack, router } from "expo-router";
+import { useEffect, useRef, useState } from "react";
+import { Stack, router, usePathname } from "expo-router";
 import { Text, TouchableOpacity, View } from "react-native";
 import Animated, {
   Easing,
@@ -17,6 +17,93 @@ import { SystemBarsProvider, useSystemBars } from "@/src/core/providers/SystemBa
 import { AchievementProvider } from "@/src/core/providers/AchievementContext";
 import { CycleProvider } from "@/src/core/providers/CycleContext";
 import { MochiCharacter } from "@/src/shared/components/MochiCharacter";
+import { supabase } from "@/src/shared/lib/supabase";
+
+type ModuleVisibility = {
+  partner_features_enabled: boolean;
+  study_enabled: boolean;
+  exercise_enabled: boolean;
+  habits_enabled: boolean;
+  goals_enabled: boolean;
+  mood_enabled: boolean;
+  gratitude_enabled: boolean;
+  vouchers_enabled: boolean;
+  cooking_enabled: boolean;
+};
+
+const defaultModuleVisibility: ModuleVisibility = {
+  partner_features_enabled: false,
+  study_enabled: true,
+  exercise_enabled: true,
+  habits_enabled: true,
+  goals_enabled: true,
+  mood_enabled: true,
+  gratitude_enabled: true,
+  vouchers_enabled: false,
+  cooking_enabled: true,
+};
+
+function isRouteAllowed(pathname: string, settings: ModuleVisibility): boolean {
+  if (
+    pathname === "/" ||
+    pathname === "/login" ||
+    pathname === "/onboarding" ||
+    pathname === "/settings" ||
+    pathname === "/profile" ||
+    pathname.startsWith("/auth")
+  ) {
+    return true;
+  }
+
+  if (pathname === "/habits") {
+    return settings.habits_enabled;
+  }
+
+  if (pathname === "/goals") {
+    return settings.goals_enabled;
+  }
+
+  if (pathname === "/mood") {
+    return settings.mood_enabled;
+  }
+
+  if (pathname === "/gratitude") {
+    return settings.gratitude_enabled;
+  }
+
+  if (pathname === "/vouchers") {
+    return settings.partner_features_enabled && settings.vouchers_enabled;
+  }
+
+  if (
+    pathname === "/exam-log" ||
+    pathname === "/study-create" ||
+    pathname === "/study-edit" ||
+    pathname === "/study-history" ||
+    pathname === "/study-timer"
+  ) {
+    return settings.study_enabled;
+  }
+
+  if (
+    pathname === "/exercise-create" ||
+    pathname === "/exercise-list" ||
+    pathname === "/routine-create" ||
+    pathname === "/routine-player"
+  ) {
+    return settings.exercise_enabled;
+  }
+
+  if (
+    pathname === "/cooking" ||
+    pathname === "/recipe-detail" ||
+    pathname === "/recipe-player"
+  ) {
+    return settings.cooking_enabled;
+  }
+
+  return true;
+}
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -31,8 +118,54 @@ Notifications.setNotificationHandler({
 function RootLayoutNavigator() {
   const { session, loading, requiresOnboarding, profileError, refreshProfile } = useSession();
   const { theme } = useSystemBars();
+  const pathname = usePathname();
+  const [moduleVisibility, setModuleVisibility] = useState<ModuleVisibility>(defaultModuleVisibility);
+  const [moduleVisibilityLoaded, setModuleVisibilityLoaded] = useState(false);
   const loadingScale = useSharedValue(1);
   const notificationResponseListener = useRef<Notifications.EventSubscription | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadModuleVisibility(): Promise<void> {
+      if (!session?.user.id) {
+        if (mounted) {
+          setModuleVisibility(defaultModuleVisibility);
+          setModuleVisibilityLoaded(true);
+        }
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("user_settings")
+        .select(
+          "partner_features_enabled, study_enabled, exercise_enabled, habits_enabled, goals_enabled, mood_enabled, gratitude_enabled, vouchers_enabled, cooking_enabled"
+        )
+        .eq("user_id", session.user.id)
+        .maybeSingle();
+
+      if (!mounted) return;
+
+      if (error) {
+        setModuleVisibility(defaultModuleVisibility);
+        setModuleVisibilityLoaded(true);
+        return;
+      }
+
+      setModuleVisibility({
+        ...defaultModuleVisibility,
+        ...((data as Partial<ModuleVisibility> | null) ?? {}),
+      });
+      setModuleVisibilityLoaded(true);
+    }
+
+    setModuleVisibilityLoaded(false);
+    void loadModuleVisibility();
+
+    return () => {
+      mounted = false;
+    };
+  }, [session?.user.id]);
 
   useEffect(() => {
     if (loading) {
@@ -71,6 +204,20 @@ function RootLayoutNavigator() {
       });
     return () => { notificationResponseListener.current?.remove(); };
   }, []);
+
+  useEffect(() => {
+    if (!session || !moduleVisibilityLoaded) return;
+    if (requiresOnboarding || loading) return;
+    if (isRouteAllowed(pathname, moduleVisibility)) return;
+    router.replace("/");
+  }, [
+    loading,
+    moduleVisibility,
+    moduleVisibilityLoaded,
+    pathname,
+    requiresOnboarding,
+    session,
+  ]);
 
   if (loading) {
     return (

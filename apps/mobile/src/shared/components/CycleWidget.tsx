@@ -9,6 +9,7 @@ interface CycleWidgetProps {
   isAvailable: boolean
   hasPermission: boolean
   onRequestPermission: () => Promise<void>
+  onDismissPrompt?: () => void
 }
 
 function buildPhaseProgress(dayOfCycle: number, cycleLength: number): number {
@@ -16,7 +17,13 @@ function buildPhaseProgress(dayOfCycle: number, cycleLength: number): number {
   return Math.min(100, Math.max(0, Math.round((dayOfCycle / cycleLength) * 100)))
 }
 
-export function CycleWidget({ cycleData, isAvailable, hasPermission, onRequestPermission }: CycleWidgetProps) {
+export function CycleWidget({
+  cycleData,
+  isAvailable,
+  hasPermission,
+  onRequestPermission,
+  onDismissPrompt,
+}: CycleWidgetProps) {
   if (!cycleData && hasPermission) return null
 
   if (!hasPermission) {
@@ -35,17 +42,28 @@ export function CycleWidget({ cycleData, isAvailable, hasPermission, onRequestPe
             </Text>
           </View>
         </View>
-        <TouchableOpacity
-          className={`mt-3 self-start rounded-2xl border px-4 py-2 ${isAvailable ? 'border-violet-300 bg-violet-100' : 'border-slate-300 bg-slate-100'}`}
-          disabled={!isAvailable}
-          onPress={() => {
-            void onRequestPermission()
-          }}
-        >
-          <Text className={`text-xs font-extrabold ${isAvailable ? 'text-violet-800' : 'text-slate-500'}`}>
-            {isAvailable ? 'Conectar ahora' : 'No disponible'}
-          </Text>
-        </TouchableOpacity>
+        <View className="mt-3 flex-row items-center gap-2">
+          <TouchableOpacity
+            className={`rounded-2xl border px-4 py-2 ${isAvailable ? 'border-violet-300 bg-violet-100' : 'border-slate-300 bg-slate-100'}`}
+            disabled={!isAvailable}
+            onPress={() => {
+              void onRequestPermission()
+            }}
+          >
+            <Text className={`text-xs font-extrabold ${isAvailable ? 'text-violet-800' : 'text-slate-500'}`}>
+              {isAvailable ? 'Conectar ahora' : 'No disponible'}
+            </Text>
+          </TouchableOpacity>
+
+          {isAvailable && onDismissPrompt && (
+            <TouchableOpacity
+              className="rounded-2xl border border-slate-300 bg-slate-100 px-4 py-2"
+              onPress={onDismissPrompt}
+            >
+              <Text className="text-xs font-extrabold text-slate-600">No mostrar en inicio</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
     )
   }

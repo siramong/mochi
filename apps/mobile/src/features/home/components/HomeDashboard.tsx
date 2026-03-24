@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons'
 import { useEffect, useState } from 'react'
 import { Text, TouchableOpacity, View, ScrollView } from 'react-native'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import { router } from 'expo-router'
 import Animated, {
   Easing,
@@ -94,6 +95,10 @@ const quickAccessItems: QuickAccessItem[] = [
   },
 ]
 
+function buildCycleDismissKey(userId: string): string {
+  return `dashboard:cycle_prompt_dismissed:${userId}`
+}
+
 type AnimatedDashboardCardProps = {
   children: React.ReactNode
   delay: number
@@ -149,6 +154,7 @@ export function HomeDashboard({ userName, onNavigateToCooking, moduleVisibility 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [animationSeed, setAnimationSeed] = useState(0)
+  const [isCyclePromptDismissed, setIsCyclePromptDismissed] = useState(false)
 
   const loadingScale = useSharedValue(1)
 
@@ -176,6 +182,40 @@ export function HomeDashboard({ userName, onNavigateToCooking, moduleVisibility 
     }
     return moduleVisibility[item.enabledKey]
   })
+  const shouldShowCycleWidget = isAvailable && (hasPermission || !isCyclePromptDismissed)
+
+  useEffect(() => {
+    const userId = session?.user.id
+    if (!userId) {
+      setIsCyclePromptDismissed(false)
+      return
+    }
+
+    let mounted = true
+
+    async function loadDismissedState() {
+      try {
+        const value = await AsyncStorage.getItem(buildCycleDismissKey(userId))
+        if (!mounted) return
+        setIsCyclePromptDismissed(value === 'true')
+      } catch {
+        if (!mounted) return
+        setIsCyclePromptDismissed(false)
+      }
+    }
+
+    void loadDismissedState()
+
+    return () => {
+      mounted = false
+    }
+  }, [session?.user.id])
+
+  useEffect(() => {
+    if (hasPermission) {
+      setIsCyclePromptDismissed(false)
+    }
+  }, [hasPermission])
 
   useEffect(() => {
     const userId = session?.user.id
@@ -260,19 +300,27 @@ export function HomeDashboard({ userName, onNavigateToCooking, moduleVisibility 
       {/* Motivación */}
       <View className="mt-4">
         <DailyMotivation
-          studyBlockCount={todayBlocks.length}
-          hasRoutine={todayRoutines.length > 0}
+          studyBlockCount={moduleVisibility.study_enabled ? todayBlocks.length : 0}
+          hasRoutine={moduleVisibility.exercise_enabled && todayRoutines.length > 0}
           timeOfDay={timeOfDay}
           cyclePhase={cycleData?.phase}
         />
       </View>
 
-      <CycleWidget
-        cycleData={cycleData}
-        isAvailable={isAvailable}
-        hasPermission={hasPermission}
-        onRequestPermission={requestPermission}
-      />
+      {shouldShowCycleWidget && (
+        <CycleWidget
+          cycleData={cycleData}
+          isAvailable={isAvailable}
+          hasPermission={hasPermission}
+          onRequestPermission={requestPermission}
+          onDismissPrompt={() => {
+            const userId = session?.user.id
+            setIsCyclePromptDismissed(true)
+            if (!userId) return
+            AsyncStorage.setItem(buildCycleDismissKey(userId), 'true').catch(() => {})
+          }}
+        />
+      )}
 
       {/* Quick access */}
       {visibleQuickAccessItems.length > 0 && (
