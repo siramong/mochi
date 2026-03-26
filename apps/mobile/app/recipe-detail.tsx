@@ -1,7 +1,9 @@
 import { Ionicons } from '@expo/vector-icons'
 import { useCallback, useState } from 'react'
+import { LinearGradient } from 'expo-linear-gradient'
 import {
   ActivityIndicator,
+  ImageBackground,
   ScrollView,
   Text,
   TextInput,
@@ -17,6 +19,7 @@ import { useAchievement } from '@/src/core/providers/AchievementContext'
 import { useCustomAlert } from '@/src/shared/components/CustomAlert'
 import { MochiCharacter } from '@/src/shared/components/MochiCharacter'
 import { checkFavoriteRecipeAchievement } from '@/src/shared/lib/gamification'
+import { searchUnsplashImage } from '@/src/shared/lib/unsplash'
 import type { Recipe, RecipeIngredient, RecipeStep, RecipeCookSession } from '@/src/shared/types/database'
 
 const difficultyConfig: Record<string, { label: string; className: string; textClass: string }> = {
@@ -60,6 +63,8 @@ export function RecipeDetailScreen() {
   const [editingNotes, setEditingNotes] = useState(false)
   const [notesInput, setNotesInput] = useState('')
   const [savingNotes, setSavingNotes] = useState(false)
+  const [heroImageUrl, setHeroImageUrl] = useState<string | null>(null)
+  const [heroImageLoading, setHeroImageLoading] = useState(false)
 
   const userId = session?.user.id
 
@@ -112,6 +117,11 @@ export function RecipeDetailScreen() {
       setActiveSession((sessionRes.data as RecipeCookSession | null) ?? null)
       setServings(r.servings)
       setNotesInput(r.personal_notes ?? '')
+
+      setHeroImageLoading(true)
+      const imageUrl = await searchUnsplashImage(`${r.title} food dish`, 'landscape')
+      setHeroImageUrl(imageUrl)
+      setHeroImageLoading(false)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error cargando receta')
     } finally {
@@ -261,8 +271,29 @@ export function RecipeDetailScreen() {
           </View>
 
           {/* Título y meta */}
-          <View className="mt-5 rounded-3xl border-2 border-orange-200 bg-white p-5">
-            <Text className="text-2xl font-extrabold text-orange-950">{recipe.title}</Text>
+          <View className="mt-5 overflow-hidden rounded-3xl border-2 border-orange-200 bg-orange-100">
+            {heroImageUrl ? (
+              <ImageBackground source={{ uri: heroImageUrl }} className="h-52 w-full" resizeMode="cover">
+                <LinearGradient
+                  colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.55)']}
+                  start={{ x: 0.5, y: 0 }}
+                  end={{ x: 0.5, y: 1 }}
+                  className="flex-1 justify-end px-4 pb-4"
+                >
+                  <Text className="text-2xl font-extrabold text-white">{recipe.title}</Text>
+                </LinearGradient>
+              </ImageBackground>
+            ) : (
+              <View className="h-52 items-center justify-center">
+                <MochiCharacter mood="thinking" size={72} />
+                <Text className="mt-2 text-sm font-semibold text-orange-700">
+                  {heroImageLoading ? 'Buscando imagen de receta...' : recipe.title}
+                </Text>
+              </View>
+            )}
+          </View>
+
+          <View className="mt-4 rounded-3xl border-2 border-orange-200 bg-white p-5">
             {recipe.description ? (
               <Text className="mt-2 text-sm font-semibold text-orange-700">{recipe.description}</Text>
             ) : null}

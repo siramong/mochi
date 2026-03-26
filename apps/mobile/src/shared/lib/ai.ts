@@ -20,6 +20,130 @@ const openrouter = new OpenAI({
   dangerouslyAllowBrowser: true,
 })
 
+type ChatRole = 'system' | 'user' | 'assistant'
+
+type StudyHistoryMessage = { role: 'user' | 'assistant'; content: string }
+
+function isMultimodalAttachment(mimeType?: string, base64?: string): boolean {
+  return Boolean(mimeType && base64)
+}
+
+function isPdfMimeType(mimeType: string): boolean {
+  return mimeType.toLowerCase() === 'application/pdf'
+}
+
+function isImageMimeType(mimeType: string): boolean {
+  return mimeType.toLowerCase().startsWith('image/')
+}
+
+async function callOpenRouterMessages(
+  messages: Array<{ role: ChatRole; content: unknown }>,
+  model: string,
+  maxTokens: number,
+  temperature = 0.4
+): Promise<string> {
+  if (!OPENROUTER_KEY) return ''
+
+  const completion = await openrouter.chat.completions.create({
+    model,
+    // OpenRouter para Gemini requiere bloques multimodales que no están tipados completamente en openai SDK.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    messages: messages as any,
+    max_tokens: maxTokens,
+    temperature,
+  })
+
+  return completion.choices[0]?.message?.content ?? ''
+}
+
+function getAttachmentBlocks(text: string, attachmentBase64: string, attachmentMimeType: string): unknown[] {
+  if (isPdfMimeType(attachmentMimeType)) {
+    return [
+      { type: 'text', text },
+      {
+        type: 'document',
+        source: {
+          type: 'base64',
+          media_type: 'application/pdf',
+          data: attachmentBase64,
+        },
+      },
+    ]
+  }
+
+  if (isImageMimeType(attachmentMimeType)) {
+    return [
+      { type: 'text', text },
+      {
+        type: 'image_url',
+        image_url: {
+          url: `data:${attachmentMimeType};base64,${attachmentBase64}`,
+        },
+      },
+    ]
+  }
+
+  return [{ type: 'text', text }]
+}
+
+async function callStudyModel(
+  systemPrompt: string,
+  userText: string,
+  attachmentBase64?: string,
+  attachmentMimeType?: string,
+  maxTokens = 512
+): Promise<string> {
+  const hasAttachment = isMultimodalAttachment(attachmentMimeType, attachmentBase64)
+
+  if (!hasAttachment) {
+    return callOpenRouterMessages(
+      [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userText },
+      ],
+      'nvidia/nemotron-3-super-120b-a12b:free',
+      maxTokens,
+      0.35
+    )
+  }
+
+  try {
+    const multimodalContent = getAttachmentBlocks(userText, attachmentBase64!, attachmentMimeType!)
+    return await callOpenRouterMessages(
+      [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: multimodalContent },
+      ],
+      'google/gemini-2.0-flash-exp:free',
+      maxTokens,
+      0.35
+    )
+  } catch (error) {
+    const status =
+      typeof error === 'object' && error && 'status' in error
+        ? Number((error as { status?: number }).status)
+        : undefined
+
+    if (status === 429 || status === 503) {
+      const fallback = await callOpenRouterMessages(
+        [
+          { role: 'system', content: systemPrompt },
+          {
+            role: 'user',
+            content: `${userText}\n\nNota: no se pudo adjuntar el archivo en esta solicitud. Responde con el contexto de texto disponible.`,
+          },
+        ],
+        'nvidia/nemotron-3-super-120b-a12b:free',
+        maxTokens,
+        0.35
+      )
+      return `No pude procesar el archivo adjunto por alta demanda en el modelo multimodal. ${fallback}`.trim()
+    }
+
+    throw error
+  }
+}
+
 async function callOpenRouter(prompt: string): Promise<string> {
   if (!OPENROUTER_KEY) return ''
 
@@ -349,4 +473,106 @@ export async function askMochiWhileCooking(
 
   const response = await callAI(prompt)
   return response || 'No pude responder ahora, pero sigue con confianza, ¡tú puedes!'
+}
+
+export async function detectStudyDiscipline(subject: string, topic: string): Promise<string> {
+  const systemPrompt =
+    'Eres una clasificadora académica. Devuelve únicamente la disciplina principal en una frase corta y en minúsculas (ejemplo: matemáticas, programación, historia, idiomas, medicina, derecho, arte). Sin puntuación extra.'
+
+  const userPrompt = `Materia: ${subject}\nTema específico: ${topic}`
+  const response = await callStudyModel(systemPrompt, userPrompt, undefined, undefined, 120)
+  return response.replace(/[\n\r]/g, ' ').trim().slice(0, 60) || 'estudio general'
+}
+
+export async function generateStudySessionPlan(
+  subject: string,
+  specificTopic: string,
+  durationMinutes: number,
+  discipline: string,
+  attachmentBase64?: string,
+  attachmentMimeType?: string
+): Promise<string> {
+  const systemPrompt = `Eres Mochi, una mentora de estudio cálida para estudiantes. Responde siempre en español, máximo 120 palabras, tono cercano y sin emojis. Debes:
+- Detectar o confirmar la disciplina académica a partir de materia y tema.
+- Adaptar técnicas específicas según la disciplina (ciencias exactas, humanidades, programación, idiomas, medicina, derecho, artes, etc.).
+- Entregar exactamente: 1 frase motivadora, 2 a 3 tips concretos para este tema, y un desglose de tiempo de la sesión.
+- Si existe documento o imagen, extrae conceptos clave y úsalos en el plan.`
+
+  const userPrompt = `Materia: ${subject}
+Tema específico: ${specificTopic}
+Duración total: ${durationMinutes} minutos
+Disciplina detectada: ${discipline}
+
+Genera el plan ahora.`
+
+  const response = await callStudyModel(
+    systemPrompt,
+    userPrompt,
+    attachmentBase64,
+    attachmentMimeType,
+    360
+  )
+
+  return response.trim()
+}
+
+export async function askStudyCompanion(
+  subject: string,
+  specificTopic: string,
+  discipline: string,
+  history: StudyHistoryMessage[],
+  question: string,
+  attachmentBase64?: string,
+  attachmentMimeType?: string
+): Promise<string> {
+  const systemPrompt = `Eres Mochi, compañera de estudio en tiempo real. Responde siempre en español, máximo 150 palabras, sin emojis. Contexto fijo:
+- Materia: ${subject}
+- Tema: ${specificTopic}
+- Disciplina: ${discipline}
+
+Interpreta la intención y ayuda según el caso: teoría, resolución paso a paso, depuración de código, traducción/gramática, memorización tipo flashcards y explicación de fórmulas.`
+
+  const hasAttachment = isMultimodalAttachment(attachmentMimeType, attachmentBase64)
+  const baseMessages: Array<{ role: ChatRole; content: unknown }> = [
+    { role: 'system', content: systemPrompt },
+    ...history.map((message) => ({ role: message.role, content: message.content })),
+  ]
+
+  if (!hasAttachment) {
+    const response = await callOpenRouterMessages(
+      [...baseMessages, { role: 'user', content: question }],
+      'nvidia/nemotron-3-super-120b-a12b:free',
+      450,
+      0.4
+    )
+    return response.trim()
+  }
+
+  try {
+    const multimodal = getAttachmentBlocks(question, attachmentBase64!, attachmentMimeType!)
+    const response = await callOpenRouterMessages(
+      [...baseMessages, { role: 'user', content: multimodal }],
+      'google/gemini-2.0-flash-exp:free',
+      450,
+      0.4
+    )
+    return response.trim()
+  } catch (error) {
+    const status =
+      typeof error === 'object' && error && 'status' in error
+        ? Number((error as { status?: number }).status)
+        : undefined
+
+    if (status === 429 || status === 503) {
+      const fallback = await callOpenRouterMessages(
+        [...baseMessages, { role: 'user', content: question }],
+        'nvidia/nemotron-3-super-120b-a12b:free',
+        450,
+        0.4
+      )
+      return `No pude procesar el archivo adjunto por saturación temporal. ${fallback}`.trim()
+    }
+
+    throw error
+  }
 }

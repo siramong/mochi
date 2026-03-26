@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons'
 import { useCallback, useEffect, useState } from 'react'
 import {
   ActivityIndicator,
+  Image,
   Keyboard,
   Modal,
   Platform,
@@ -21,6 +22,7 @@ import { generateRecipe } from '@/src/shared/lib/ai'
 import { addPoints, checkCookingRecipeAchievements } from '@/src/shared/lib/gamification'
 import { useCustomAlert } from '@/src/shared/components/CustomAlert'
 import { MochiCharacter } from '@/src/shared/components/MochiCharacter'
+import { searchUnsplashImage } from '@/src/shared/lib/unsplash'
 import type { Recipe, AIRecipeResponse, RecipeDifficulty } from '@/src/shared/types/database'
 import type { RecipeGenerationType } from '@/src/shared/lib/ai'
 import { useCycleRecommendation } from '@/src/shared/hooks/useCycleRecommendation'
@@ -45,11 +47,27 @@ const complexityOptions: Array<{ value: RecipeDifficulty; label: string }> = [
   { value: 'difícil', label: 'Difícil' },
 ]
 
-function RecipeCard({ recipe, onPress }: { recipe: Recipe; onPress: () => void }) {
+function RecipeCard({
+  recipe,
+  onPress,
+  imageUrl,
+  imageLoading,
+  onLoadImage,
+}: {
+  recipe: Recipe
+  onPress: () => void
+  imageUrl: string | null
+  imageLoading: boolean
+  onLoadImage: (recipeId: string, title: string) => Promise<void>
+}) {
   const diff = difficultyConfig[recipe.difficulty] ?? difficultyConfig['media']
   const totalTime = recipe.total_time_minutes > 0
     ? recipe.total_time_minutes
     : recipe.prep_time_minutes + recipe.cook_time_minutes
+
+  useEffect(() => {
+    void onLoadImage(recipe.id, recipe.title)
+  }, [onLoadImage, recipe.id, recipe.title])
 
   return (
     <TouchableOpacity
@@ -57,6 +75,19 @@ function RecipeCard({ recipe, onPress }: { recipe: Recipe; onPress: () => void }
       onPress={onPress}
       activeOpacity={0.85}
     >
+      <View className="mb-3 h-28 overflow-hidden rounded-2xl bg-orange-100">
+        {imageUrl ? (
+          <Image source={{ uri: imageUrl }} className="h-full w-full" resizeMode="cover" />
+        ) : (
+          <View className="h-full items-center justify-center">
+            <MochiCharacter mood="thinking" size={48} />
+            {imageLoading ? (
+              <Text className="mt-1 text-xs font-semibold text-orange-700">Buscando imagen...</Text>
+            ) : null}
+          </View>
+        )}
+      </View>
+
       <View className="flex-row items-start justify-between">
         <View className="flex-1 pr-3">
           <Text className="text-base font-extrabold text-orange-950" numberOfLines={2}>
@@ -125,6 +156,8 @@ export function CookingScreen() {
   const [generating, setGenerating] = useState(false)
   const [generatingStep, setGeneratingStep] = useState('')
   const [keyboardInset, setKeyboardInset] = useState(0)
+  const [recipeImageMap, setRecipeImageMap] = useState<Record<string, string>>({})
+  const [recipeImageLoadingMap, setRecipeImageLoadingMap] = useState<Record<string, boolean>>({})
 
   const userId = session?.user.id
 
@@ -164,6 +197,19 @@ export function CookingScreen() {
       hideSub.remove()
     }
   }, [])
+
+  const loadRecipeImage = useCallback(async (recipeId: string, title: string) => {
+    if (recipeImageMap[recipeId] || recipeImageLoadingMap[recipeId]) return
+
+    setRecipeImageLoadingMap((prev) => ({ ...prev, [recipeId]: true }))
+    const imageUrl = await searchUnsplashImage(`${title} food dish`, 'landscape')
+
+    if (imageUrl) {
+      setRecipeImageMap((prev) => ({ ...prev, [recipeId]: imageUrl }))
+    }
+
+    setRecipeImageLoadingMap((prev) => ({ ...prev, [recipeId]: false }))
+  }, [recipeImageLoadingMap, recipeImageMap])
 
   const handleGenerate = async () => {
     if (!userId || !prompt.trim()) return
@@ -291,6 +337,9 @@ export function CookingScreen() {
               <RecipeCard
                 key={recipe.id}
                 recipe={recipe}
+                imageUrl={recipeImageMap[recipe.id] ?? null}
+                imageLoading={Boolean(recipeImageLoadingMap[recipe.id])}
+                onLoadImage={loadRecipeImage}
                 onPress={() => router.push(`/recipe-detail?recipeId=${recipe.id}`)}
               />
             ))

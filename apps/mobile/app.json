@@ -62,7 +62,9 @@
       ],
       [
         "react-native-health-connect"
-      ]
+      ],
+      "expo-image-picker",
+      "expo-document-picker"
     ],
     "extra": {
       "eas": {

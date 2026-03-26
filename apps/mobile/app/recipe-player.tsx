@@ -5,6 +5,7 @@ import {
   Modal,
   Platform,
   ScrollView,
+  Image,
   Text,
   TextInput,
   TouchableOpacity,
@@ -29,6 +30,7 @@ import {
 } from '@/src/shared/lib/gamification'
 import { MochiCharacter } from '@/src/shared/components/MochiCharacter'
 import { useCustomAlert } from '@/src/shared/components/CustomAlert'
+import { searchUnsplashImage } from '@/src/shared/lib/unsplash'
 import type { Recipe, RecipeStep, RecipeCookSession } from '@/src/shared/types/database'
 
 function formatTime(seconds: number): string {
@@ -67,6 +69,8 @@ export function RecipePlayerScreen() {
   const [mochiAnswer, setMochiAnswer] = useState('')
   const [asking, setAsking] = useState(false)
   const [keyboardInset, setKeyboardInset] = useState(0)
+  const [stepImageUrl, setStepImageUrl] = useState<string | null>(null)
+  const [stepImageLoading, setStepImageLoading] = useState(false)
 
   // Progress bar
   const progress = useSharedValue(0)
@@ -206,6 +210,25 @@ export function RecipePlayerScreen() {
   }, [])
 
   const currentStep = steps[currentIndex]
+
+  useEffect(() => {
+    async function loadStepImage() {
+      if (!recipe || !currentStep) {
+        setStepImageUrl(null)
+        return
+      }
+
+      setStepImageLoading(true)
+      const url = await searchUnsplashImage(
+        `${recipe.title} ${currentStep.title} cooking step`,
+        'squarish'
+      )
+      setStepImageUrl(url)
+      setStepImageLoading(false)
+    }
+
+    void loadStepImage()
+  }, [currentIndex, currentStep, recipe])
 
   const goToStep = async (nextIndex: number) => {
     if (!cookSession || !userId) return
@@ -407,9 +430,19 @@ export function RecipePlayerScreen() {
                   <View className="mr-3 h-10 w-10 items-center justify-center rounded-full bg-orange-500">
                     <Text className="text-base font-extrabold text-white">{currentStep.step_number}</Text>
                   </View>
-                  <Text className="flex-1 text-lg font-extrabold text-orange-950">
-                    {currentStep.title}
-                  </Text>
+                  <Text className="flex-1 text-lg font-extrabold text-orange-950">{currentStep.title}</Text>
+                  <View className="ml-3 h-20 w-20 overflow-hidden rounded-2xl bg-orange-100">
+                    {stepImageUrl ? (
+                      <Image source={{ uri: stepImageUrl }} className="h-full w-full" resizeMode="cover" />
+                    ) : (
+                      <View className="h-full items-center justify-center">
+                        <MochiCharacter mood="thinking" size={30} />
+                        {stepImageLoading ? (
+                          <Text className="mt-1 text-[10px] font-semibold text-orange-700">Cargando...</Text>
+                        ) : null}
+                      </View>
+                    )}
+                  </View>
                 </View>
 
                 {/* Meta del paso */}

@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { Pause, Play, RotateCcw, Save } from 'lucide-react'
+import { Pause, Play, Save, Sparkles, Upload } from 'lucide-react'
+import { detectStudyDiscipline, generateStudySessionPlan } from '@/lib/ai'
 import { supabase } from '@/lib/supabase'
+import { useStudyCompanion, type StudyAttachment } from '@/hooks/useStudyCompanion'
 import { useSession } from '@/hooks/useSession'
 import { useStudyBlocks } from '@/hooks/useStudyBlocks'
-import { MochiCompanion } from '@/components/common/MochiCompanion'
 import { addPoints, checkStudyAchievements } from '@/lib/gamification'
 import type { StudyBlock } from '@/types/database'
+
+type StudyPhase = 'setup' | 'studying' | 'complete'
 
 function parseTimeToSeconds(timeValue: string): number {
   const [hours, minutes] = timeValue.split(':').map(Number)
@@ -30,7 +33,30 @@ function formatTimer(seconds: number): string {
   return `${String(minutes).padStart(2, '0')}:${String(rest).padStart(2, '0')}`
 }
 
-const quickDurations = [25, 45, 60, 90]
+function buildSessionSummary(topic: string): string {
+  const clean = topic.trim()
+  if (!clean) return 'Consolidaste una sesión enfocada con disciplina y claridad.'
+  return `Trabajaste en ${clean.slice(0, 100)}${clean.length > 100 ? '...' : ''} y reforzaste tus ideas clave.`
+}
+
+async function fileToAttachment(file: File): Promise<StudyAttachment> {
+  const base64 = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onerror = () => reject(new Error('No se pudo leer el archivo'))
+    reader.onloadend = () => {
+      const result = typeof reader.result === 'string' ? reader.result : ''
+      const payload = result.includes(',') ? result.split(',')[1] : ''
+      resolve(payload)
+    }
+    reader.readAsDataURL(file)
+  })
+
+  return {
+    name: file.name,
+    mimeType: file.type || 'application/octet-stream',
+    base64,
+  }
+}
 
 export function StudyTimerPage() {
   const { session } = useSession()
@@ -39,13 +65,23 @@ export function StudyTimerPage() {
   const blockId = searchParams.get('blockId')
 
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(blockId)
-  const [customSubject, setCustomSubject] = useState('')
-  const [customMinutes, setCustomMinutes] = useState(45)
   const [durationSeconds, setDurationSeconds] = useState(45 * 60)
   const [timeLeft, setTimeLeft] = useState(45 * 60)
   const [isRunning, setIsRunning] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [savedMessage, setSavedMessage] = useState<string | null>(null)
+  const [phase, setPhase] = useState<StudyPhase>('setup')
+
+  const [specificTopic, setSpecificTopic] = useState('')
+  const [discipline, setDiscipline] = useState('estudio general')
+  const [setupAttachment, setSetupAttachment] = useState<StudyAttachment | null>(null)
+  const [planLoading, setPlanLoading] = useState(false)
+  const [planError, setPlanError] = useState<string | null>(null)
+  const [planText, setPlanText] = useState('')
+  const [chatOpen, setChatOpen] = useState(false)
+  const [chatQuestion, setChatQuestion] = useState('')
+  const [chatUploadError, setChatUploadError] = useState<string | null>(null)
+
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const selectedBlock = useMemo<StudyBlock | null>(() => {
@@ -55,19 +91,18 @@ export function StudyTimerPage() {
 
   useEffect(() => {
     if (!selectedBlock) return
+
     const calculated = calcDurationSeconds(selectedBlock.start_time, selectedBlock.end_time)
     const safeValue = calculated > 0 ? calculated : 45 * 60
+
     setDurationSeconds(safeValue)
     setTimeLeft(safeValue)
-    setCustomSubject(selectedBlock.subject)
     setIsRunning(false)
   }, [selectedBlock])
 
   useEffect(() => {
-    if (!isRunning) {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current)
-      }
+    if (!isRunning || phase !== 'studying') {
+      if (intervalRef.current) clearInterval(intervalRef.current)
       return
     }
 
@@ -75,6 +110,7 @@ export function StudyTimerPage() {
       setTimeLeft((previous) => {
         if (previous <= 1) {
           setIsRunning(false)
+          setPhase('complete')
           return 0
         }
         return previous - 1
@@ -82,39 +118,21 @@ export function StudyTimerPage() {
     }, 1000)
 
     return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current)
-      }
+      if (intervalRef.current) clearInterval(intervalRef.current)
     }
-  }, [isRunning])
+  }, [isRunning, phase])
 
+  const resolvedSubject = selectedBlock?.subject || 'Sesión de enfoque'
   const progressPercent = durationSeconds > 0 ? (timeLeft / durationSeconds) * 100 : 0
-
-  const resolvedSubject = selectedBlock?.subject || customSubject.trim() || 'Sesión de enfoque'
   const elapsedSeconds = Math.max(0, durationSeconds - timeLeft)
 
-  const applyQuickDuration = (minutes: number) => {
-    const seconds = minutes * 60
-    setSelectedBlockId(null)
-    setDurationSeconds(seconds)
-    setTimeLeft(seconds)
-    setCustomMinutes(minutes)
-    setIsRunning(false)
-  }
+  const companion = useStudyCompanion(resolvedSubject, specificTopic, discipline)
 
-  const applyCustomDuration = (minutes: number) => {
-    const safeMinutes = Number.isFinite(minutes) ? Math.max(5, minutes) : 45
-    const seconds = safeMinutes * 60
-    setSelectedBlockId(null)
-    setDurationSeconds(seconds)
-    setTimeLeft(seconds)
-    setCustomMinutes(safeMinutes)
-    setIsRunning(false)
-  }
-
-  const resetTimer = () => {
-    setIsRunning(false)
-    setTimeLeft(durationSeconds)
+  const ensureDiscipline = async () => {
+    if (discipline !== 'estudio general' || !specificTopic.trim()) return discipline
+    const detected = await detectStudyDiscipline(resolvedSubject, specificTopic.trim())
+    setDiscipline(detected)
+    return detected
   }
 
   const saveSession = async () => {
@@ -138,149 +156,216 @@ export function StudyTimerPage() {
       return
     }
 
-    // Añadir gamificación: +5 puntos y verificar achievements
     await addPoints(userId, 5)
     await checkStudyAchievements(userId)
 
-    setSavedMessage('Sesion guardada en tu historial de estudio - ¡+5 puntos!')
+    setSavedMessage('Sesión guardada en tu historial de estudio. ¡+5 puntos!')
     setIsSaving(false)
+  }
+
+  const handleSetupUpload = async (file: File | null) => {
+    if (!file) return
+
+    try {
+      setPlanError(null)
+      const attachment = await fileToAttachment(file)
+      setSetupAttachment(attachment)
+    } catch (err) {
+      setPlanError(err instanceof Error ? err.message : 'No se pudo cargar el archivo')
+    }
+  }
+
+  const handleChatUpload = async (file: File | null) => {
+    if (!file) return
+
+    try {
+      setChatUploadError(null)
+      const attachment = await fileToAttachment(file)
+      companion.setAttachment(attachment)
+    } catch (err) {
+      setChatUploadError(err instanceof Error ? err.message : 'No se pudo cargar el archivo')
+    }
+  }
+
+  const requestPlan = async () => {
+    if (!specificTopic.trim()) return
+
+    setPlanLoading(true)
+    setPlanError(null)
+
+    try {
+      const detected = await ensureDiscipline()
+      const response = await generateStudySessionPlan(
+        resolvedSubject,
+        specificTopic.trim(),
+        Math.max(1, Math.round(durationSeconds / 60)),
+        detected,
+        setupAttachment?.base64,
+        setupAttachment?.mimeType
+      )
+      setPlanText(response)
+    } catch (err) {
+      setPlanError(err instanceof Error ? err.message : 'No se pudo generar el plan')
+    } finally {
+      setPlanLoading(false)
+    }
+  }
+
+  const startSession = async () => {
+    if (!specificTopic.trim()) return
+    await ensureDiscipline()
+    setPhase('studying')
+    setIsRunning(true)
+  }
+
+  const sendChat = async () => {
+    const normalized = chatQuestion.trim() || (companion.attachment ? 'Ayúdame con este archivo.' : '')
+    if (!normalized) return
+
+    await companion.ask(normalized)
+    setChatQuestion('')
   }
 
   return (
     <div>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-black text-purple-950">Modo enfoque</h1>
-          <p className="text-sm text-purple-700">Temporizador para estudiar desde la PC y guardar tu avance</p>
+          <h1 className="text-2xl font-black text-purple-950">Compañera de estudio IA</h1>
+          <p className="text-sm text-purple-700">Temporizador con plan inteligente y chat para dudas en tiempo real</p>
         </div>
         <div className="flex items-center gap-2">
           <Link to="/study" className="rounded-xl bg-purple-100 px-3 py-2 text-sm font-semibold text-purple-900">
             Volver al horario
           </Link>
-          <Link to="/study/history" className="rounded-xl bg-blue-100 px-3 py-2 text-sm font-semibold text-blue-900">
-            Ver historial
-          </Link>
         </div>
       </div>
 
-      <div className="mt-4 grid gap-4 xl:grid-cols-[1.2fr_1fr]">
+      <div className="mt-4 grid gap-4 xl:grid-cols-[1.3fr_1fr]">
         <section className="rounded-3xl border border-purple-200 bg-white p-5">
-          <MochiCompanion
-            mood={isRunning ? 'excited' : 'thinking'}
-            title="Concentracion bonita"
-            message="Tu progreso de hoy tambien cuenta desde web."
-            className="mb-4"
-          />
-
-          <div className="grid gap-3 md:grid-cols-2">
-            <label className="space-y-1">
-              <span className="text-xs font-bold uppercase text-purple-800">Bloque planificado (opcional)</span>
-              <select
-                value={selectedBlockId ?? ''}
-                onChange={(event) => {
-                  const nextId = event.target.value || null
-                  setSelectedBlockId(nextId)
-                }}
-                className="w-full rounded-xl border border-purple-200 px-3 py-2 text-sm"
-              >
-                <option value="">Sesion libre</option>
-                {blocks.map((block) => (
-                  <option key={block.id} value={block.id}>
-                    {block.subject} - {block.start_time} a {block.end_time}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="space-y-1">
-              <span className="text-xs font-bold uppercase text-purple-800">Materia o foco</span>
-              <input
-                value={customSubject}
-                onChange={(event) => setCustomSubject(event.target.value)}
-                className="w-full rounded-xl border border-purple-200 px-3 py-2 text-sm"
-                placeholder="Ej: Fisica"
-              />
-            </label>
-          </div>
-
-          <div className="mt-4 flex flex-wrap gap-2">
-            {quickDurations.map((minutes) => (
-              <button
-                key={minutes}
-                type="button"
-                onClick={() => applyQuickDuration(minutes)}
-                className="rounded-xl bg-purple-100 px-3 py-1 text-xs font-bold text-purple-900 hover:bg-purple-200"
-              >
-                {minutes} min
-              </button>
-            ))}
-          </div>
-
-          <div className="mt-3 max-w-[220px]">
-            <label className="space-y-1">
-              <span className="text-xs font-bold uppercase text-purple-800">Duracion personalizada (min)</span>
-              <input
-                type="number"
-                min={5}
-                value={customMinutes}
-                onChange={(event) => {
-                  const value = Number(event.target.value)
-                  setCustomMinutes(value)
-                  applyCustomDuration(value)
-                }}
-                className="w-full rounded-xl border border-purple-200 px-3 py-2 text-sm"
-              />
-            </label>
-          </div>
-
-          <div className="mt-6 rounded-3xl border border-purple-200 bg-purple-50 p-5 text-center">
-            <p className="text-sm font-semibold text-purple-700">{resolvedSubject}</p>
-            <p className="mt-2 text-5xl font-black tracking-tight text-purple-950">{formatTimer(timeLeft)}</p>
-            <div className="mt-4 h-2 overflow-hidden rounded-full bg-white">
-              <div className="h-full bg-purple-500 transition-all" style={{ width: `${Math.max(0, progressPercent)}%` }} />
-            </div>
-            <p className="mt-2 text-xs font-semibold text-purple-600">
-              Avance: {Math.round(100 - progressPercent)}%
+          <div className="rounded-2xl border border-purple-200 bg-purple-50 p-4">
+            <p className="text-xs font-bold uppercase text-purple-700">Bloque activo</p>
+            <p className="mt-1 text-lg font-black text-purple-950">{resolvedSubject}</p>
+            <p className="text-xs font-semibold text-purple-600">
+              {selectedBlock ? `${selectedBlock.start_time} - ${selectedBlock.end_time}` : 'Sesión personalizada'} · {Math.round(durationSeconds / 60)} min
+            </p>
+            <p className="mt-2 inline-flex w-fit rounded-full bg-white px-3 py-1 text-xs font-bold text-purple-700">
+              Disciplina: {discipline}
             </p>
           </div>
 
-          <div className="mt-4 flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setIsRunning((running) => !running)}
-              className="inline-flex items-center gap-2 rounded-xl bg-purple-500 px-4 py-2 text-sm font-semibold text-white hover:bg-purple-600"
-            >
-              {isRunning ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-              {isRunning ? 'Pausar' : 'Iniciar'}
-            </button>
-            <button
-              type="button"
-              onClick={resetTimer}
-              className="inline-flex items-center gap-2 rounded-xl bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-200"
-            >
-              <RotateCcw className="h-4 w-4" />
-              Reiniciar
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                void saveSession()
-              }}
-              disabled={isSaving || elapsedSeconds <= 0}
-              className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-600 disabled:opacity-60"
-            >
-              <Save className="h-4 w-4" />
-              {isSaving ? 'Guardando...' : 'Guardar sesion'}
-            </button>
-          </div>
+          {phase === 'setup' ? (
+            <div className="mt-4 rounded-2xl border border-purple-200 p-4">
+              <label className="block text-sm font-bold text-purple-900">¿Qué vas a estudiar específicamente hoy?</label>
+              <textarea
+                value={specificTopic}
+                onChange={(event) => setSpecificTopic(event.target.value)}
+                className="mt-2 min-h-24 w-full rounded-xl border border-purple-200 bg-purple-50 px-3 py-2 text-sm"
+                placeholder="Ej: Derivadas implícitas y problemas de optimización"
+              />
 
-          {savedMessage ? <p className="mt-3 text-sm font-semibold text-purple-700">{savedMessage}</p> : null}
+              <div className="mt-3 rounded-xl border border-dashed border-purple-300 bg-purple-50 p-3">
+                <label className="flex cursor-pointer items-center gap-2 text-sm font-semibold text-purple-800">
+                  <Upload className="h-4 w-4" />
+                  Adjuntar imagen o PDF
+                  <input
+                    type="file"
+                    accept="image/*,application/pdf"
+                    className="hidden"
+                    onChange={(event) => void handleSetupUpload(event.target.files?.[0] ?? null)}
+                  />
+                </label>
+                {setupAttachment ? (
+                  <p className="mt-2 text-xs font-semibold text-purple-700">{setupAttachment.name}</p>
+                ) : (
+                  <p className="mt-2 text-xs text-purple-600">Sin adjunto por ahora</p>
+                )}
+              </div>
+
+              <div className="mt-4 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    void requestPlan()
+                  }}
+                  disabled={planLoading || !specificTopic.trim()}
+                  className="rounded-xl bg-purple-500 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                >
+                  {planLoading ? 'Generando plan...' : 'Pedir plan a Mochi'}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    void startSession()
+                  }}
+                  disabled={!specificTopic.trim()}
+                  className="rounded-xl bg-emerald-500 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                >
+                  Empezar sesión
+                </button>
+              </div>
+
+              {planError ? <p className="mt-3 text-xs font-semibold text-red-600">{planError}</p> : null}
+              {planText ? <p className="mt-3 rounded-xl bg-purple-50 p-3 text-sm text-purple-900">{planText}</p> : null}
+            </div>
+          ) : null}
+
+          {phase !== 'setup' ? (
+            <>
+              <div className="mt-5 rounded-3xl border border-purple-200 bg-purple-50 p-5 text-center">
+                <p className="text-sm font-semibold text-purple-700">{specificTopic}</p>
+                <p className="mt-2 text-5xl font-black tracking-tight text-purple-950">{formatTimer(timeLeft)}</p>
+                <div className="mt-4 h-2 overflow-hidden rounded-full bg-white">
+                  <div className="h-full bg-purple-500 transition-all" style={{ width: `${Math.max(0, progressPercent)}%` }} />
+                </div>
+              </div>
+
+              {phase === 'studying' ? (
+                <div className="mt-4 flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsRunning((running) => !running)}
+                    className="inline-flex items-center gap-2 rounded-xl bg-purple-500 px-4 py-2 text-sm font-semibold text-white"
+                  >
+                    {isRunning ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                    {isRunning ? 'Pausar' : 'Iniciar'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setChatOpen(true)}
+                    className="inline-flex items-center gap-2 rounded-xl bg-blue-500 px-4 py-2 text-sm font-semibold text-white"
+                  >
+                    <Sparkles className="h-4 w-4" />
+                    Preguntarle a Mochi
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void saveSession()
+                      setPhase('complete')
+                    }}
+                    disabled={isSaving || elapsedSeconds <= 0}
+                    className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                  >
+                    <Save className="h-4 w-4" />
+                    {isSaving ? 'Guardando...' : 'Finalizar'}
+                  </button>
+                </div>
+              ) : null}
+
+              {phase === 'complete' ? (
+                <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+                  <p className="text-sm font-bold text-emerald-900">Resumen de la sesión</p>
+                  <p className="mt-1 text-sm text-emerald-800">{buildSessionSummary(specificTopic)}</p>
+                  {savedMessage ? <p className="mt-2 text-xs font-semibold text-emerald-700">{savedMessage}</p> : null}
+                </div>
+              ) : null}
+            </>
+          ) : null}
         </section>
 
         <aside className="rounded-3xl border border-blue-200 bg-blue-50 p-5">
           <h2 className="text-lg font-bold text-blue-950">Atajos de estudio</h2>
-          <p className="mt-1 text-sm text-blue-700">Funciones clave disponibles desde web</p>
-
           <div className="mt-4 space-y-2">
             <Link to="/study/new" className="block rounded-2xl border border-blue-200 bg-white px-3 py-2 text-sm font-semibold text-blue-900">
               Crear bloque semanal
@@ -288,18 +373,79 @@ export function StudyTimerPage() {
             <Link to="/study/history" className="block rounded-2xl border border-blue-200 bg-white px-3 py-2 text-sm font-semibold text-blue-900">
               Revisar historial de sesiones
             </Link>
-            <Link to="/study/exams" className="block rounded-2xl border border-blue-200 bg-white px-3 py-2 text-sm font-semibold text-blue-900">
-              Registrar examenes
-            </Link>
           </div>
 
           <div className="mt-5 rounded-2xl border border-blue-200 bg-white p-3">
             <p className="text-xs font-bold uppercase text-blue-700">Tiempo registrado hoy</p>
             <p className="mt-1 text-2xl font-black text-blue-950">{formatTimer(elapsedSeconds)}</p>
-            <p className="mt-1 text-xs text-blue-700">Guarda al finalizar para sumar al historial.</p>
           </div>
         </aside>
       </div>
+
+      {chatOpen ? (
+        <div className="fixed inset-0 z-40 flex items-end bg-black/35 p-4 md:items-center md:justify-center">
+          <div className="w-full max-w-2xl rounded-3xl bg-white p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-bold text-purple-900">Compañera de estudio</p>
+                <p className="text-xs text-purple-700">{specificTopic}</p>
+              </div>
+              <button type="button" onClick={() => setChatOpen(false)} className="rounded-lg bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700">
+                Cerrar
+              </button>
+            </div>
+
+            <div className="mt-3 max-h-64 overflow-y-auto rounded-2xl border border-purple-200 bg-purple-50 p-3">
+              {companion.messages.length === 0 ? (
+                <p className="text-sm text-purple-700">Haz una pregunta sobre teoría, ejercicios, código o fórmulas.</p>
+              ) : (
+                <div className="space-y-2">
+                  {companion.messages.map((message, index) => (
+                    <div key={`${message.role}-${index}`} className={`rounded-xl p-2 text-sm ${message.role === 'assistant' ? 'bg-white text-purple-900' : 'bg-blue-100 text-blue-900'}`}>
+                      {message.content}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="mt-3 rounded-xl border border-dashed border-purple-300 bg-purple-50 p-3">
+              <label className="flex cursor-pointer items-center gap-2 text-sm font-semibold text-purple-800">
+                <Upload className="h-4 w-4" />
+                Adjuntar imagen o PDF para esta pregunta
+                <input
+                  type="file"
+                  accept="image/*,application/pdf"
+                  className="hidden"
+                  onChange={(event) => void handleChatUpload(event.target.files?.[0] ?? null)}
+                />
+              </label>
+              {companion.attachment ? <p className="mt-1 text-xs font-semibold text-purple-700">{companion.attachment.name}</p> : null}
+              {chatUploadError ? <p className="mt-1 text-xs font-semibold text-red-600">{chatUploadError}</p> : null}
+            </div>
+
+            <textarea
+              value={chatQuestion}
+              onChange={(event) => setChatQuestion(event.target.value)}
+              className="mt-3 min-h-20 w-full rounded-xl border border-purple-200 bg-purple-50 px-3 py-2 text-sm"
+              placeholder="Escribe tu duda..."
+            />
+
+            {companion.error ? <p className="mt-2 text-xs font-semibold text-red-600">{companion.error}</p> : null}
+
+            <button
+              type="button"
+              onClick={() => {
+                void sendChat()
+              }}
+              disabled={companion.loading || !(chatQuestion.trim() || companion.attachment)}
+              className="mt-3 rounded-xl bg-purple-500 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+            >
+              {companion.loading ? 'Consultando...' : 'Enviar a Mochi'}
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }

@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons'
 import { useEffect, useRef, useState } from 'react'
-import { Text, TouchableOpacity, View } from 'react-native'
+import { Animated as RNAnimated, ImageBackground, Text, TouchableOpacity, View } from 'react-native'
+import { LinearGradient } from 'expo-linear-gradient'
 import { router, useLocalSearchParams } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import Animated, {
@@ -16,6 +17,7 @@ import { useSession } from '@/src/core/providers/SessionContext'
 import { useAchievement } from '@/src/core/providers/AchievementContext'
 import { MochiCharacter } from '@/src/shared/components/MochiCharacter'
 import { addPoints, checkExerciseAchievements, updateStreak, checkStreakAchievements } from '@/src/shared/lib/gamification'
+import { searchUnsplashImage } from '@/src/shared/lib/unsplash'
 import type { RoutineWithExercises } from '@/src/shared/types/database'
 
 type Phase = 'exercise' | 'rest' | 'complete'
@@ -55,7 +57,10 @@ export function RoutinePlayerScreen() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const imageOpacity = useRef(new RNAnimated.Value(0)).current
   const progress = useSharedValue(0)
+  const [exerciseImageUrl, setExerciseImageUrl] = useState<string | null>(null)
+  const [imageLoading, setImageLoading] = useState(false)
 
   useEffect(() => {
     async function loadRoutine() {
@@ -247,12 +252,48 @@ export function RoutinePlayerScreen() {
   const currentExercise = currentRoutineExercise?.exercise
   const totalExercises = routine?.routine_exercises.length ?? 0
 
+  useEffect(() => {
+    async function loadExerciseImage() {
+      if (!currentExercise?.name || phase !== 'exercise') return
+
+      setImageLoading(true)
+      const imageUrl = await searchUnsplashImage(`${currentExercise.name} fitness exercise`, 'portrait')
+      setExerciseImageUrl(imageUrl)
+      setImageLoading(false)
+
+      if (imageUrl) {
+        imageOpacity.setValue(0)
+        RNAnimated.timing(imageOpacity, {
+          toValue: 1,
+          duration: 400,
+          useNativeDriver: true,
+        }).start()
+      }
+    }
+
+    void loadExerciseImage()
+  }, [currentExercise?.name, currentExerciseIndex, imageOpacity, phase])
+
   return (
-    <SafeAreaView className="flex-1 bg-teal-50 px-6">
-      <TouchableOpacity className="mt-2 flex-row items-center" onPress={() => router.back()}>
-        <Ionicons name="chevron-back" size={22} color="#0d9488" />
-        <Text className="ml-1 font-bold text-teal-700">Volver</Text>
-      </TouchableOpacity>
+    <View className="flex-1 bg-teal-50">
+      {phase === 'exercise' && exerciseImageUrl ? (
+        <RNAnimated.View style={{ opacity: imageOpacity }} className="absolute inset-0">
+          <ImageBackground source={{ uri: exerciseImageUrl }} className="h-full w-full" resizeMode="cover">
+            <LinearGradient
+              colors={['rgba(0,0,0,0.05)', 'rgba(0,0,0,0.7)']}
+              start={{ x: 0.5, y: 0 }}
+              end={{ x: 0.5, y: 1 }}
+              className="h-full w-full"
+            />
+          </ImageBackground>
+        </RNAnimated.View>
+      ) : null}
+
+      <SafeAreaView className="flex-1 px-6">
+        <TouchableOpacity className="mt-2 flex-row items-center" onPress={() => router.back()}>
+          <Ionicons name="chevron-back" size={22} color="#0d9488" />
+          <Text className="ml-1 font-bold text-teal-700">Volver</Text>
+        </TouchableOpacity>
 
       <View className="mt-4">
         <Text className="text-xl font-extrabold text-teal-900">{routine?.name}</Text>
@@ -282,10 +323,9 @@ export function RoutinePlayerScreen() {
             </Text>
           )}
           {currentExercise?.notes ? (
-            <Text className="mt-2 text-center text-xs font-semibold text-teal-500 px-4">
-              {currentExercise.notes}
-            </Text>
+            <Text className="mt-2 px-4 text-center text-xs font-semibold text-teal-100">{currentExercise.notes}</Text>
           ) : null}
+          {imageLoading ? <Text className="mt-2 text-xs font-semibold text-teal-100">Cargando imagen del ejercicio...</Text> : null}
           <TouchableOpacity
             className="mt-8 rounded-2xl bg-teal-500 px-8 py-4"
             onPress={handleSkip}
@@ -309,7 +349,8 @@ export function RoutinePlayerScreen() {
           </TouchableOpacity>
         </View>
       )}
-    </SafeAreaView>
+      </SafeAreaView>
+    </View>
   )
 }
 
