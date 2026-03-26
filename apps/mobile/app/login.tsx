@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -11,8 +11,12 @@ import {
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import * as Linking from 'expo-linking'
+import * as WebBrowser from 'expo-web-browser'
 import { supabase } from '@/src/shared/lib/supabase'
 import { MochiCharacter } from '@/src/shared/components/MochiCharacter'
+
+// Ensure WebBrowser auth session complettion on app startup
+WebBrowser.maybeCompleteAuthSession()
 
 type Tab = 'login' | 'signup'
 
@@ -61,6 +65,7 @@ export function LoginScreen() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
+  const [googleLoading, setGoogleLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [emailSent, setEmailSent] = useState(false)
 
@@ -127,6 +132,69 @@ export function LoginScreen() {
     }
 
     setLoading(false)
+  }
+
+  /**
+   * Google OAuth Sign-In
+   *
+   * IMPORTANT: The following redirect URL must be configured in Supabase:
+   * Authentication → URL Configuration → Redirect URLs
+   * Add: mochi://auth/callback
+   *
+   * This uses Supabase's recommended OAuth flow for Expo with WebBrowser.
+   */
+  async function signInWithGoogle() {
+    setError(null)
+    setGoogleLoading(true)
+
+    try {
+      const redirectTo = Linking.createURL('auth/callback')
+
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo,
+          skipBrowserRedirect: true,
+        },
+      })
+
+      if (error || !data.url) {
+        setError('No se pudo iniciar sesión con Google. Intenta de nuevo.')
+        setGoogleLoading(false)
+        return
+      }
+
+      const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo)
+
+      if (result.type === 'success') {
+        const url = result.url
+        // Extract tokens from the URL hash or query string
+        const fragment = url.split('#')[1] ?? url.split('?')[1]
+        const params = new URLSearchParams(fragment ?? '')
+        const accessToken = params.get('access_token')
+        const refreshToken = params.get('refresh_token')
+
+        if (accessToken && refreshToken) {
+          // Set the session with the tokens
+          const { error: sessionError } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          })
+
+          if (sessionError) {
+            setError('No se pudo completar la sesión. Intenta de nuevo.')
+          }
+        }
+      } else if (result.type === 'cancel' || result.type === 'dismiss') {
+        // User cancelled or dismissed the browser — no error needed
+      } else {
+        setError('No se pudo iniciar sesión con Google. Intenta de nuevo.')
+      }
+    } catch (err) {
+      setError('Ocurrió un error. Intenta de nuevo.')
+    } finally {
+      setGoogleLoading(false)
+    }
   }
 
   // Show email-sent confirmation screen after successful signup
@@ -207,7 +275,7 @@ export function LoginScreen() {
               autoCapitalize="none"
               keyboardType="email-address"
               autoComplete="email"
-              editable={!loading}
+              editable={!loading && !googleLoading}
             />
 
             <TextInput
@@ -218,7 +286,7 @@ export function LoginScreen() {
               onChangeText={setPassword}
               secureTextEntry
               autoComplete={tab === 'signup' ? 'new-password' : 'current-password'}
-              editable={!loading}
+              editable={!loading && !googleLoading}
             />
 
             {error ? (
@@ -232,7 +300,7 @@ export function LoginScreen() {
             onPress={() => {
               void (tab === 'login' ? signIn() : signUp())
             }}
-            disabled={loading}
+            disabled={loading || googleLoading}
             activeOpacity={0.85}
           >
             {loading ? (
@@ -241,6 +309,34 @@ export function LoginScreen() {
               <Text className="text-lg font-extrabold text-white">
                 {tab === 'login' ? 'Iniciar sesión' : 'Crear cuenta'}
               </Text>
+            )}
+          </TouchableOpacity>
+
+          {/* Divider */}
+          <View className="mt-6 flex-row items-center gap-2">
+            <View className="flex-1 border-t border-purple-200" />
+            <Text className="text-xs font-semibold text-purple-500">o continúa con</Text>
+            <View className="flex-1 border-t border-purple-200" />
+          </View>
+
+          {/* Google button */}
+          <TouchableOpacity
+            className="mt-4 flex-row items-center justify-center gap-2 rounded-3xl border-2 border-gray-200 bg-white py-4 disabled:opacity-60"
+            onPress={() => void signInWithGoogle()}
+            disabled={loading || googleLoading}
+            activeOpacity={0.85}
+          >
+            {googleLoading ? (
+              <ActivityIndicator color="#1f2937" />
+            ) : (
+              <>
+                <View className="h-5 w-5 items-center justify-center rounded-full bg-gray-800">
+                  <Text className="text-xs font-bold text-white">G</Text>
+                </View>
+                <Text className="text-sm font-semibold text-gray-800">
+                  Continuar con Google
+                </Text>
+              </>
             )}
           </TouchableOpacity>
 
