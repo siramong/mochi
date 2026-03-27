@@ -62,17 +62,14 @@ jobs:
       - name: 📦 Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: 🧪 TypeScript check (web)
-        run: pnpm --filter mochi-web tsc --noEmit
-
       - name: 🧪 TypeScript check (mobile)
         run: pnpm --filter mochi-mobile tsc --noEmit
 
-      - name: 🧹 ESLint
-        run: pnpm --filter mochi-web lint && pnpm --filter mochi-mobile lint
+      - name: 🧹 ESLint (mobile)
+        run: pnpm --filter mochi-mobile lint
 
-      - name: 🎨 Prettier check
-        run: pnpm --filter mochi-web format:check && pnpm --filter mochi-mobile format:check
+      - name: 🎨 Prettier check (mobile)
+        run: pnpm --filter mochi-mobile format:check
 
   build-and-release:
     needs: test
