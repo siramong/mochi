@@ -63,7 +63,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: 🧪 TypeScript check (mobile)
-        run: pnpm --filter mochi-mobile tsc --noEmit
+        run: pnpm --filter mochi-mobile exec tsc --noEmit
 
       - name: 🧹 ESLint (mobile)
         run: pnpm --filter mochi-mobile lint
