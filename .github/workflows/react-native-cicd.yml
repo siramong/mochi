@@ -66,10 +66,10 @@ jobs:
         run: pnpm --filter mochi-mobile exec tsc --noEmit
 
       - name: 🧹 ESLint (mobile)
-        run: pnpm --filter mochi-mobile lint
+        run: pnpm --filter mochi-mobile exec lint
 
       - name: 🎨 Prettier check (mobile)
-        run: pnpm --filter mochi-mobile format:check
+        run: pnpm --filter mochi-mobile exec format:check
 
   build-and-release:
     needs: test
