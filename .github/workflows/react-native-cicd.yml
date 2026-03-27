@@ -42,14 +42,13 @@ jobs:
           node-version: "20"
 
       - name: 📦 Setup pnpm
-        uses: pnpm/action-setup@v3
+        uses: pnpm/action-setup@v4
         with:
-          version: latest
           run_install: false
 
       - name: 📦 Get pnpm cache directory
         id: pnpm-cache-dir
-        run: echo "dir=$(pnpm store path)" >> $GITHUB_OUTPUT
+        run: echo "dir=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
 
       - name: 📦 Setup pnpm cache
         uses: actions/cache@v4
@@ -91,14 +90,13 @@ jobs:
           node-version: "20"
 
       - name: 📦 Setup pnpm
-        uses: pnpm/action-setup@v3
+        uses: pnpm/action-setup@v4
         with:
-          version: latest
           run_install: false
 
       - name: 📦 Get pnpm cache directory
         id: pnpm-cache-dir
-        run: echo "dir=$(pnpm store path)" >> $GITHUB_OUTPUT
+        run: echo "dir=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
         working-directory: .
 
       - name: 📦 Setup pnpm cache
@@ -114,47 +112,11 @@ jobs:
         working-directory: .
 
       - name: 📦 Install EAS CLI
-        run: pnpm add -g eas-cli@latest
+        run: npm install -g eas-cli
         working-directory: .
 
       - name: 🔄 Verify EAS CLI
         run: eas --version
-
-      - name: 📋 Fix package.json main entry
-        run: |
-          if ! command -v jq &> /dev/null; then
-            sudo apt-get update && sudo apt-get install -y jq
-          fi
-          cp package.json package.json.bak
-          jq '.main = "node_modules/expo/AppEntry.js"' package.json > package.json.tmp && mv package.json.tmp package.json
-          echo "main entry actualizado: $(cat package.json | grep main)"
-
-      - name: 📋 Update metro.config.js
-        run: |
-          if [ -f ./metro.config.js ]; then
-            cp ./metro.config.js ./metro.config.js.backup
-            cat > ./metro.config.js << 'EOFMARKER'
-          const { getDefaultConfig } = require('expo/metro-config');
-          const { withNativeWind } = require('nativewind/metro');
-
-          const config = getDefaultConfig(__dirname);
-
-          const { transformer, resolver } = config;
-
-          config.transformer = {
-            ...transformer,
-            babelTransformerPath: require.resolve('react-native-svg-transformer/expo'),
-          };
-
-          config.resolver = {
-            ...resolver,
-            assetExts: resolver.assetExts.filter(ext => ext !== 'svg'),
-            sourceExts: [...resolver.sourceExts, 'svg'],
-          };
-
-          module.exports = withNativeWind(config, { input: './global.css' });
-          EOFMARKER
-          fi
 
       - name: 📱 Build Production APK
         if: >
@@ -180,7 +142,7 @@ jobs:
           fi
 
       - name: 📝 Create GitHub Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           draft: true
           name: "v${{ steps.build-info.outputs.version }}-${{ steps.build-info.outputs.build_number }}"
