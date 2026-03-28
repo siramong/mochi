@@ -12,8 +12,10 @@ import { HabitsPage } from '@/pages/HabitsPage'
 import { LandingPage } from '@/pages/LandingPage'
 import { LoginPage } from '@/pages/LoginPage'
 import { MoodPage } from '@/pages/MoodPage'
+import { OnboardingPage } from '@/pages/OnboardingPage'
 import { PrivacyPage } from '@/pages/PrivacyPage'
 import { ProfilePage } from '@/pages/ProfilePage'
+import { RecipeDetailPage } from '@/pages/RecipeDetailPage'
 import { SettingsPage } from '@/pages/SettingsPage'
 import { TermsPage } from '@/pages/TermsPage'
 import { VouchersPage } from '@/pages/VouchersPage'
@@ -24,7 +26,7 @@ import { StudyPage } from '@/pages/study/StudyPage'
 import { StudyTimerPage } from '@/pages/study/StudyTimerPage'
 
 function ProtectedLayout() {
-  const { session, loading } = useSessionContext()
+  const { requiresOnboarding, session, loading } = useSessionContext()
 
   if (loading) {
     return (
@@ -38,6 +40,10 @@ function ProtectedLayout() {
     return <Navigate to="/login" replace />
   }
 
+  if (requiresOnboarding) {
+    return <Navigate to="/onboarding" replace />
+  }
+
   return (
     <SettingsProvider>
       <AppShell />
@@ -46,7 +52,7 @@ function ProtectedLayout() {
 }
 
 function PublicOnly({ children }: { children: React.ReactNode }) {
-  const { session, loading } = useSessionContext()
+  const { requiresOnboarding, session, loading } = useSessionContext()
 
   if (loading) {
     return (
@@ -57,6 +63,10 @@ function PublicOnly({ children }: { children: React.ReactNode }) {
   }
 
   if (session) {
+    if (requiresOnboarding) {
+      return <Navigate to="/onboarding" replace />
+    }
+
     return <Navigate to="/dashboard" replace />
   }
 
@@ -87,6 +97,8 @@ export default function App() {
           }
         />
 
+        <Route path="/onboarding" element={<OnboardingPage />} />
+
         {/* ── Rutas protegidas ── */}
         <Route element={<ProtectedLayout />}>
           <Route path="/app" element={<Navigate to="/dashboard" replace />} />
@@ -101,6 +113,7 @@ export default function App() {
           <Route path="/habits" element={<HabitsPage />} />
           <Route path="/goals" element={<GoalsPage />} />
           <Route path="/cooking" element={<CookingPage />} />
+          <Route path="/cooking/:recipeId" element={<RecipeDetailPage />} />
           <Route path="/mood" element={<MoodPage />} />
           <Route path="/gratitude" element={<GratitudePage />} />
           <Route path="/vouchers" element={<VouchersPage />} />

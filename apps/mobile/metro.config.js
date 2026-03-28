@@ -19,6 +19,7 @@ config.resolver.nodeModulesPaths = [
 
 // Resolver para paquetes del monorepo
 config.resolver.extraNodeModules = {
+  '@mochi/ai': path.resolve(monorepoRoot, 'packages/ai'),
   '@mochi/supabase': path.resolve(monorepoRoot, 'packages/supabase'),
 };
 

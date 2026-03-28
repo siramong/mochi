@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { AlarmClock, BookOpen, Dumbbell, Heart, Star } from 'lucide-react'
+import { AlarmClock, BookOpen, Dumbbell, Flame, Heart, Star } from 'lucide-react'
 import { MochiCompanion } from '@/components/common/MochiCompanion'
 import { supabase } from '@/lib/supabase'
 import { useSession } from '@/hooks/useSession'
@@ -12,6 +12,13 @@ type DashboardStats = {
   moodThisWeek: number
 }
 
+type ProgressData = {
+  totalPoints: number
+  currentStreak: number
+  lastAchievementTitle: string | null
+  lastAchievementIcon: string | null
+}
+
 export function DashboardPage() {
   const { session } = useSession()
   const [stats, setStats] = useState<DashboardStats>({
@@ -19,6 +26,12 @@ export function DashboardPage() {
     routines: 0,
     habitsToday: 0,
     moodThisWeek: 0,
+  })
+  const [progress, setProgress] = useState<ProgressData>({
+    totalPoints: 0,
+    currentStreak: 0,
+    lastAchievementTitle: null,
+    lastAchievementIcon: null,
   })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -40,16 +53,34 @@ export function DashboardPage() {
       const weekAgo = new Date(today)
       weekAgo.setDate(weekAgo.getDate() - 6)
 
-      const [blocksRes, routinesRes, habitsRes, moodRes] = await Promise.all([
-        supabase.from('study_blocks').select('id', { count: 'exact', head: true }).eq('user_id', userId).eq('day_of_week', dayOfWeek),
-        supabase.from('routines').select('id', { count: 'exact', head: true }).eq('user_id', userId),
-        supabase.from('habit_logs').select('id', { count: 'exact', head: true }).eq('user_id', userId).eq('log_date', todayISO),
-        supabase
-          .from('mood_logs')
-          .select('id', { count: 'exact', head: true })
-          .eq('user_id', userId)
-          .gte('logged_date', weekAgo.toISOString().slice(0, 10)),
-      ])
+      const [blocksRes, routinesRes, habitsRes, moodRes, profileRes, streakRes, lastAchievementRes] =
+        await Promise.all([
+          supabase
+            .from('study_blocks')
+            .select('id', { count: 'exact', head: true })
+            .eq('user_id', userId)
+            .eq('day_of_week', dayOfWeek),
+          supabase.from('routines').select('id', { count: 'exact', head: true }).eq('user_id', userId),
+          supabase
+            .from('habit_logs')
+            .select('id', { count: 'exact', head: true })
+            .eq('user_id', userId)
+            .eq('log_date', todayISO),
+          supabase
+            .from('mood_logs')
+            .select('id', { count: 'exact', head: true })
+            .eq('user_id', userId)
+            .gte('logged_date', weekAgo.toISOString().slice(0, 10)),
+          supabase.from('profiles').select('total_points').eq('id', userId).maybeSingle<{ total_points: number }>(),
+          supabase.from('streaks').select('current_streak').eq('user_id', userId).maybeSingle<{ current_streak: number }>(),
+          supabase
+            .from('user_achievements')
+            .select('unlocked_at, achievement:achievements(title, icon)')
+            .eq('user_id', userId)
+            .order('unlocked_at', { ascending: false })
+            .limit(1)
+            .maybeSingle<{ unlocked_at: string; achievement: { title: string; icon: string | null } }>(),
+        ])
 
       if (blocksRes.error || routinesRes.error || habitsRes.error || moodRes.error) {
         setError('No se pudo cargar el resumen de hoy')
@@ -61,6 +92,13 @@ export function DashboardPage() {
           moodThisWeek: moodRes.count ?? 0,
         })
       }
+
+      setProgress({
+        totalPoints: profileRes.data?.total_points ?? 0,
+        currentStreak: streakRes.data?.current_streak ?? 0,
+        lastAchievementTitle: lastAchievementRes.data?.achievement?.title ?? null,
+        lastAchievementIcon: lastAchievementRes.data?.achievement?.icon ?? null,
+      })
 
       setLoading(false)
     }
@@ -116,6 +154,36 @@ export function DashboardPage() {
           </div>
           <p className="mt-2 text-3xl font-black text-yellow-950">{stats.moodThisWeek}</p>
         </div>
+      </div>
+
+      <div className="mt-6 rounded-3xl border border-yellow-200 bg-gradient-to-br from-yellow-50 to-purple-50 p-5">
+        <h2 className="text-lg font-black text-purple-950">Tu progreso</h2>
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          <div className="rounded-2xl bg-white p-3">
+            <p className="inline-flex items-center text-xs font-bold uppercase text-yellow-700">
+              <Star className="mr-1 h-4 w-4" /> Puntos totales
+            </p>
+            <p className="mt-1 text-3xl font-black text-yellow-900">{progress.totalPoints}</p>
+          </div>
+          <div className="rounded-2xl bg-white p-3">
+            <p className="inline-flex items-center text-xs font-bold uppercase text-orange-700">
+              <Flame className="mr-1 h-4 w-4" /> Racha actual
+            </p>
+            <p className="mt-1 text-3xl font-black text-orange-900">{progress.currentStreak}</p>
+          </div>
+          <div className="rounded-2xl bg-white p-3">
+            <p className="text-xs font-bold uppercase text-purple-700">Último logro desbloqueado</p>
+            <p className="mt-1 text-sm font-semibold text-purple-900">
+              {progress.lastAchievementTitle ?? 'Aún no hay logros desbloqueados'}
+            </p>
+            {progress.lastAchievementIcon ? (
+              <p className="mt-1 text-xs text-purple-600">Icono: {progress.lastAchievementIcon}</p>
+            ) : null}
+          </div>
+        </div>
+        <Link to="/profile" className="mt-4 inline-flex text-sm font-semibold text-purple-700 hover:text-purple-900">
+          Ver todos los logros
+        </Link>
       </div>
 
       <div className="mt-6 grid gap-4 md:grid-cols-2">

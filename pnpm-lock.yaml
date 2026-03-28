@@ -23,6 +23,9 @@ importers:
       '@expo/vector-icons':
         specifier: ^15.1.1
         version: 15.1.1(expo-font@55.0.4)(react-native@0.83.2(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.4))(react@19.2.4)
+      '@mochi/ai':
+        specifier: workspace:*
+        version: link:../../packages/ai
       '@mochi/supabase':
         specifier: workspace:*
         version: link:../../packages/supabase
@@ -144,6 +147,9 @@ importers:
       '@fontsource-variable/geist':
         specifier: ^5.2.8
         version: 5.2.8
+      '@mochi/ai':
+        specifier: workspace:*
+        version: link:../../packages/ai
       '@mochi/supabase':
         specifier: workspace:*
         version: link:../../packages/supabase
@@ -168,9 +174,6 @@ importers:
       lucide-react:
         specifier: ^0.577.0
         version: 0.577.0(react@19.2.4)
-      openai:
-        specifier: ^6.32.0
-        version: 6.32.0(ws@8.19.0)(zod@3.25.76)
       radix-ui:
         specifier: ^1.4.3
         version: 1.4.3(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -241,6 +244,12 @@ importers:
       vite:
         specifier: ^8.0.0
         version: 8.0.0(@types/node@24.12.0)(jiti@2.6.1)(terser@5.46.1)(yaml@2.8.2)
+
+  packages/ai:
+    dependencies:
+      openai:
+        specifier: ^6.32.0
+        version: 6.32.0(ws@8.19.0)(zod@4.3.6)
 
   packages/eslint-config:
     devDependencies:
@@ -12211,11 +12220,6 @@ snapshots:
       define-lazy-prop: 2.0.0
       is-docker: 2.2.1
       is-wsl: 2.2.0
-
-  openai@6.32.0(ws@8.19.0)(zod@3.25.76):
-    optionalDependencies:
-      ws: 8.19.0
-      zod: 3.25.76
 
   openai@6.32.0(ws@8.19.0)(zod@4.3.6):
     optionalDependencies:

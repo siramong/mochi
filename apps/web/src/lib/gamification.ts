@@ -7,8 +7,13 @@ import { UserAchievement } from '@mochi/supabase/types'
 export async function addPoints(userId: string, points: number): Promise<void> {
   const { error } = await supabase.rpc('increment_points', {
     user_id: userId,
-    points_amount: points,
+    points,
   })
+
+  if (!error && typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('mochi:points-updated'))
+  }
+
   if (error) console.error('Error adding points:', error)
 }
 
@@ -40,17 +45,20 @@ export async function unlockAchievement(
         achievement_id: achievement.id,
         unlocked_at: new Date().toISOString(),
       },
-      { onConflict: 'user_id,achievement_id' }
+      { onConflict: 'user_id,achievement_id', ignoreDuplicates: true }
     )
     .select()
-    .single()
 
   if (error) {
     console.error('Error unlocking achievement:', error)
     return null
   }
 
-  return data
+  if (!data || data.length === 0) {
+    return null
+  }
+
+  return data[0] as UserAchievement
 }
 
 /**
@@ -85,4 +93,8 @@ export async function checkStudyAchievements(userId: string): Promise<UserAchiev
   }
 
   return unlockedAchievements
+}
+
+export async function checkAndUnlockStudyAchievements(userId: string): Promise<UserAchievement[]> {
+  return checkStudyAchievements(userId)
 }

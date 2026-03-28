@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { useStudyCompanion, type StudyAttachment } from '@/hooks/useStudyCompanion'
 import { useSession } from '@/hooks/useSession'
 import { useStudyBlocks } from '@/hooks/useStudyBlocks'
-import { addPoints, checkStudyAchievements } from '@/lib/gamification'
+import { addPoints, checkAndUnlockStudyAchievements } from '@/lib/gamification'
 import type { StudyBlock } from '@/types/database'
 
 type StudyPhase = 'setup' | 'studying' | 'complete'
@@ -157,7 +157,7 @@ export function StudyTimerPage() {
     }
 
     await addPoints(userId, 5)
-    await checkStudyAchievements(userId)
+    await checkAndUnlockStudyAchievements(userId)
 
     setSavedMessage('Sesión guardada en tu historial de estudio. ¡+5 puntos!')
     setIsSaving(false)

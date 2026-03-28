@@ -1,6 +1,16 @@
-import { useState, useCallback } from 'react'
+import { useCallback, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Habit, HabitLog } from '@mochi/supabase/types'
+
+export type HabitIcon = 'leaf' | 'water' | 'book' | 'heart' | 'fitness'
+export type HabitColor = 'pink' | 'yellow' | 'blue' | 'teal' | 'purple'
+
+const allowedIcons = new Set<HabitIcon>(['leaf', 'water', 'book', 'heart', 'fitness'])
+const allowedColors = new Set<HabitColor>(['pink', 'yellow', 'blue', 'teal', 'purple'])
+
+function todayISO(): string {
+  return new Date().toISOString().slice(0, 10)
+}
 
 export function useHabits(userId: string | undefined) {
   const [habits, setHabits] = useState<Habit[]>([])
@@ -8,43 +18,51 @@ export function useHabits(userId: string | undefined) {
 
   const fetchHabits = useCallback(async () => {
     if (!userId) return
+
     setLoading(true)
     const { data, error } = await supabase
       .from('habits')
       .select('*')
       .eq('user_id', userId)
-      .order('created_at', { ascending: false })
+      .order('created_at', { ascending: true })
 
-    if (!error) setHabits(data || [])
+    if (!error) {
+      setHabits((data ?? []) as Habit[])
+    }
+
     setLoading(false)
   }, [userId])
 
   const createHabit = useCallback(
-    async (name: string, icon: string = '⭐', color: string = '#FFE5D9') => {
+    async (name: string, icon: HabitIcon = 'leaf', color: HabitColor = 'pink') => {
       if (!userId) return null
+
+      const safeIcon: HabitIcon = allowedIcons.has(icon) ? icon : 'leaf'
+      const safeColor: HabitColor = allowedColors.has(color) ? color : 'pink'
 
       const { data, error } = await supabase
         .from('habits')
         .insert({
           user_id: userId,
           name,
-          icon,
-          color,
+          icon: safeIcon,
+          color: safeColor,
         })
-        .select()
-        .single()
+        .select('*')
+        .single<Habit>()
 
       if (!error && data) {
-        setHabits([data, ...habits])
+        setHabits((previous) => [data, ...previous])
         return data
       }
+
       return null
     },
-    [userId, habits]
+    [userId]
   )
 
   const logHabit = useCallback(
-    async (habitId: string, logDate: string = new Date().toISOString().split('T')[0]) => {
+    async (habitId: string, logDate: string = todayISO()) => {
       if (!userId) return null
 
       const { data, error } = await supabase
@@ -54,10 +72,57 @@ export function useHabits(userId: string | undefined) {
           habit_id: habitId,
           log_date: logDate,
         })
-        .select()
-        .single()
+        .select('*')
+        .single<HabitLog>()
 
-      return !error ? (data as HabitLog) : null
+      return !error ? data : null
+    },
+    [userId]
+  )
+
+  const deleteHabitLog = useCallback(
+    async (userIdParam: string, habitId: string, date: string) => {
+      if (!userId || userId !== userIdParam) return false
+
+      const { error } = await supabase
+        .from('habit_logs')
+        .delete()
+        .eq('user_id', userId)
+        .eq('habit_id', habitId)
+        .eq('log_date', date)
+
+      return !error
+    },
+    [userId]
+  )
+
+  const fetchWeeklyLogs = useCallback(
+    async (userIdParam: string): Promise<Map<string, Set<string>>> => {
+      const weekMap = new Map<string, Set<string>>()
+      if (!userId || userId !== userIdParam) return weekMap
+
+      const weekStart = new Date()
+      weekStart.setDate(weekStart.getDate() - 6)
+
+      const { data, error } = await supabase
+        .from('habit_logs')
+        .select('habit_id, log_date')
+        .eq('user_id', userId)
+        .gte('log_date', weekStart.toISOString().slice(0, 10))
+        .lte('log_date', todayISO())
+
+      if (error) return weekMap
+
+      for (const row of data ?? []) {
+        const existing = weekMap.get(row.habit_id)
+        if (existing) {
+          existing.add(row.log_date)
+        } else {
+          weekMap.set(row.habit_id, new Set([row.log_date]))
+        }
+      }
+
+      return weekMap
     },
     [userId]
   )
@@ -66,27 +131,26 @@ export function useHabits(userId: string | undefined) {
     async (habitId: string) => {
       if (!userId) return false
 
-      const { error } = await supabase
-        .from('habits')
-        .delete()
-        .eq('id', habitId)
-        .eq('user_id', userId)
+      const { error } = await supabase.from('habits').delete().eq('id', habitId).eq('user_id', userId)
 
       if (!error) {
-        setHabits(habits.filter((h) => h.id !== habitId))
+        setHabits((previous) => previous.filter((habit) => habit.id !== habitId))
         return true
       }
+
       return false
     },
-    [userId, habits]
+    [userId]
   )
 
   return {
     habits,
     loading,
     fetchHabits,
+    fetchWeeklyLogs,
     createHabit,
     logHabit,
+    deleteHabitLog,
     deleteHabit,
   }
 }
