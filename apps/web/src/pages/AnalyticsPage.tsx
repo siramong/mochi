@@ -6,45 +6,57 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
-  Legend,
-  Pie,
-  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from 'recharts'
+import { CalendarClock, Clock3, Flame, GraduationCap, HeartPulse, TrendingUp } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useSession } from '@/hooks/useSession'
+import type { EngagementEvent, ExamLog, Habit, HabitLog, StudySession } from '@/types/database'
 
-type StudySessionRow = {
-  subject: string
-  duration_seconds: number
-  completed_at: string
+type ActivitySummary = {
+  activeDays7: number
+  activeDays30: number
+  activeDays90: number
+  previous30ActiveDays: number
+  weeklyActiveCount12: number
 }
 
-type HabitRow = {
+type StudySummary = {
+  sessions30: number
+  totalMinutes30: number
+  averageMinutes30: number
+}
+
+type StudyDailyPoint = {
+  day: string
+  minutos: number
+}
+
+type HabitFrequencyItem = {
   id: string
   name: string
   color: string
+  completions30: number
+  weeklyAverage: number
+  completionRate: number
 }
 
-type HabitLogRow = {
-  habit_id: string
-  log_date: string
+type HeatmapCell = {
+  day: string
+  count: number
+  level: 0 | 1 | 2 | 3 | 4
 }
 
-type MoodRow = {
-  mood: number
-  logged_date: string
+const HEAT_LEVEL_COLORS: Record<HeatmapCell['level'], string> = {
+  0: '#F1F5F9',
+  1: '#D1FAE5',
+  2: '#86EFAC',
+  3: '#34D399',
+  4: '#059669',
 }
-
-type DailyPoints = {
-  week: string
-  points: number
-}
-
-const SUBJECT_COLORS = ['#a855f7', '#ec4899', '#3b82f6', '#14b8a6', '#f59e0b', '#10b981', '#f97316', '#6366f1']
 
 function startOfDay(date: Date): Date {
   const clone = new Date(date)
@@ -56,11 +68,12 @@ function toISODate(date: Date): string {
   return date.toISOString().slice(0, 10)
 }
 
-function getLastDays(days: number): string[] {
-  return Array.from({ length: days }, (_, i) => {
-    const date = new Date()
-    date.setDate(date.getDate() - (days - 1 - i))
-    return toISODate(startOfDay(date))
+function getLastDays(days: number, base = new Date()): string[] {
+  const anchor = startOfDay(base)
+  return Array.from({ length: days }, (_, index) => {
+    const day = new Date(anchor)
+    day.setDate(anchor.getDate() - (days - 1 - index))
+    return toISODate(day)
   })
 }
 
@@ -71,380 +84,572 @@ function shortDayLabel(isoDate: string): string {
   return `${day.slice(0, 2)} ${dayNumber}`
 }
 
+function groupByWeeks(days: string[]): string[][] {
+  const weeks: string[][] = []
+  for (let i = 0; i < days.length; i += 7) {
+    weeks.push(days.slice(i, i + 7))
+  }
+  return weeks
+}
+
+function getPostgresErrorCode(error: unknown): string | null {
+  if (error && typeof error === 'object' && 'code' in error) {
+    const code = (error as { code?: unknown }).code
+    return typeof code === 'string' ? code : null
+  }
+  return null
+}
+
+function uniqueDateSetFromActivity(
+  engagementRows: Pick<EngagementEvent, 'occurred_at'>[],
+  studyRows: Pick<StudySession, 'completed_at'>[],
+  habitLogRows: Pick<HabitLog, 'log_date'>[],
+  examRows: Array<Pick<ExamLog, 'created_at' | 'exam_date' | 'is_upcoming'>>
+): Set<string> {
+  const set = new Set<string>()
+
+  engagementRows.forEach((row) => {
+    set.add(row.occurred_at.slice(0, 10))
+  })
+
+  studyRows.forEach((row) => {
+    set.add(row.completed_at.slice(0, 10))
+  })
+
+  habitLogRows.forEach((row) => {
+    set.add(row.log_date)
+  })
+
+  examRows.forEach((row) => {
+    if (row.is_upcoming === true) return
+
+    const activityDay = row.exam_date.slice(0, 10) || row.created_at.slice(0, 10)
+    set.add(activityDay)
+  })
+
+  return set
+}
+
+function computeActiveDaysInRange(dates: Set<string>, startDateISO: string, endDateISO: string): number {
+  let count = 0
+  dates.forEach((date) => {
+    if (date >= startDateISO && date <= endDateISO) count += 1
+  })
+  return count
+}
+
+function formatDateLong(isoDate: string): string {
+  const date = new Date(`${isoDate}T00:00:00`)
+  return new Intl.DateTimeFormat('es-ES', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'short',
+  }).format(date)
+}
+
 export function AnalyticsPage() {
   const { session } = useSession()
   const userId = session?.user.id
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [reloadSeed, setReloadSeed] = useState(0)
 
-  const [studyRows, setStudyRows] = useState<StudySessionRow[]>([])
-  const [habits, setHabits] = useState<HabitRow[]>([])
-  const [habitLogs, setHabitLogs] = useState<HabitLogRow[]>([])
-  const [moodRows, setMoodRows] = useState<MoodRow[]>([])
-  const [weeklyPoints, setWeeklyPoints] = useState<DailyPoints[]>([])
+  const [studyRows90, setStudyRows90] = useState<StudySession[]>([])
+  const [habits, setHabits] = useState<Habit[]>([])
+  const [habitLogs90, setHabitLogs90] = useState<HabitLog[]>([])
+  const [upcomingExams, setUpcomingExams] = useState<ExamLog[]>([])
+  const [examActivityRows90, setExamActivityRows90] = useState<Array<Pick<ExamLog, 'created_at' | 'exam_date' | 'is_upcoming'>>>([])
+  const [engagementRows90, setEngagementRows90] = useState<Array<Pick<EngagementEvent, 'occurred_at'>>>([])
+  const [engagementAvailable, setEngagementAvailable] = useState(false)
 
   useEffect(() => {
     if (!userId) {
       setLoading(false)
+      setError(null)
+      setStudyRows90([])
+      setHabits([])
+      setHabitLogs90([])
+      setUpcomingExams([])
+      setExamActivityRows90([])
+      setEngagementRows90([])
+      setEngagementAvailable(false)
       return
     }
 
-    async function loadData() {
+    let isActive = true
+
+    async function loadAnalytics() {
       setLoading(true)
       setError(null)
 
-      const since30 = new Date()
-      since30.setDate(since30.getDate() - 30)
-      const since30ISO = since30.toISOString()
-      const since8Weeks = new Date()
-      since8Weeks.setDate(since8Weeks.getDate() - 56)
-      const since8WeeksISO = since8Weeks.toISOString()
+      const now = new Date()
+      const todayISO = toISODate(startOfDay(now))
+      const since90 = new Date(now)
+      since90.setDate(since90.getDate() - 89)
+      const since90ISODate = toISODate(startOfDay(since90))
+      const since90ISODateTime = `${since90ISODate}T00:00:00`
 
-      const [studyRes, habitsRes, habitLogsRes, moodRes, sessionsPointsRes, routinePointsRes, gratitudePointsRes] = await Promise.all([
+      const [studyRes, habitsRes, habitLogsRes, examsRes, examActivityRes, engagementRes] = await Promise.all([
         supabase
           .from('study_sessions')
-          .select('subject, duration_seconds, completed_at')
+          .select('id, user_id, study_block_id, subject, duration_seconds, completed_at')
           .eq('user_id', userId)
-          .gte('completed_at', since30ISO),
-        supabase.from('habits').select('id, name, color').eq('user_id', userId),
+          .gte('completed_at', since90ISODateTime)
+          .order('completed_at', { ascending: true })
+          .returns<StudySession[]>(),
+        supabase
+          .from('habits')
+          .select('id, user_id, name, icon, color, created_at')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: true })
+          .returns<Habit[]>(),
         supabase
           .from('habit_logs')
-          .select('habit_id, log_date')
+          .select('id, user_id, habit_id, log_date, created_at')
           .eq('user_id', userId)
-          .gte('log_date', toISODate(since30)),
+          .gte('log_date', since90ISODate)
+          .lte('log_date', todayISO)
+          .returns<HabitLog[]>(),
         supabase
-          .from('mood_logs')
-          .select('mood, logged_date')
+          .from('exam_logs')
+          .select('id, user_id, subject, grade, max_grade, notes, preparation_notes, exam_date, is_upcoming, created_at')
           .eq('user_id', userId)
-          .gte('logged_date', toISODate(since30))
-          .order('logged_date', { ascending: true }),
+          .eq('is_upcoming', true)
+          .gte('exam_date', todayISO)
+          .order('exam_date', { ascending: true })
+          .limit(6)
+          .returns<ExamLog[]>(),
         supabase
-          .from('study_sessions')
-          .select('completed_at')
+          .from('exam_logs')
+          .select('created_at, exam_date, is_upcoming')
           .eq('user_id', userId)
-          .gte('completed_at', since8WeeksISO),
+          .eq('is_upcoming', false)
+          .or(`exam_date.gte.${since90ISODate},created_at.gte.${since90ISODateTime}`)
+          .order('exam_date', { ascending: true })
+          .returns<Array<Pick<ExamLog, 'created_at' | 'exam_date' | 'is_upcoming'>>>(),
         supabase
-          .from('routine_logs')
-          .select('completed_at')
+          .from('engagement_events')
+          .select('occurred_at')
           .eq('user_id', userId)
-          .gte('completed_at', since8WeeksISO),
-        supabase
-          .from('gratitude_logs')
-          .select('logged_date')
-          .eq('user_id', userId)
-          .gte('logged_date', toISODate(since8Weeks)),
+          .gte('occurred_at', since90ISODateTime)
+          .order('occurred_at', { ascending: true })
+          .returns<Array<Pick<EngagementEvent, 'occurred_at'>>>(),
       ])
 
-      if (studyRes.error || habitsRes.error || habitLogsRes.error || moodRes.error || sessionsPointsRes.error || routinePointsRes.error || gratitudePointsRes.error) {
-        setError('No se pudieron cargar las analíticas')
-      } else {
-        setStudyRows((studyRes.data as StudySessionRow[] | null) ?? [])
-        setHabits((habitsRes.data as HabitRow[] | null) ?? [])
-        setHabitLogs((habitLogsRes.data as HabitLogRow[] | null) ?? [])
-        setMoodRows((moodRes.data as MoodRow[] | null) ?? [])
-
-        const weekly = new Map<string, number>()
-        const addWeekPoints = (dateStr: string, points: number) => {
-          const date = new Date(dateStr)
-          const weekStart = new Date(date)
-          weekStart.setDate(date.getDate() - date.getDay() + 1)
-          const key = toISODate(startOfDay(weekStart))
-          weekly.set(key, (weekly.get(key) ?? 0) + points)
-        }
-
-        ;((sessionsPointsRes.data as Array<{ completed_at: string }> | null) ?? []).forEach((row) => {
-          addWeekPoints(row.completed_at, 5)
-        })
-        ;((routinePointsRes.data as Array<{ completed_at: string }> | null) ?? []).forEach((row) => {
-          addWeekPoints(row.completed_at, 10)
-        })
-        ;((gratitudePointsRes.data as Array<{ logged_date: string }> | null) ?? []).forEach((row) => {
-          addWeekPoints(`${row.logged_date}T00:00:00`, 3)
-        })
-
-        const orderedWeekly = [...weekly.entries()]
-          .sort((a, b) => a[0].localeCompare(b[0]))
-          .slice(-8)
-          .map(([week, points]) => ({
-            week: new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'short' }).format(new Date(`${week}T00:00:00`)),
-            points,
-          }))
-
-        setWeeklyPoints(orderedWeekly)
+      if (!isActive) {
+        return
       }
 
+      if (studyRes.error || habitsRes.error || habitLogsRes.error || examsRes.error || examActivityRes.error) {
+        setError(
+          studyRes.error?.message
+            ?? habitsRes.error?.message
+            ?? habitLogsRes.error?.message
+            ?? examsRes.error?.message
+            ?? examActivityRes.error?.message
+            ?? 'No se pudieron cargar las analíticas.'
+        )
+        setLoading(false)
+        return
+      }
+
+      if (engagementRes.error) {
+        const code = getPostgresErrorCode(engagementRes.error)
+        const isMissingTable = code === '42P01'
+
+        if (!isMissingTable) {
+          console.warn('No se pudo consultar engagement_events para analíticas:', engagementRes.error)
+        }
+
+        setEngagementAvailable(false)
+        setEngagementRows90([])
+      } else {
+        setEngagementAvailable(true)
+        setEngagementRows90(engagementRes.data ?? [])
+      }
+
+      setStudyRows90(studyRes.data ?? [])
+      setHabits(habitsRes.data ?? [])
+      setHabitLogs90(habitLogsRes.data ?? [])
+      setUpcomingExams(examsRes.data ?? [])
+      setExamActivityRows90(examActivityRes.data ?? [])
       setLoading(false)
     }
 
-    void loadData()
-  }, [userId])
+    void loadAnalytics()
 
-  const studyByDay = useMemo(() => {
-    const last14 = getLastDays(14)
-    const subjects = [...new Set(studyRows.map((row) => row.subject))]
-
-    return last14.map((day) => {
-      const perSubject: Record<string, number> = {}
-      let total = 0
-
-      for (const row of studyRows) {
-        if (!row.completed_at.startsWith(day)) continue
-        const minutes = Math.round((row.duration_seconds ?? 0) / 60)
-        perSubject[row.subject] = (perSubject[row.subject] ?? 0) + minutes
-        total += minutes
-      }
-
-      return {
-        day,
-        label: shortDayLabel(day),
-        total,
-        ...perSubject,
-      }
-    })
-  }, [studyRows])
-
-  const studyBySubject = useMemo(() => {
-    const map = new Map<string, number>()
-    for (const row of studyRows) {
-      map.set(row.subject, (map.get(row.subject) ?? 0) + Math.round((row.duration_seconds ?? 0) / 60))
+    return () => {
+      isActive = false
     }
+  }, [reloadSeed, userId])
 
-    return [...map.entries()].map(([subject, minutes], index) => ({
-      subject,
-      minutes,
-      color: SUBJECT_COLORS[index % SUBJECT_COLORS.length],
-    }))
-  }, [studyRows])
+  const activitySummary = useMemo<ActivitySummary>(() => {
+    const activeDates = uniqueDateSetFromActivity(engagementRows90, studyRows90, habitLogs90, examActivityRows90)
+    const today = startOfDay(new Date())
 
-  const studyStats = useMemo(() => {
-    const today = new Date()
-    const monday = new Date(today)
-    monday.setDate(today.getDate() - today.getDay() + 1)
-    const mondayISO = toISODate(startOfDay(monday))
+    const from7 = new Date(today)
+    from7.setDate(from7.getDate() - 6)
 
-    const thisWeekMinutes = studyRows
-      .filter((row) => row.completed_at.slice(0, 10) >= mondayISO)
-      .reduce((sum, row) => sum + Math.round((row.duration_seconds ?? 0) / 60), 0)
+    const from30 = new Date(today)
+    from30.setDate(from30.getDate() - 29)
 
-    const topSubject = studyBySubject.sort((a, b) => b.minutes - a.minutes)[0]?.subject ?? 'Sin datos'
-    const sessionsThisMonth = studyRows.length
+    const from90 = new Date(today)
+    from90.setDate(from90.getDate() - 89)
 
-    const uniqueDays = [...new Set(studyRows.map((row) => row.completed_at.slice(0, 10)))].sort((a, b) => b.localeCompare(a))
-    let streak = 0
-    if (uniqueDays.length > 0) {
-      const current = new Date(`${uniqueDays[0]}T00:00:00`)
-      for (const day of uniqueDays) {
-        const expected = toISODate(current)
-        if (day !== expected) break
-        streak += 1
-        current.setDate(current.getDate() - 1)
-      }
+    const prev30Start = new Date(today)
+    prev30Start.setDate(prev30Start.getDate() - 59)
+    const prev30End = new Date(today)
+    prev30End.setDate(prev30End.getDate() - 30)
+
+    const activeDays7 = computeActiveDaysInRange(activeDates, toISODate(from7), toISODate(today))
+    const activeDays30 = computeActiveDaysInRange(activeDates, toISODate(from30), toISODate(today))
+    const activeDays90 = computeActiveDaysInRange(activeDates, toISODate(from90), toISODate(today))
+    const previous30ActiveDays = computeActiveDaysInRange(activeDates, toISODate(prev30Start), toISODate(prev30End))
+
+    let weeklyActiveCount12 = 0
+    for (let i = 0; i < 12; i += 1) {
+      const weekStart = new Date(today)
+      weekStart.setDate(today.getDate() - i * 7 - 6)
+      const weekEnd = new Date(today)
+      weekEnd.setDate(today.getDate() - i * 7)
+      const weekActive = computeActiveDaysInRange(activeDates, toISODate(weekStart), toISODate(weekEnd))
+      if (weekActive > 0) weeklyActiveCount12 += 1
     }
 
     return {
-      totalHoursWeek: (thisWeekMinutes / 60).toFixed(1),
-      topSubject,
-      streak,
-      sessionsThisMonth,
+      activeDays7,
+      activeDays30,
+      activeDays90,
+      previous30ActiveDays,
+      weeklyActiveCount12,
     }
-  }, [studyRows, studyBySubject])
+  }, [engagementRows90, examActivityRows90, habitLogs90, studyRows90])
 
-  const habitsStats = useMemo(() => {
-    const last30 = getLastDays(30)
-    const daysSet = new Set(last30)
-
-    const logsInRange = habitLogs.filter((log) => daysSet.has(log.log_date))
-
-    let bestHabit = 'Sin datos'
-    let bestRate = 0
-
-    for (const habit of habits) {
-      const count = logsInRange.filter((log) => log.habit_id === habit.id).length
-      const completion = Math.round((count / Math.max(1, last30.length)) * 100)
-      if (completion > bestRate) {
-        bestRate = completion
-        bestHabit = habit.name
-      }
-    }
-
-    let perfectDays = 0
-    for (const day of last30) {
-      const dayCount = logsInRange.filter((log) => log.log_date === day).length
-      if (habits.length > 0 && dayCount >= habits.length) perfectDays += 1
-    }
-
-    const average = habits.length > 0
-      ? Math.round((logsInRange.length / (habits.length * last30.length)) * 100)
-      : 0
-
-    return { bestHabit, bestRate, perfectDays, average }
-  }, [habitLogs, habits])
-
-  const habitHeatmapDays = useMemo(() => getLastDays(30), [])
-
-  const moodSeries = useMemo(() => moodRows.map((row) => ({
-    day: shortDayLabel(row.logged_date),
-    mood: row.mood,
-    logged_date: row.logged_date,
-  })), [moodRows])
-
-  const moodStats = useMemo(() => {
-    if (moodRows.length === 0) {
-      return {
-        average: '0.0',
-        lowDay: 'Sin datos',
-        coverage: '0/0',
-      }
-    }
-
-    const average = (moodRows.reduce((sum, row) => sum + row.mood, 0) / moodRows.length).toFixed(1)
-
-    const lowRows = moodRows.filter((row) => row.mood <= 2)
-    const lowWeekdays = new Map<string, number>()
-    lowRows.forEach((row) => {
-      const weekday = new Intl.DateTimeFormat('es-ES', { weekday: 'long' }).format(new Date(`${row.logged_date}T00:00:00`))
-      lowWeekdays.set(weekday, (lowWeekdays.get(weekday) ?? 0) + 1)
-    })
-    const lowDay = [...lowWeekdays.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? 'Sin patrón claro'
-
-    const monthDays = new Date().getDate()
+  const studySummary = useMemo<StudySummary>(() => {
+    const last30Set = new Set(getLastDays(30))
+    const rows30 = studyRows90.filter((row) => last30Set.has(row.completed_at.slice(0, 10)))
+    const totalMinutes30 = rows30.reduce((sum, row) => sum + Math.round((row.duration_seconds ?? 0) / 60), 0)
+    const sessions30 = rows30.length
 
     return {
-      average,
-      lowDay,
-      coverage: `${moodRows.length}/${monthDays}`,
+      sessions30,
+      totalMinutes30,
+      averageMinutes30: sessions30 > 0 ? Math.round(totalMinutes30 / sessions30) : 0,
     }
-  }, [moodRows])
+  }, [studyRows90])
 
-  const moodColor = (value: number): string => {
-    if (value <= 2) return '#f97316'
-    if (value === 3) return '#f59e0b'
-    if (value >= 4) return '#ec4899'
-    return '#94a3b8'
+  const studySeries30 = useMemo<StudyDailyPoint[]>(() => {
+    const days = getLastDays(30)
+
+    return days.map((day) => {
+      const dayMinutes = studyRows90
+        .filter((row) => row.completed_at.startsWith(day))
+        .reduce((sum, row) => sum + Math.round((row.duration_seconds ?? 0) / 60), 0)
+
+      return {
+        day: shortDayLabel(day),
+        minutos: dayMinutes,
+      }
+    })
+  }, [studyRows90])
+
+  const habitFrequency30 = useMemo<HabitFrequencyItem[]>(() => {
+    const last30 = new Set(getLastDays(30))
+    const uniqueHabitDay = new Set(
+      habitLogs90
+        .filter((log) => last30.has(log.log_date))
+        .map((log) => `${log.habit_id}:${log.log_date}`)
+    )
+
+    return habits
+      .map((habit) => {
+        const completions30 = [...uniqueHabitDay].filter((key) => key.startsWith(`${habit.id}:`)).length
+        const weeklyAverage = Number((completions30 / 4.2857).toFixed(1))
+        const completionRate = Math.round((completions30 / 30) * 100)
+
+        return {
+          id: habit.id,
+          name: habit.name,
+          color: habit.color,
+          completions30,
+          weeklyAverage,
+          completionRate,
+        }
+      })
+      .sort((a, b) => b.completions30 - a.completions30)
+  }, [habitLogs90, habits])
+
+  const heatmap90 = useMemo<HeatmapCell[]>(() => {
+    const days = getLastDays(90)
+    const dayCount = new Map<string, number>()
+
+    const uniqueHabitDay = new Set(habitLogs90.map((log) => `${log.habit_id}:${log.log_date}`))
+    uniqueHabitDay.forEach((key) => {
+      const day = key.split(':')[1]
+      dayCount.set(day, (dayCount.get(day) ?? 0) + 1)
+    })
+
+    const maxPerDay = Math.max(1, habits.length)
+
+    return days.map((day) => {
+      const count = dayCount.get(day) ?? 0
+      const ratio = count / maxPerDay
+      let level: HeatmapCell['level'] = 0
+
+      if (ratio > 0.75) level = 4
+      else if (ratio > 0.5) level = 3
+      else if (ratio > 0.25) level = 2
+      else if (ratio > 0) level = 1
+
+      return { day, count, level }
+    })
+  }, [habitLogs90, habits.length])
+
+  const habitHeatmapWeeks = useMemo(() => groupByWeeks(heatmap90.map((cell) => cell.day)), [heatmap90])
+  const heatmapByDate = useMemo(() => new Map(heatmap90.map((cell) => [cell.day, cell])), [heatmap90])
+
+  const retentionDelta = useMemo(() => {
+    const current = activitySummary.activeDays30
+    const previous = activitySummary.previous30ActiveDays
+    if (previous === 0) return null
+    return Math.round(((current - previous) / previous) * 100)
+  }, [activitySummary.activeDays30, activitySummary.previous30ActiveDays])
+
+  const hasAnyData =
+    studyRows90.length > 0
+    || habitLogs90.length > 0
+    || upcomingExams.length > 0
+    || examActivityRows90.length > 0
+    || engagementRows90.length > 0
+
+  if (!userId) {
+    return (
+      <div className="rounded-3xl border border-purple-200 bg-white p-5">
+        <h1 className="text-2xl font-black text-purple-950">Analíticas</h1>
+        <p className="mt-2 text-sm font-semibold text-purple-700">Inicia sesión para ver tus métricas de estudio y hábitos.</p>
+      </div>
+    )
   }
 
   if (loading) {
-    return <p className="text-sm font-semibold text-purple-700">Cargando analíticas...</p>
+    return (
+      <div>
+        <h1 className="text-2xl font-black text-purple-950">Analíticas</h1>
+        <p className="mt-2 text-sm font-semibold text-purple-700">Cargando métricas...</p>
+        <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          {Array.from({ length: 4 }, (_, index) => (
+            <div key={index} className="h-24 animate-pulse rounded-3xl border border-purple-100 bg-purple-50" />
+          ))}
+        </div>
+      </div>
+    )
   }
 
   if (error) {
-    return <p className="text-sm font-semibold text-red-600">{error}</p>
+    return (
+      <div className="rounded-3xl border border-red-200 bg-white p-5">
+        <h1 className="text-2xl font-black text-purple-950">Analíticas</h1>
+        <p className="mt-2 text-sm font-semibold text-red-600">No se pudieron cargar las métricas: {error}</p>
+        <button
+          type="button"
+          onClick={() => setReloadSeed((prev) => prev + 1)}
+          className="mt-3 rounded-2xl bg-red-100 px-4 py-2 text-sm font-bold text-red-800"
+        >
+          Reintentar
+        </button>
+      </div>
+    )
   }
 
   return (
     <div>
       <h1 className="text-2xl font-black text-purple-950">Analíticas</h1>
-      <p className="mt-1 text-sm text-purple-700">Tu progreso en estudio, hábitos, ánimo y puntos en una sola vista.</p>
+      <p className="mt-1 text-sm text-purple-700">Tu actividad, constancia y enfoque en una sola vista.</p>
+      <p className="mt-1 text-xs font-semibold text-purple-500">
+        Fuente de actividad base: {engagementAvailable ? 'engagement_events + eventos de estudio/hábitos/exámenes' : 'eventos de estudio/hábitos/exámenes (fallback)'}
+      </p>
+
+      {!hasAnyData ? (
+        <div className="mt-6 rounded-3xl border border-purple-200 bg-purple-50 p-5">
+          <p className="text-sm font-semibold text-purple-800">
+            Todavía no hay actividad suficiente para mostrar analíticas. Completa una sesión de estudio o registra un hábito para empezar.
+          </p>
+        </div>
+      ) : null}
+
+      <section className="mt-6 rounded-3xl border border-indigo-200 bg-white p-4">
+        <h2 className="text-lg font-black text-indigo-950">Actividad y retención</h2>
+        <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+          <div className="rounded-2xl bg-indigo-50 p-3">
+            <p className="inline-flex items-center gap-1 text-xs font-bold text-indigo-700"><Flame className="h-3.5 w-3.5" /> Activa 7 días</p>
+            <p className="text-2xl font-black text-indigo-950">{activitySummary.activeDays7}</p>
+          </div>
+          <div className="rounded-2xl bg-blue-50 p-3">
+            <p className="inline-flex items-center gap-1 text-xs font-bold text-blue-700"><TrendingUp className="h-3.5 w-3.5" /> Activa 30 días</p>
+            <p className="text-2xl font-black text-blue-950">{activitySummary.activeDays30}</p>
+          </div>
+          <div className="rounded-2xl bg-cyan-50 p-3">
+            <p className="text-xs font-bold text-cyan-700">Activa 90 días</p>
+            <p className="text-2xl font-black text-cyan-950">{activitySummary.activeDays90}</p>
+          </div>
+          <div className="rounded-2xl bg-violet-50 p-3">
+            <p className="text-xs font-bold text-violet-700">Semanas activas (12)</p>
+            <p className="text-2xl font-black text-violet-950">{activitySummary.weeklyActiveCount12}</p>
+          </div>
+          <div className="rounded-2xl bg-fuchsia-50 p-3">
+            <p className="text-xs font-bold text-fuchsia-700">Retención vs 30 previos</p>
+            <p className="text-2xl font-black text-fuchsia-950">{retentionDelta === null ? 'N/A' : `${retentionDelta}%`}</p>
+          </div>
+        </div>
+      </section>
 
       <section className="mt-6 rounded-3xl border border-blue-200 bg-white p-4">
-        <h2 className="text-lg font-black text-blue-950">Estudio</h2>
+        <h2 className="text-lg font-black text-blue-950">Estudio 30 días</h2>
+        {studySummary.sessions30 === 0 ? (
+          <p className="mt-3 text-sm font-semibold text-blue-700">Aún no hay sesiones de estudio en los últimos 30 días.</p>
+        ) : (
+          <>
+            <div className="mt-3 grid gap-3 md:grid-cols-3">
+              <div className="rounded-2xl bg-blue-50 p-3">
+                <p className="inline-flex items-center gap-1 text-xs font-bold text-blue-700"><GraduationCap className="h-3.5 w-3.5" /> Sesiones</p>
+                <p className="text-2xl font-black text-blue-950">{studySummary.sessions30}</p>
+              </div>
+              <div className="rounded-2xl bg-sky-50 p-3">
+                <p className="inline-flex items-center gap-1 text-xs font-bold text-sky-700"><Clock3 className="h-3.5 w-3.5" /> Tiempo total</p>
+                <p className="text-2xl font-black text-sky-950">{Math.round(studySummary.totalMinutes30 / 60)} h</p>
+              </div>
+              <div className="rounded-2xl bg-cyan-50 p-3">
+                <p className="text-xs font-bold text-cyan-700">Promedio por sesión</p>
+                <p className="text-2xl font-black text-cyan-950">{studySummary.averageMinutes30} min</p>
+              </div>
+            </div>
 
-        <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          <div className="rounded-2xl bg-blue-50 p-3"><p className="text-xs font-bold text-blue-700">Horas esta semana</p><p className="text-2xl font-black text-blue-950">{studyStats.totalHoursWeek}</p></div>
-          <div className="rounded-2xl bg-purple-50 p-3"><p className="text-xs font-bold text-purple-700">Materia top</p><p className="text-lg font-black text-purple-950">{studyStats.topSubject}</p></div>
-          <div className="rounded-2xl bg-orange-50 p-3"><p className="text-xs font-bold text-orange-700">Racha actual</p><p className="text-2xl font-black text-orange-950">{studyStats.streak}</p></div>
-          <div className="rounded-2xl bg-pink-50 p-3"><p className="text-xs font-bold text-pink-700">Sesiones mes</p><p className="text-2xl font-black text-pink-950">{studyStats.sessionsThisMonth}</p></div>
-        </div>
+            <div className="mt-4 h-72 rounded-2xl border border-blue-100 bg-blue-50/50 p-2">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={studySeries30}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="day" interval={4} />
+                  <YAxis />
+                  <Tooltip />
+                  <Area type="monotone" dataKey="minutos" stroke="#2563eb" fill="#bfdbfe" fillOpacity={0.55} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </>
+        )}
+      </section>
 
-        <div className="mt-4 h-72 rounded-2xl border border-blue-100 bg-blue-50/50 p-2">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={studyByDay}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="label" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              {[...new Set(studyRows.map((row) => row.subject))].map((subject, index) => (
-                <Bar key={subject} dataKey={subject} stackId="study" fill={SUBJECT_COLORS[index % SUBJECT_COLORS.length]} />
-              ))}
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
+      <section className="mt-6 rounded-3xl border border-yellow-200 bg-white p-4">
+        <h2 className="text-lg font-black text-yellow-950">Próximos exámenes</h2>
+        {upcomingExams.length === 0 ? (
+          <p className="mt-3 text-sm font-semibold text-yellow-800">No tienes exámenes próximos registrados.</p>
+        ) : (
+          <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+            {upcomingExams.map((exam) => {
+              const today = toISODate(startOfDay(new Date()))
+              const daysLeft = Math.round(
+                (new Date(`${exam.exam_date}T00:00:00`).getTime() - new Date(`${today}T00:00:00`).getTime())
+                / (1000 * 60 * 60 * 24)
+              )
 
-        <div className="mt-4 h-72 rounded-2xl border border-pink-100 bg-pink-50/50 p-2">
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie data={studyBySubject} dataKey="minutes" nameKey="subject" cx="50%" cy="45%" outerRadius={90} label>
-                {studyBySubject.map((entry) => (
-                  <Cell key={entry.subject} fill={entry.color} />
-                ))}
-              </Pie>
-              <Tooltip />
-              <Legend verticalAlign="bottom" />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
+              return (
+                <article key={exam.id} className="rounded-2xl border border-yellow-200 bg-yellow-50 p-3">
+                  <p className="text-sm font-extrabold text-yellow-900">{exam.subject}</p>
+                  <p className="text-xs font-semibold text-yellow-700">{formatDateLong(exam.exam_date)}</p>
+                  <p className="mt-2 inline-flex items-center gap-1 rounded-full bg-white px-2 py-1 text-xs font-bold text-yellow-900">
+                    <CalendarClock className="h-3.5 w-3.5" />
+                    {daysLeft <= 0 ? 'Hoy' : `En ${daysLeft} días`}
+                  </p>
+                </article>
+              )
+            })}
+          </div>
+        )}
       </section>
 
       <section className="mt-6 rounded-3xl border border-emerald-200 bg-white p-4">
         <h2 className="text-lg font-black text-emerald-950">Hábitos</h2>
-        <div className="mt-3 grid gap-3 md:grid-cols-3">
-          <div className="rounded-2xl bg-emerald-50 p-3"><p className="text-xs font-bold text-emerald-700">Más consistente</p><p className="text-base font-black text-emerald-950">{habitsStats.bestHabit} ({habitsStats.bestRate}%)</p></div>
-          <div className="rounded-2xl bg-teal-50 p-3"><p className="text-xs font-bold text-teal-700">Días perfectos</p><p className="text-2xl font-black text-teal-950">{habitsStats.perfectDays}</p></div>
-          <div className="rounded-2xl bg-lime-50 p-3"><p className="text-xs font-bold text-lime-700">Promedio mensual</p><p className="text-2xl font-black text-lime-950">{habitsStats.average}%</p></div>
-        </div>
 
-        <div className="mt-4 space-y-2 rounded-2xl border border-emerald-100 bg-emerald-50/40 p-3">
-          {habits.map((habit) => (
-            <div key={habit.id} className="grid items-center gap-2" style={{ gridTemplateColumns: '140px repeat(30, minmax(0,1fr))' }}>
-              <span className="text-xs font-bold text-emerald-900">{habit.name}</span>
-              {habitHeatmapDays.map((day) => {
-                const completed = habitLogs.some((log) => log.habit_id === habit.id && log.log_date === day)
-                return (
-                  <span
-                    key={`${habit.id}-${day}`}
-                    className={`h-4 w-4 rounded-full ${completed ? '' : 'bg-gray-100'}`}
-                    style={completed ? { backgroundColor: habit.color } : undefined}
-                    title={`${habit.name} • ${day}`}
-                  />
-                )
-              })}
-            </div>
-          ))}
-        </div>
-      </section>
+        {habits.length === 0 ? (
+          <p className="mt-3 text-sm font-semibold text-emerald-700">No hay hábitos creados todavía.</p>
+        ) : (
+          <>
+            <h3 className="mt-3 text-sm font-bold text-emerald-800">Frecuencia (30 días)</h3>
+            {habitFrequency30.length === 0 ? (
+              <p className="mt-2 text-sm font-semibold text-emerald-700">Sin registros de hábitos en los últimos 30 días.</p>
+            ) : (
+              <>
+                <div className="mt-2 h-72 rounded-2xl border border-emerald-100 bg-emerald-50/40 p-2">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={habitFrequency30.slice(0, 8)}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" hide />
+                      <YAxis />
+                      <Tooltip />
+                      <Bar dataKey="completions30" radius={[8, 8, 0, 0]}>
+                        {habitFrequency30.slice(0, 8).map((habit) => (
+                          <Cell key={habit.id} fill={habit.color || '#10b981'} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
 
-      <section className="mt-6 rounded-3xl border border-rose-200 bg-white p-4">
-        <h2 className="text-lg font-black text-rose-950">Estado de ánimo</h2>
-        <div className="mt-3 grid gap-3 md:grid-cols-3">
-          <div className="rounded-2xl bg-rose-50 p-3"><p className="text-xs font-bold text-rose-700">Promedio del mes</p><p className="text-2xl font-black text-rose-950">{moodStats.average}</p></div>
-          <div className="rounded-2xl bg-orange-50 p-3"><p className="text-xs font-bold text-orange-700">Día con ánimo bajo</p><p className="text-base font-black text-orange-950">{moodStats.lowDay}</p></div>
-          <div className="rounded-2xl bg-pink-50 p-3"><p className="text-xs font-bold text-pink-700">Registros</p><p className="text-2xl font-black text-pink-950">{moodStats.coverage}</p></div>
-        </div>
+                <div className="mt-3 space-y-2">
+                  {habitFrequency30.slice(0, 6).map((habit) => (
+                    <div key={habit.id} className="rounded-2xl border border-emerald-100 bg-emerald-50/50 p-3">
+                      <p className="text-sm font-extrabold text-emerald-950">{habit.name}</p>
+                      <p className="text-xs font-semibold text-emerald-700">
+                        {habit.completions30} registros en 30 días · {habit.weeklyAverage} por semana · {habit.completionRate}% de constancia
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
 
-        <div className="mt-4 h-72 rounded-2xl border border-rose-100 bg-rose-50/50 p-2">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={moodSeries}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="day" />
-              <YAxis domain={[1, 5]} ticks={[1, 2, 3, 4, 5]} />
-              <Tooltip />
-              <Area type="monotone" dataKey="mood" stroke="#ec4899" fill="#fbcfe8" fillOpacity={0.45} />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
+            <h3 className="mt-4 text-sm font-bold text-emerald-800">Heatmap de hábitos (90 días)</h3>
+            {habitLogs90.length === 0 ? (
+              <p className="mt-2 text-sm font-semibold text-emerald-700">Aún no hay registros para construir el heatmap.</p>
+            ) : (
+              <div className="mt-2 overflow-x-auto rounded-2xl border border-emerald-100 bg-emerald-50/40 p-3">
+                <div className="inline-flex gap-1">
+                  {habitHeatmapWeeks.map((week, weekIndex) => (
+                    <div key={`week-${weekIndex}`} className="grid grid-rows-7 gap-1">
+                      {week.map((day) => {
+                        const cell = heatmapByDate.get(day)
+                        const color = HEAT_LEVEL_COLORS[cell?.level ?? 0]
+                        const count = cell?.count ?? 0
 
-        <div className="mt-3 flex flex-wrap gap-2">
-          {moodSeries.map((item) => (
-            <span key={item.logged_date} className="h-3 w-3 rounded-full" style={{ backgroundColor: moodColor(item.mood) }} title={`${item.day}: ${item.mood}`} />
-          ))}
-        </div>
-      </section>
-
-      <section className="mt-6 rounded-3xl border border-yellow-200 bg-white p-4">
-        <h2 className="text-lg font-black text-yellow-950">Gamificación</h2>
-        <div className="mt-4 h-72 rounded-2xl border border-yellow-100 bg-yellow-50/50 p-2">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={weeklyPoints}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="week" />
-              <YAxis />
-              <Tooltip />
-              <Bar dataKey="points" fill="#eab308" radius={[8, 8, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
+                        return (
+                          <span
+                            key={day}
+                            className="h-3 w-3 rounded-[3px]"
+                            style={{ backgroundColor: color }}
+                            title={`${day}: ${count} hábitos completados`}
+                          />
+                        )
+                      })}
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-3 flex items-center gap-2 text-[11px] font-semibold text-emerald-700">
+                  <HeartPulse className="h-3.5 w-3.5" />
+                  <span>Menor</span>
+                  {[0, 1, 2, 3, 4].map((level) => (
+                    <span
+                      key={level}
+                      className="h-3 w-3 rounded-[3px]"
+                      style={{ backgroundColor: HEAT_LEVEL_COLORS[level as HeatmapCell['level']] }}
+                    />
+                  ))}
+                  <span>Mayor</span>
+                </div>
+              </div>
+            )}
+          </>
+        )}
       </section>
     </div>
   )

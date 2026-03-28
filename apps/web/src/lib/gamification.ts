@@ -1,5 +1,61 @@
 import { supabase } from './supabase'
-import { UserAchievement } from '@mochi/supabase/types'
+import type { UserAchievement } from '@mochi/supabase/types'
+
+type EngagementEventName = 'study_session_completed' | 'exam_result_logged'
+
+interface TrackEngagementEventInput {
+  userId: string
+  eventName: EngagementEventName
+  eventKey: string
+  sourceTable?: string
+  sourceId?: string
+  payload: Record<string, unknown>
+  context?: Record<string, unknown>
+  occurredAt?: string
+  eventVersion?: number
+}
+
+/**
+ * Registra un evento de engagement con idempotencia por user_id + event_key.
+ */
+export async function trackEngagementEvent({
+  userId,
+  eventName,
+  eventKey,
+  sourceTable,
+  sourceId,
+  payload,
+  context,
+  occurredAt,
+  eventVersion = 1,
+}: TrackEngagementEventInput): Promise<'created' | 'duplicate'> {
+  const { data, error } = await supabase
+    .from('engagement_events')
+    .upsert(
+      {
+        user_id: userId,
+        event_name: eventName,
+        event_version: eventVersion,
+        event_key: eventKey,
+        source_table: sourceTable ?? null,
+        source_id: sourceId ?? null,
+        payload,
+        context: context ?? {},
+        occurred_at: occurredAt ?? new Date().toISOString(),
+      },
+      {
+        onConflict: 'user_id,event_key',
+        ignoreDuplicates: true,
+      }
+    )
+    .select('id')
+
+  if (error) {
+    throw error
+  }
+
+  return data && data.length > 0 ? 'created' : 'duplicate'
+}
 
 /**
  * Añade puntos al usuario
@@ -14,7 +70,10 @@ export async function addPoints(userId: string, points: number): Promise<void> {
     window.dispatchEvent(new CustomEvent('mochi:points-updated'))
   }
 
-  if (error) console.error('Error adding points:', error)
+  if (error) {
+    console.error('Error adding points:', error)
+    throw error
+  }
 }
 
 /**

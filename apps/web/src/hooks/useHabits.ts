@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { Habit, HabitLog } from '@mochi/supabase/types'
+import type { Habit, HabitLog } from '@/types/database'
 
 export type HabitIcon = 'leaf' | 'water' | 'book' | 'heart' | 'fitness'
 export type HabitColor = 'pink' | 'yellow' | 'blue' | 'teal' | 'purple'

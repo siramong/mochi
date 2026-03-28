@@ -1,8 +1,8 @@
-import { FormEvent, useEffect, useState } from 'react'
+import { FormEvent, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { useSession } from '@/hooks/useSession'
-import { addPoints, unlockAchievement } from '@/lib/gamification'
+import { addPoints, trackEngagementEvent, unlockAchievement } from '@/lib/gamification'
 import type { ExamLog } from '@/types/database'
 import { EmptyState } from '@/components/common/EmptyState'
 
@@ -47,16 +47,25 @@ export function StudyExamsPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [gamificationWarning, setGamificationWarning] = useState<string | null>(null)
+  const resultSubmitInFlightRef = useRef(false)
+  const upcomingSubmitInFlightRef = useRef(false)
 
   useEffect(() => {
     const userId = session?.user.id
     if (!userId) {
+      setRows([])
+      setUpcomingRows([])
+      setError(null)
       setLoading(false)
       return
     }
 
+    let isActive = true
+
     async function loadExams() {
       setLoading(true)
+      setError(null)
 
       const [resultsRes, upcomingRes] = await Promise.all([
         supabase
@@ -75,92 +84,178 @@ export function StudyExamsPage() {
           .returns<ExamLog[]>(),
       ])
 
+      if (!isActive) {
+        return
+      }
+
       if (resultsRes.error || upcomingRes.error) {
         setError(resultsRes.error?.message ?? upcomingRes.error?.message ?? 'No se pudo cargar exámenes')
       } else {
         setRows(resultsRes.data ?? [])
         setUpcomingRows(upcomingRes.data ?? [])
+        setError(null)
       }
 
       setLoading(false)
     }
 
     void loadExams()
+
+    return () => {
+      isActive = false
+    }
   }, [session?.user.id, saving])
 
   const handleSubmitResult = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (resultSubmitInFlightRef.current || saving) {
+      return
+    }
+
+    resultSubmitInFlightRef.current = true
+
     const userId = session?.user.id
-    if (!userId) return
+    if (!userId) {
+      setError('Debes iniciar sesión para guardar exámenes')
+      resultSubmitInFlightRef.current = false
+      return
+    }
 
     setSaving(true)
     setError(null)
+    setGamificationWarning(null)
 
-    const payload = {
-      user_id: userId,
-      subject: form.subject,
-      grade: Number(form.grade),
-      max_grade: Number(form.max_grade),
-      exam_date: form.exam_date,
-      notes: form.notes.trim() || null,
-      is_upcoming: false,
-    }
+    try {
+      const payload = {
+        user_id: userId,
+        subject: form.subject,
+        grade: Number(form.grade),
+        max_grade: Number(form.max_grade),
+        exam_date: form.exam_date,
+        notes: form.notes.trim() || null,
+        is_upcoming: false,
+      }
 
-    const { data, error: insertError } = await supabase
-      .from('exam_logs')
-      .insert(payload)
-      .select('*')
-      .single<ExamLog>()
+      const { data, error: insertError } = await supabase
+        .from('exam_logs')
+        .insert(payload)
+        .select('*')
+        .single<ExamLog>()
 
-    if (insertError) {
-      setError(insertError.message)
-    } else if (data) {
+      if (insertError) {
+        setError(insertError.message)
+        return
+      }
+
+      if (!data) {
+        setError('No se recibió el examen guardado')
+        return
+      }
+
       setRows((prev) => [data, ...prev])
       setForm(initialResultState)
 
-      const percentage = (Number(form.grade) / Number(form.max_grade)) * 100
-      if (percentage >= 70) {
-        await addPoints(userId, 20)
-        await unlockAchievement(userId, 'exam_ace')
-      }
-    }
+      const percentage = payload.max_grade > 0 ? (payload.grade / payload.max_grade) * 100 : 0
+      const passedThreshold70 = percentage >= 70
+      let engagementResult: 'created' | 'duplicate' | null = null
 
-    setSaving(false)
+      try {
+        engagementResult = await trackEngagementEvent({
+          userId,
+          eventName: 'exam_result_logged',
+          eventKey: `exam_result_logged:${data.id}`,
+          sourceTable: 'exam_logs',
+          sourceId: data.id,
+          payload: {
+            exam_log_id: data.id,
+            subject: data.subject,
+            grade: data.grade,
+            max_grade: data.max_grade,
+            passed_threshold_70: passedThreshold70,
+            points_candidate: passedThreshold70 ? 20 : 0,
+          },
+        })
+      } catch (engagementError) {
+        setGamificationWarning('El examen se guardó, pero no pudimos registrar el evento de gamificación. Intenta de nuevo más tarde.')
+        console.warn('No se pudo registrar engagement event de examen:', engagementError)
+      }
+
+      if (passedThreshold70 && engagementResult === 'created') {
+        try {
+          await addPoints(userId, 20)
+          await unlockAchievement(userId, 'exam_ace')
+        } catch (gamificationError) {
+          setGamificationWarning('El examen se guardó, pero no se pudieron actualizar puntos o logros.')
+          console.warn('No se pudo completar actualización de puntos/logros de examen:', gamificationError)
+        }
+      }
+
+      if (passedThreshold70 && engagementResult === 'duplicate') {
+        setGamificationWarning('El resultado ya estaba registrado previamente. No se volvieron a sumar puntos para evitar duplicados.')
+      }
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : 'No se pudo guardar el examen')
+    } finally {
+      setSaving(false)
+      resultSubmitInFlightRef.current = false
+    }
   }
 
   const handleSubmitUpcoming = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (upcomingSubmitInFlightRef.current || saving) {
+      return
+    }
+
+    upcomingSubmitInFlightRef.current = true
+
     const userId = session?.user.id
-    if (!userId) return
+    if (!userId) {
+      setError('Debes iniciar sesión para guardar exámenes')
+      upcomingSubmitInFlightRef.current = false
+      return
+    }
 
     setSaving(true)
     setError(null)
+    setGamificationWarning(null)
 
-    const payload = {
-      user_id: userId,
-      subject: upcomingForm.subject,
-      exam_date: upcomingForm.exam_date,
-      preparation_notes: upcomingForm.preparation_notes.trim() || null,
-      grade: null,
-      max_grade: null,
-      notes: null,
-      is_upcoming: true,
-    }
+    try {
+      const payload = {
+        user_id: userId,
+        subject: upcomingForm.subject,
+        exam_date: upcomingForm.exam_date,
+        preparation_notes: upcomingForm.preparation_notes.trim() || null,
+        grade: null,
+        max_grade: null,
+        notes: null,
+        is_upcoming: true,
+      }
 
-    const { data, error: insertError } = await supabase
-      .from('exam_logs')
-      .insert(payload)
-      .select('*')
-      .single<ExamLog>()
+      const { data, error: insertError } = await supabase
+        .from('exam_logs')
+        .insert(payload)
+        .select('*')
+        .single<ExamLog>()
 
-    if (insertError) {
-      setError(insertError.message)
-    } else if (data) {
+      if (insertError) {
+        setError(insertError.message)
+        return
+      }
+
+      if (!data) {
+        setError('No se recibió el examen guardado')
+        return
+      }
+
       setUpcomingRows((prev) => [...prev, data].sort((a, b) => a.exam_date.localeCompare(b.exam_date)))
       setUpcomingForm(initialUpcomingState)
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : 'No se pudo guardar el examen próximo')
+    } finally {
+      setSaving(false)
+      upcomingSubmitInFlightRef.current = false
     }
-
-    setSaving(false)
   }
 
   return (
@@ -269,6 +364,8 @@ export function StudyExamsPage() {
           })}
         </div>
       ) : null}
+
+      {gamificationWarning ? <p className="mt-3 text-sm text-orange-700">{gamificationWarning}</p> : null}
     </div>
   )
 }

@@ -13,9 +13,13 @@ export function StudyHistoryPage() {
   useEffect(() => {
     const userId = session?.user.id
     if (!userId) {
+      setSessions([])
+      setError(null)
       setLoading(false)
       return
     }
+
+    let isActive = true
 
     async function loadSessions() {
       setLoading(true)
@@ -28,6 +32,10 @@ export function StudyHistoryPage() {
         .order('completed_at', { ascending: false })
         .returns<StudySession[]>()
 
+      if (!isActive) {
+        return
+      }
+
       if (historyError) {
         setError(historyError.message)
       } else {
@@ -38,6 +46,10 @@ export function StudyHistoryPage() {
     }
 
     void loadSessions()
+
+    return () => {
+      isActive = false
+    }
   }, [session?.user.id])
 
   const totalHours = useMemo(() => {
@@ -57,7 +69,7 @@ export function StudyHistoryPage() {
         <div className="mt-4">
           <EmptyState
             title="Aún no hay sesiones registradas"
-            description="Cuando completes un bloque en el temporizador móvil, aparecerá aquí."
+            description="Cuando completes un bloque en el temporizador web, aparecerá aquí."
           />
         </div>
       )}

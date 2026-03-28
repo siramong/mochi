@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons'
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -17,7 +17,7 @@ import { supabase } from '@/src/shared/lib/supabase'
 import { useSession } from '@/src/core/providers/SessionContext'
 import { useAchievement } from '@/src/core/providers/AchievementContext'
 import { MochiCharacter } from '@/src/shared/components/MochiCharacter'
-import { addPoints, unlockAchievement } from '@/src/shared/lib/gamification'
+import { addPoints, trackEngagementEvent, unlockAchievement } from '@/src/shared/lib/gamification'
 import { scheduleExamReminder } from '@/src/shared/lib/notifications'
 
 type TabId = 'results' | 'upcoming'
@@ -60,6 +60,8 @@ export function ExamLogScreen() {
   const [saving, setSaving] = useState(false)
   const [savingUpcoming, setSavingUpcoming] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [gamificationWarning, setGamificationWarning] = useState<string | null>(null)
+  const saveResultMutexRef = useRef(false)
 
   const today = new Date().toLocaleDateString('es-ES', {
     weekday: 'long',
@@ -155,26 +157,37 @@ export function ExamLogScreen() {
   }
 
   async function handleSaveResult() {
+    if (saving || saveResultMutexRef.current) return
+
+    saveResultMutexRef.current = true
+
     if (!subject.trim()) {
       setError('Por favor ingresa la materia')
+      saveResultMutexRef.current = false
       return
     }
 
     const gradeNum = parseFloat(grade)
     if (Number.isNaN(gradeNum) || gradeNum < 0 || gradeNum > 10) {
       setError('La nota debe ser un número entre 0 y 10')
+      saveResultMutexRef.current = false
       return
     }
 
     if (!session?.user.id) {
       setError('No hay sesión activa')
+      saveResultMutexRef.current = false
       return
     }
 
     setSaving(true)
     setError(null)
+    setGamificationWarning(null)
 
     try {
+      const occurredAt = new Date().toISOString()
+      let examLogId = selectedUpcomingId
+
       if (selectedUpcomingId) {
         const { error: updateError } = await supabase
           .from('exam_logs')
@@ -190,24 +203,66 @@ export function ExamLogScreen() {
 
         if (updateError) throw updateError
       } else {
-        const { error: insertError } = await supabase.from('exam_logs').insert({
-          user_id: session.user.id,
-          subject: subject.trim(),
-          grade: gradeNum,
-          max_grade: 10,
-          notes: notes.trim() || null,
-          exam_date: todayISO,
-          is_upcoming: false,
-        })
+        const { data: insertedExam, error: insertError } = await supabase
+          .from('exam_logs')
+          .insert({
+            user_id: session.user.id,
+            subject: subject.trim(),
+            grade: gradeNum,
+            max_grade: 10,
+            notes: notes.trim() || null,
+            exam_date: todayISO,
+            is_upcoming: false,
+          })
+          .select('id')
+          .single<{ id: string }>()
 
-        if (insertError) throw insertError
+        if (insertError || !insertedExam) {
+          throw insertError ?? new Error('No se pudo confirmar el resultado registrado')
+        }
+
+        examLogId = insertedExam.id
+      }
+
+      let engagementResult: 'created' | 'duplicate' | null = null
+
+      if (examLogId) {
+        try {
+          engagementResult = await trackEngagementEvent({
+            userId: session.user.id,
+            eventName: 'exam_result_logged',
+            eventKey: `exam_result_logged:${examLogId}`,
+            sourceTable: 'exam_logs',
+            sourceId: examLogId,
+            occurredAt,
+            payload: {
+              exam_log_id: examLogId,
+              subject: subject.trim(),
+              grade: gradeNum,
+              max_grade: 10,
+              is_upcoming_source: Boolean(selectedUpcomingId),
+            },
+          })
+        } catch (trackingError) {
+          setGamificationWarning(
+            'El resultado se guardó, pero no pudimos registrar el evento de gamificación. Intenta de nuevo más tarde.'
+          )
+          console.warn('No se pudo registrar el evento de engagement de examen:', trackingError)
+        }
       }
 
       const percentage = gradeNum / 10
-      if (percentage >= 0.7) {
+      if (percentage >= 0.7 && engagementResult === 'created') {
         await addPoints(session.user.id, 20, showAchievement)
         const unlockedExam = await unlockAchievement(session.user.id, 'exam_ace')
         if (unlockedExam) showAchievement(unlockedExam)
+      }
+
+      if (percentage >= 0.7 && engagementResult === 'duplicate') {
+        setGamificationWarning(
+          'Este resultado ya estaba registrado en gamificación. No se volvieron a sumar puntos para evitar duplicados.'
+        )
+        console.warn('Evento de engagement duplicado para resultado de examen. Se omite suma de puntos/logros.')
       }
 
       setSubject('')
@@ -219,6 +274,7 @@ export function ExamLogScreen() {
       setError(err instanceof Error ? err.message : 'Error al guardar el resultado')
     } finally {
       setSaving(false)
+      saveResultMutexRef.current = false
     }
   }
 
@@ -245,6 +301,7 @@ export function ExamLogScreen() {
 
     setSavingUpcoming(true)
     setError(null)
+    setGamificationWarning(null)
 
     try {
       const { data, error: insertError } = await supabase
@@ -318,6 +375,12 @@ export function ExamLogScreen() {
           {error ? (
             <View className="mt-4 rounded-2xl border-2 border-red-200 bg-red-50 p-3">
               <Text className="text-sm font-semibold text-red-700">{error}</Text>
+            </View>
+          ) : null}
+
+          {gamificationWarning ? (
+            <View className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-3">
+              <Text className="text-sm font-semibold text-amber-700">{gamificationWarning}</Text>
             </View>
           ) : null}
 

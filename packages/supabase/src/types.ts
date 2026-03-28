@@ -258,6 +258,32 @@ export interface Streak {
   last_activity_date: string
 }
 
+// ─── Event Processing ─────────────────────────────────────────────────────
+
+export type EngagementEventProcessingStatus =
+  | 'pending'
+  | 'processed'
+  | 'failed'
+  | 'ignored'
+
+export interface EngagementEvent {
+  id: string
+  user_id: string
+  event_name: string
+  event_version: number
+  event_key: string
+  source_table: string | null
+  source_id: string | null
+  processing_status: EngagementEventProcessingStatus
+  processed_at: string | null
+  processing_error: string | null
+  occurred_at: string
+  inserted_at: string
+  payload: Record<string, unknown>
+  context: Record<string, unknown>
+  dedupe_hits: number
+}
+
 // ─── Cooking ──────────────────────────────────────────────────────────────
 
 export type RecipeDifficulty = 'fácil' | 'media' | 'difícil'

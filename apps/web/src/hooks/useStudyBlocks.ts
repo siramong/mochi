@@ -64,7 +64,9 @@ export function useStudyBlocks(dayOfWeek?: number): StudyBlocksState {
   const createBlock = useCallback(
     async (payload: NewStudyBlock) => {
       const userId = session?.user.id
-      if (!userId) return
+      if (!userId) {
+        throw new Error('Debes iniciar sesión para crear un bloque de estudio')
+      }
 
       const { error: insertError } = await supabase.from('study_blocks').insert({
         ...payload,
@@ -79,7 +81,9 @@ export function useStudyBlocks(dayOfWeek?: number): StudyBlocksState {
   const updateBlock = useCallback(
     async (blockId: string, payload: NewStudyBlock) => {
       const userId = session?.user.id
-      if (!userId) return
+      if (!userId) {
+        throw new Error('Debes iniciar sesión para actualizar un bloque de estudio')
+      }
 
       const { error: updateError } = await supabase
         .from('study_blocks')
@@ -96,7 +100,9 @@ export function useStudyBlocks(dayOfWeek?: number): StudyBlocksState {
   const deleteBlock = useCallback(
     async (blockId: string) => {
       const userId = session?.user.id
-      if (!userId) return
+      if (!userId) {
+        throw new Error('Debes iniciar sesión para eliminar un bloque de estudio')
+      }
 
       const { error: detachError } = await supabase
         .from('study_sessions')

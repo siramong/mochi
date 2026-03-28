@@ -102,6 +102,13 @@ Entra directo a **[mochi.siramong.tech](https://mochi.siramong.tech)** — no ne
 
 ---
 
+## 📘 Documentación operativa
+
+- QA de releases Android (pre-release y post-release): [docs/qa-release-mobile.md](docs/qa-release-mobile.md)
+
+---
+
+
 <div align="center">
 
 ---

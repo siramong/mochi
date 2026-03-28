@@ -19,84 +19,188 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: mobile-production-apk-${{ github.ref }}
+  cancel-in-progress: false
+
 env:
   EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  NODE_VERSION: "20"
+  PNPM_VERSION: "10.32.1"
+  EAS_CLI_VERSION: "16.26.0"
 
 jobs:
-  build-production-apk:
+  quality-gates:
+    name: Quality Gates (mobile)
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: apps/mobile
+    timeout-minutes: 25
     steps:
-      - name: 🏗 Checkout repository
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: 🏗 Setup Node.js
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
 
-      - name: 📦 Setup pnpm
+      - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
+          version: ${{ env.PNPM_VERSION }}
           run_install: false
 
-      - name: 📦 Get pnpm cache directory
-        id: pnpm-cache-dir
-        run: echo "dir=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
-        working-directory: .
-
-      - name: 📦 Setup pnpm cache
-        uses: actions/cache@v4
-        with:
-          path: ${{ steps.pnpm-cache-dir.outputs.dir }}
-          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-
-
-      - name: 📦 Install dependencies
+      - name: Install dependencies
         run: pnpm install --frozen-lockfile
-        working-directory: .
 
-      - name: 🧪 TypeScript check (mobile)
-        run: pnpm --filter mochi-mobile exec tsc --noEmit
-        working-directory: .
+      - name: Gate 1 - Lint/format check (mobile)
+        run: pnpm --filter mochi-mobile exec prettier --check "app/**/*.{ts,tsx}" "src/**/*.{ts,tsx}"
 
-      - name: 🔄 Verify EAS CLI
-        run: pnpm dlx eas-cli@latest --version
+      - name: Gate 2 - Check types (mobile)
+        run: pnpm --filter mochi-mobile exec tsc --noEmit -p tsconfig.json
 
-      - name: 📱 Build Production APK (EAS local)
+      - name: Gate 3 - Build validation (Expo export Android)
+        run: pnpm --filter mochi-mobile exec expo export --platform android --output-dir .expo-export/android --clear
+
+      - name: Upload gate bundle trace
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-gate-export-${{ github.run_number }}.${{ github.run_attempt }}
+          path: apps/mobile/.expo-export/android
+          if-no-files-found: ignore
+          retention-days: 7
+
+  build-production-apk:
+    name: Build + Draft Release (Android APK)
+    runs-on: ubuntu-latest
+    needs: [quality-gates]
+    timeout-minutes: 90
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+          run_install: false
+
+      - name: Setup Java 17 (Android local build)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify pinned EAS CLI
+        run: pnpm dlx eas-cli@${{ env.EAS_CLI_VERSION }} --version
+
+      - name: Build Production APK (EAS local)
+        working-directory: apps/mobile
         run: |
-          pnpm dlx eas-cli@latest build \
+          set -euo pipefail
+          pnpm dlx eas-cli@${{ env.EAS_CLI_VERSION }} build \
             --platform android \
             --profile "${{ github.event.inputs.profile }}" \
             --local \
             --non-interactive \
-            --output "./${{ github.event.inputs.artifactName }}.apk"
+            --output "./${{ github.event.inputs.artifactName }}.apk" \
+            2>&1 | tee eas-build.log
 
-      - name: 🏷️ Generate build info
-        id: build-info
+      - name: Generate release metadata and notes
+        id: meta
         run: |
-          VERSION=$(node -p "require('./app.json').expo.version")
-          BUILD_NUMBER=$(date +%Y%m%d%H%M)
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "build_number=$BUILD_NUMBER" >> "$GITHUB_OUTPUT"
+          set -euo pipefail
+          VERSION=$(node -p "require('./apps/mobile/app.json').expo.version")
+          ANDROID_VERSION_CODE=$(node -p "require('./apps/mobile/app.json').expo?.android?.versionCode ?? 'n/a'")
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          RELEASE_TAG="android-apk-v${VERSION}-r${GITHUB_RUN_NUMBER}.${GITHUB_RUN_ATTEMPT}"
+          RELEASE_NAME="Mochi Android v${VERSION} (build ${ANDROID_VERSION_CODE}) run ${GITHUB_RUN_NUMBER}.${GITHUB_RUN_ATTEMPT}"
+
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "android_version_code=${ANDROID_VERSION_CODE}" >> "$GITHUB_OUTPUT"
+          echo "short_sha=${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+          echo "release_tag=${RELEASE_TAG}" >> "$GITHUB_OUTPUT"
+          echo "release_name=${RELEASE_NAME}" >> "$GITHUB_OUTPUT"
+
           if git describe --tags --abbrev=0 > /dev/null 2>&1; then
             LAST_TAG=$(git describe --tags --abbrev=0)
-            git log "$LAST_TAG"..HEAD --pretty=format:"- %s" > changelog.md
+            git log "$LAST_TAG"..HEAD --pretty=format:"- %s (%h)" > apps/mobile/changelog.md
           else
-            git log --pretty=format:"- %s" -n 20 > changelog.md
+            git log --pretty=format:"- %s (%h)" -n 25 > apps/mobile/changelog.md
           fi
 
-      - name: 📝 Create GitHub Release
+          {
+            echo "## Release Android APK"
+            echo
+            echo "- App version: ${VERSION}"
+            echo "- Android versionCode: ${ANDROID_VERSION_CODE}"
+            echo "- EAS profile: ${{ github.event.inputs.profile }}"
+            echo "- Commit: ${SHORT_SHA}"
+            echo "- Workflow run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            echo "- Built at (UTC): $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo
+            echo "## Cambios incluidos"
+            if [ -s apps/mobile/changelog.md ]; then
+              cat apps/mobile/changelog.md
+            else
+              echo "- Sin cambios detectados desde el último tag."
+            fi
+          } > apps/mobile/release-notes.md
+
+      - name: Upload APK and build logs (traceability)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-apk-trace-${{ steps.meta.outputs.release_tag || github.run_id }}
+          path: |
+            apps/mobile/${{ github.event.inputs.artifactName }}.apk
+            apps/mobile/eas-build.log
+            apps/mobile/changelog.md
+            apps/mobile/release-notes.md
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Create GitHub draft release
+        id: gh_release
         uses: softprops/action-gh-release@v2
         with:
           draft: true
-          name: "production-apk-v${{ steps.build-info.outputs.version }}-${{ steps.build-info.outputs.build_number }}"
-          tag_name: "production-apk-v${{ steps.build-info.outputs.version }}-${{ steps.build-info.outputs.build_number }}"
+          fail_on_unmatched_files: true
+          target_commitish: ${{ github.sha }}
+          name: ${{ steps.meta.outputs.release_name }}
+          tag_name: ${{ steps.meta.outputs.release_tag }}
           files: apps/mobile/${{ github.event.inputs.artifactName }}.apk
-          body_path: apps/mobile/changelog.md
+          body_path: apps/mobile/release-notes.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Fallback summary on release failure
+        if: failure()
+        run: |
+          {
+            echo "## Release Android fallido"
+            echo
+            echo "Se ejecutaron gates y build local, pero falló la publicación en GitHub Release."
+            echo
+            echo "### Qué revisar"
+            echo "- Permisos de contents:write y GITHUB_TOKEN"
+            echo "- Colisión de tag: ${{ steps.meta.outputs.release_tag }}"
+            echo "- Logs de EAS y metadata en artifacts del run"
+            echo
+            echo "### Artefactos de fallback"
+            echo "- APK y logs: mobile-apk-trace-*"
+          } >> "$GITHUB_STEP_SUMMARY"

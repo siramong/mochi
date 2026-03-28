@@ -44,6 +44,37 @@ Module toggle flags per user. Created during onboarding.
 
 ---
 
+## Event Processing
+
+### `engagement_events`
+
+Event log para procesamiento asíncrono e idempotente de engagement.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | `uuid` | PK, default `gen_random_uuid()` |
+| `user_id` | `uuid` | FK → `profiles.id` (`ON DELETE CASCADE`) |
+| `event_name` | `text` | Nombre del evento |
+| `event_version` | `smallint` | Default `1` |
+| `event_key` | `text` | Clave idempotente por usuaria (no vacía, `UNIQUE (user_id, event_key)`) |
+| `processing_status` | `text` | `pending`, `processed`, `failed`, `ignored` |
+| `processed_at` | `timestamptz` | Nullable |
+| `processing_error` | `text` | Nullable |
+| `occurred_at` | `timestamptz` | Timestamp lógico del evento |
+| `inserted_at` | `timestamptz` | Timestamp de inserción |
+| `payload` | `jsonb` | Objeto JSON obligatorio |
+| `context` | `jsonb` | Objeto JSON obligatorio |
+| `source_table` / `source_id` | `text` / `uuid` | Deben venir ambos o ambos nulos |
+| `dedupe_hits` | `integer` | Contador de deduplicaciones |
+
+**RLS:** tabla con RLS habilitado. `authenticated` solo puede `SELECT` e `INSERT` sus propios eventos (`auth.uid() = user_id`).
+
+**Permisos:** `GRANT SELECT, INSERT` a `authenticated`; `REVOKE UPDATE, DELETE` para evitar modificaciones directas del log.
+
+**Idempotencia:** `event_key` único por usuaria evita reprocesamiento accidental; índices por estado y tiempo optimizan workers de backfill/procesamiento.
+
+---
+
 ## Study Module
 
 ### `study_blocks`

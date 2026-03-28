@@ -1,11 +1,20 @@
 import {
+  AIError,
   askMochiWhileCooking,
   askStudyCompanion,
+  callAI,
+  callAIText,
+  callAIWithFallback,
+  callAIWithMessages,
   createAIClient,
   detectStudyDiscipline,
   generateFlashcards,
   generateRecipe,
+  generateStudyBlockSuggestions,
   generateStudySessionPlan,
+  getAIClient,
+  parseAIJson,
+  type MochiAIContract,
   type RecipeGenerationOptions,
   type RecipeGenerationType,
 } from '@mochi/ai'
@@ -17,12 +26,20 @@ if (OPENROUTER_KEY) {
 }
 
 export {
+  AIError,
   askMochiWhileCooking,
   askStudyCompanion,
+  callAI,
+  callAIText,
+  callAIWithFallback,
+  callAIWithMessages,
   detectStudyDiscipline,
   generateFlashcards,
   generateRecipe,
+  generateStudyBlockSuggestions,
   generateStudySessionPlan,
+  getAIClient,
+  parseAIJson,
 }
 
-export type { RecipeGenerationOptions, RecipeGenerationType }
+export type { MochiAIContract, RecipeGenerationOptions, RecipeGenerationType }

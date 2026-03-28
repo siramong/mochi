@@ -28,6 +28,7 @@ import {
   addPoints,
   checkStreakAchievements,
   checkStudyAchievements,
+  trackEngagementEvent,
   updateStreak,
 } from '@/src/shared/lib/gamification'
 import { supabase } from '@/src/shared/lib/supabase'
@@ -129,6 +130,8 @@ export function StudyTimerScreen() {
   const [generatingFlashcards, setGeneratingFlashcards] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [gamificationWarning, setGamificationWarning] = useState<string | null>(null)
+  const [didAwardGamification, setDidAwardGamification] = useState(false)
 
   const [phase, setPhase] = useState<StudyPhase>('setup')
   const [specificTopic, setSpecificTopic] = useState('')
@@ -146,6 +149,8 @@ export function StudyTimerScreen() {
   const [chatError, setChatError] = useState<string | null>(null)
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const completionMutexRef = useRef(false)
+  const sessionPersistedRef = useRef(false)
   const progress = useSharedValue(1)
 
   const blockColor = block?.color ?? 'purple'
@@ -233,36 +238,91 @@ export function StudyTimerScreen() {
   }
 
   async function handleComplete() {
-    if (isCompleting || phase === 'complete') return
+    if (completionMutexRef.current || sessionPersistedRef.current || isCompleting || phase === 'complete') return
+
+    completionMutexRef.current = true
 
     setIsCompleting(true)
     setIsRunning(false)
+    setGamificationWarning(null)
+    setDidAwardGamification(false)
 
     if (!session?.user.id || !block) {
+      completionMutexRef.current = false
       setIsCompleting(false)
       return
     }
 
     try {
-      const { error: insertError } = await supabase.from('study_sessions').insert({
-        user_id: session.user.id,
-        study_block_id: block.id,
-        subject: block.subject,
-        duration_seconds: totalSeconds,
-        completed_at: new Date().toISOString(),
-      })
+      const completedAt = new Date().toISOString()
+      const { data: insertedSession, error: insertError } = await supabase
+        .from('study_sessions')
+        .insert({
+          user_id: session.user.id,
+          study_block_id: block.id,
+          subject: block.subject,
+          duration_seconds: totalSeconds,
+          completed_at: completedAt,
+        })
+        .select('id')
+        .single<{ id: string }>()
 
-      if (insertError) throw insertError
+      if (insertError || !insertedSession) {
+        throw insertError ?? new Error('No se pudo confirmar la sesión registrada')
+      }
 
-      await addPoints(session.user.id, 5, showAchievement)
-      await updateStreak(session.user.id)
-      await checkStudyAchievements(session.user.id, showAchievement)
-      await checkStreakAchievements(session.user.id, showAchievement)
+      sessionPersistedRef.current = true
+
+      let engagementResult: 'created' | 'duplicate' | null = null
+
+      try {
+        engagementResult = await trackEngagementEvent({
+          userId: session.user.id,
+          eventName: 'study_session_completed',
+          eventKey: `study_session_completed:${insertedSession.id}`,
+          sourceTable: 'study_sessions',
+          sourceId: insertedSession.id,
+          occurredAt: completedAt,
+          payload: {
+            study_session_id: insertedSession.id,
+            study_block_id: block.id,
+            subject: block.subject,
+            duration_seconds: totalSeconds,
+          },
+        })
+      } catch (trackingError) {
+        setGamificationWarning(
+          'La sesión se guardó, pero no pudimos registrar el evento de gamificación. Intenta de nuevo más tarde.'
+        )
+        console.warn('No se pudo registrar el evento de engagement de estudio:', trackingError)
+      }
+
+      if (engagementResult === 'created') {
+        await addPoints(session.user.id, 5, showAchievement)
+        await updateStreak(session.user.id)
+        await checkStudyAchievements(session.user.id, showAchievement)
+        await checkStreakAchievements(session.user.id, showAchievement)
+        setDidAwardGamification(true)
+      }
+
+      if (engagementResult === 'duplicate') {
+        setGamificationWarning(
+          'Esta sesión ya estaba registrada en gamificación. No se volvieron a sumar puntos ni logros.'
+        )
+        console.warn('Evento de engagement duplicado para sesión de estudio. Se omite suma de puntos/logros.')
+      }
+
       setPhase('complete')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo completar la sesión')
+      if (!sessionPersistedRef.current) {
+        completionMutexRef.current = false
+      }
     } finally {
       setIsCompleting(false)
+      if (!sessionPersistedRef.current) {
+        completionMutexRef.current = false
+      }
     }
   }
 
@@ -484,9 +544,16 @@ export function StudyTimerScreen() {
         <MochiCharacter mood="excited" size={120} />
         <Text className="mt-6 text-2xl font-extrabold text-purple-900">¡Bloque completado!</Text>
         <Text className="mt-2 text-center text-sm font-semibold text-purple-600">{summaryText}</Text>
-        <View className="mt-4 rounded-full bg-yellow-200 px-5 py-2">
-          <Text className="font-extrabold text-yellow-900">+5 puntos</Text>
-        </View>
+        {gamificationWarning ? (
+          <View className="mt-4 w-full rounded-2xl border border-amber-200 bg-amber-50 p-3">
+            <Text className="text-center text-sm font-semibold text-amber-700">{gamificationWarning}</Text>
+          </View>
+        ) : null}
+        {didAwardGamification ? (
+          <View className="mt-4 rounded-full bg-yellow-200 px-5 py-2">
+            <Text className="font-extrabold text-yellow-900">+5 puntos</Text>
+          </View>
+        ) : null}
         <TouchableOpacity
           className={`mt-4 rounded-2xl px-6 py-3 ${generatingFlashcards ? 'bg-indigo-300' : 'bg-indigo-500'}`}
           onPress={() => {
@@ -512,6 +579,12 @@ export function StudyTimerScreen() {
           <Ionicons name="chevron-back" size={22} color="#7c3aed" />
           <Text className="ml-1 font-bold text-purple-700">Volver</Text>
         </TouchableOpacity>
+
+        {gamificationWarning ? (
+          <View className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-3">
+            <Text className="text-sm font-semibold text-amber-700">{gamificationWarning}</Text>
+          </View>
+        ) : null}
 
         <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
           <View className="mt-4 rounded-3xl border-2 border-purple-200 bg-white p-4">

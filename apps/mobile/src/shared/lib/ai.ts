@@ -1,14 +1,21 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import {
+  AIError,
   askMochiWhileCooking as sharedAskMochiWhileCooking,
   askStudyCompanion as sharedAskStudyCompanion,
+  callAIText,
+  callAIWithMessages,
+  callAIWithFallback,
   createAIClient,
   detectStudyDiscipline as sharedDetectStudyDiscipline,
   generateFlashcards as sharedGenerateFlashcards,
   generateRecipe as sharedGenerateRecipe,
+  generateStudyBlockSuggestions,
   generateStudySessionPlan as sharedGenerateStudySessionPlan,
+  parseAIJson,
   callAI,
   type AIRecipeResponse,
+  type MochiAIContract,
   type RecipeGenerationOptions,
   type RecipeGenerationType,
   type StudyHistoryMessage,
@@ -19,6 +26,17 @@ export interface AISuggestion {
   description: string
   estimatedDuration?: number
   difficulty?: 'fácil' | 'medio' | 'difícil'
+}
+
+export type { MochiAIContract }
+export {
+  AIError,
+  callAI,
+  callAIText,
+  callAIWithFallback,
+  callAIWithMessages,
+  generateStudyBlockSuggestions,
+  parseAIJson,
 }
 
 const OPENROUTER_KEY = process.env.EXPO_PUBLIC_OPENROUTER_API_KEY || ''
@@ -66,10 +84,15 @@ export async function suggestExerciseDescription(exerciseName: string): Promise<
 
   const prompt = `Eres un entrenador personal experto. El usuario quiere hacer el ejercicio: "${exerciseName}". Proporciona una descripción breve (1-2 oraciones) de cómo hacerlo correctamente y el tiempo estimado en segundos (número solo). Responde SOLO en este formato JSON sin explicaciones adicionales: {"description": "...", "estimatedDuration": 60, "difficulty": "medio"}`
 
-  const response = await callAI(prompt)
+  const response = await callAIWithFallback({
+    systemPrompt:
+      'Eres un entrenador personal de Mochi. Responde siempre en español y si se solicita JSON, responde solo JSON válido.',
+    userMessage: prompt,
+    maxTokens: 2048,
+  })
 
   try {
-    const parsed = JSON.parse(response) as AISuggestion
+    const parsed = parseAIJson<AISuggestion>(response, { expected: 'object' })
     const suggestion: AISuggestion = {
       description: parsed.description || `${exerciseName}: Realiza correctamente`,
       estimatedDuration: parsed.estimatedDuration || 60,
@@ -143,7 +166,6 @@ export async function getDailyMotivation(
 }
 
 export { type RecipeGenerationOptions, type RecipeGenerationType }
-export { callAI }
 
 export async function generateRecipe(
   userPrompt: string,
@@ -163,11 +185,16 @@ export async function suggestRecipeNames(ingredients: string[]): Promise<string[
   const ingredientList = ingredients.slice(0, 5).join(', ')
   const prompt = `Sugiere 3 nombres creativos y apetitosos en español para una receta que tiene: ${ingredientList}. Responde SOLO con un JSON array de strings, sin explicaciones: ["nombre1", "nombre2", "nombre3"]`
 
-  const response = await callAI(prompt)
+  const response = await callAIWithFallback({
+    systemPrompt:
+      'Eres una asistente creativa de Mochi. Responde siempre en español y devuelve solo JSON válido si se solicita JSON.',
+    userMessage: prompt,
+    maxTokens: 2048,
+  })
 
   try {
-    const clean = response.replace(/```json?\s*/gi, '').replace(/```/gi, '').trim()
-    return JSON.parse(clean) as string[]
+    const parsed = parseAIJson<string[]>(response, { expected: 'array' })
+    return parsed.map((name) => String(name).trim()).filter(Boolean)
   } catch {
     return []
   }

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Pause, Play, Save, Sparkles, Upload } from 'lucide-react'
 import { detectStudyDiscipline, generateStudySessionPlan } from '@/lib/ai'
@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { useStudyCompanion, type StudyAttachment } from '@/hooks/useStudyCompanion'
 import { useSession } from '@/hooks/useSession'
 import { useStudyBlocks } from '@/hooks/useStudyBlocks'
-import { addPoints, checkAndUnlockStudyAchievements } from '@/lib/gamification'
+import { addPoints, checkAndUnlockStudyAchievements, trackEngagementEvent } from '@/lib/gamification'
 import type { StudyBlock } from '@/types/database'
 
 type StudyPhase = 'setup' | 'studying' | 'complete'
@@ -64,12 +64,14 @@ export function StudyTimerPage() {
   const [searchParams] = useSearchParams()
   const blockId = searchParams.get('blockId')
 
-  const [selectedBlockId, setSelectedBlockId] = useState<string | null>(blockId)
+  const [selectedBlockId] = useState<string | null>(blockId)
   const [durationSeconds, setDurationSeconds] = useState(45 * 60)
   const [timeLeft, setTimeLeft] = useState(45 * 60)
   const [isRunning, setIsRunning] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [isSessionPersisted, setIsSessionPersisted] = useState(false)
   const [savedMessage, setSavedMessage] = useState<string | null>(null)
+  const [gamificationWarning, setGamificationWarning] = useState<string | null>(null)
   const [phase, setPhase] = useState<StudyPhase>('setup')
 
   const [specificTopic, setSpecificTopic] = useState('')
@@ -77,12 +79,16 @@ export function StudyTimerPage() {
   const [setupAttachment, setSetupAttachment] = useState<StudyAttachment | null>(null)
   const [planLoading, setPlanLoading] = useState(false)
   const [planError, setPlanError] = useState<string | null>(null)
+  const [disciplineNotice, setDisciplineNotice] = useState<string | null>(null)
   const [planText, setPlanText] = useState('')
   const [chatOpen, setChatOpen] = useState(false)
   const [chatQuestion, setChatQuestion] = useState('')
   const [chatUploadError, setChatUploadError] = useState<string | null>(null)
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const saveInFlightRef = useRef<Promise<boolean> | null>(null)
+  const isSessionPersistedRef = useRef(false)
+  const hasAutoSaveAttemptRef = useRef(false)
 
   const selectedBlock = useMemo<StudyBlock | null>(() => {
     if (!selectedBlockId) return null
@@ -98,6 +104,11 @@ export function StudyTimerPage() {
     setDurationSeconds(safeValue)
     setTimeLeft(safeValue)
     setIsRunning(false)
+    setIsSessionPersisted(false)
+    isSessionPersistedRef.current = false
+    hasAutoSaveAttemptRef.current = false
+    setSavedMessage(null)
+    setGamificationWarning(null)
   }, [selectedBlock])
 
   useEffect(() => {
@@ -110,7 +121,6 @@ export function StudyTimerPage() {
       setTimeLeft((previous) => {
         if (previous <= 1) {
           setIsRunning(false)
-          setPhase('complete')
           return 0
         }
         return previous - 1
@@ -128,40 +138,141 @@ export function StudyTimerPage() {
 
   const companion = useStudyCompanion(resolvedSubject, specificTopic, discipline)
 
-  const ensureDiscipline = async () => {
+  const ensureDiscipline = async (showFallbackNotice = false) => {
     if (discipline !== 'estudio general' || !specificTopic.trim()) return discipline
-    const detected = await detectStudyDiscipline(resolvedSubject, specificTopic.trim())
-    setDiscipline(detected)
-    return detected
+
+    try {
+      const detected = await detectStudyDiscipline(resolvedSubject, specificTopic.trim())
+      const normalizedDiscipline = detected.trim() ? detected.trim() : 'estudio general'
+      setDiscipline(normalizedDiscipline)
+      return normalizedDiscipline
+    } catch {
+      const fallbackDiscipline = 'estudio general'
+      setDiscipline(fallbackDiscipline)
+
+      if (showFallbackNotice) {
+        setDisciplineNotice('No pudimos detectar la disciplina con IA en este momento. La sesión iniciará con "estudio general" para que puedas continuar sin interrupciones.')
+      }
+
+      return fallbackDiscipline
+    }
   }
 
-  const saveSession = async () => {
-    const userId = session?.user.id
-    if (!userId || elapsedSeconds <= 0) return
-
-    setIsSaving(true)
-    setSavedMessage(null)
-
-    const { error } = await supabase.from('study_sessions').insert({
-      user_id: userId,
-      study_block_id: selectedBlock?.id ?? null,
-      subject: resolvedSubject,
-      duration_seconds: elapsedSeconds,
-      completed_at: new Date().toISOString(),
-    })
-
-    if (error) {
-      setSavedMessage(`No se pudo guardar: ${error.message}`)
-      setIsSaving(false)
-      return
+  const saveSession = useCallback(async (): Promise<boolean> => {
+    if (isSessionPersistedRef.current) {
+      return true
     }
 
-    await addPoints(userId, 5)
-    await checkAndUnlockStudyAchievements(userId)
+    if (saveInFlightRef.current) {
+      return saveInFlightRef.current
+    }
 
-    setSavedMessage('Sesión guardada en tu historial de estudio. ¡+5 puntos!')
-    setIsSaving(false)
-  }
+    const userId = session?.user.id
+    if (!userId) {
+      setSavedMessage('Debes iniciar sesión para guardar tu sesión de estudio')
+      return false
+    }
+
+    if (elapsedSeconds <= 0) {
+      setSavedMessage('No hay tiempo registrado para guardar en el historial')
+      return false
+    }
+
+    const savePromise = (async () => {
+      setIsSaving(true)
+      setSavedMessage(null)
+      setGamificationWarning(null)
+
+      try {
+        const completedAt = new Date().toISOString()
+        const { data: insertedSession, error } = await supabase
+          .from('study_sessions')
+          .insert({
+            user_id: userId,
+            study_block_id: selectedBlock?.id ?? null,
+            subject: resolvedSubject,
+            duration_seconds: elapsedSeconds,
+            completed_at: completedAt,
+          })
+          .select('id')
+          .single<{ id: string }>()
+
+        if (error) {
+          setSavedMessage(`No se pudo guardar: ${error.message}`)
+          return false
+        }
+
+        if (!insertedSession) {
+          setSavedMessage('No se pudo confirmar la sesión guardada')
+          return false
+        }
+
+        isSessionPersistedRef.current = true
+        setIsSessionPersisted(true)
+
+        const warnings: string[] = []
+        let engagementResult: 'created' | 'duplicate' | null = null
+
+        try {
+          engagementResult = await trackEngagementEvent({
+            userId,
+            eventName: 'study_session_completed',
+            eventKey: `study_session_completed:${insertedSession.id}`,
+            sourceTable: 'study_sessions',
+            sourceId: insertedSession.id,
+            occurredAt: completedAt,
+            payload: {
+              study_session_id: insertedSession.id,
+              subject: resolvedSubject,
+              duration_seconds: elapsedSeconds,
+              points_candidate: 5,
+            },
+          })
+        } catch (engagementError) {
+          warnings.push('Tu sesión se guardó, pero no pudimos registrar el evento de gamificación. Intenta de nuevo más tarde.')
+          console.warn('No se pudo registrar engagement event de sesión de estudio:', engagementError)
+        }
+
+        if (engagementResult === 'created') {
+          try {
+            await addPoints(userId, 5)
+            await checkAndUnlockStudyAchievements(userId)
+          } catch (gamificationError) {
+            warnings.push('Tu sesión se guardó, pero no pudimos actualizar puntos o logros. Intenta de nuevo más tarde.')
+            console.warn('No se pudo completar actualización de puntos/logros de estudio:', gamificationError)
+          }
+        }
+
+        if (engagementResult === 'duplicate') {
+          warnings.push('Esta sesión ya estaba registrada en gamificación, por lo que no se volvieron a sumar puntos.')
+        }
+
+        setSavedMessage('Sesión guardada en tu historial de estudio')
+
+        if (warnings.length > 0) {
+          setGamificationWarning(warnings.join(' '))
+        }
+
+        return true
+      } catch (error) {
+        setSavedMessage(error instanceof Error ? error.message : 'No se pudo guardar la sesión')
+        return false
+      } finally {
+        setIsSaving(false)
+        saveInFlightRef.current = null
+      }
+    })()
+
+    saveInFlightRef.current = savePromise
+    return savePromise
+  }, [elapsedSeconds, resolvedSubject, selectedBlock?.id, session?.user.id])
+
+  const finishSession = useCallback(async () => {
+    const isSaved = await saveSession()
+    if (isSaved) {
+      setPhase('complete')
+    }
+  }, [saveSession])
 
   const handleSetupUpload = async (file: File | null) => {
     if (!file) return
@@ -213,10 +324,26 @@ export function StudyTimerPage() {
 
   const startSession = async () => {
     if (!specificTopic.trim()) return
-    await ensureDiscipline()
+    setDisciplineNotice(null)
+    await ensureDiscipline(true)
+    setSavedMessage(null)
+    setGamificationWarning(null)
+    setIsSessionPersisted(false)
+    isSessionPersistedRef.current = false
+    hasAutoSaveAttemptRef.current = false
     setPhase('studying')
     setIsRunning(true)
   }
+
+  useEffect(() => {
+    if (phase !== 'studying' || timeLeft !== 0 || isSaving || isSessionPersisted || hasAutoSaveAttemptRef.current) {
+      return
+    }
+
+    hasAutoSaveAttemptRef.current = true
+
+    void finishSession()
+  }, [finishSession, phase, timeLeft, isSaving, isSessionPersisted])
 
   const sendChat = async () => {
     const normalized = chatQuestion.trim() || (companion.attachment ? 'Ayúdame con este archivo.' : '')
@@ -306,6 +433,7 @@ export function StudyTimerPage() {
               </div>
 
               {planError ? <p className="mt-3 text-xs font-semibold text-red-600">{planError}</p> : null}
+              {disciplineNotice ? <p className="mt-3 text-xs font-semibold text-amber-700">{disciplineNotice}</p> : null}
               {planText ? <p className="mt-3 rounded-xl bg-purple-50 p-3 text-sm text-purple-900">{planText}</p> : null}
             </div>
           ) : null}
@@ -341,8 +469,7 @@ export function StudyTimerPage() {
                   <button
                     type="button"
                     onClick={() => {
-                      void saveSession()
-                      setPhase('complete')
+                      void finishSession()
                     }}
                     disabled={isSaving || elapsedSeconds <= 0}
                     className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
@@ -358,6 +485,7 @@ export function StudyTimerPage() {
                   <p className="text-sm font-bold text-emerald-900">Resumen de la sesión</p>
                   <p className="mt-1 text-sm text-emerald-800">{buildSessionSummary(specificTopic)}</p>
                   {savedMessage ? <p className="mt-2 text-xs font-semibold text-emerald-700">{savedMessage}</p> : null}
+                  {gamificationWarning ? <p className="mt-2 text-xs font-semibold text-orange-700">{gamificationWarning}</p> : null}
                 </div>
               ) : null}
             </>

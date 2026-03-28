@@ -15,6 +15,11 @@ const initialForm: NewStudyBlock = {
 
 const colors = ['pink', 'blue', 'yellow', 'teal', 'purple', 'green']
 
+function toMinutes(timeValue: string): number {
+  const [hours, minutes] = timeValue.split(':').map(Number)
+  return hours * 60 + minutes
+}
+
 export function StudyFormPage() {
   const navigate = useNavigate()
   const { blockId } = useParams()
@@ -64,6 +69,11 @@ export function StudyFormPage() {
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (toMinutes(form.end_time) <= toMinutes(form.start_time)) {
+      setError('La hora de fin debe ser mayor que la hora de inicio')
+      return
+    }
+
     setSaving(true)
     setError(null)
 

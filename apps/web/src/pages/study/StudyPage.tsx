@@ -30,23 +30,42 @@ export function StudyPage() {
   const { blocks, loading, error, deleteBlock } = useStudyBlocks()
   const { session } = useSession()
   const [upcomingExams, setUpcomingExams] = useState<Array<{ id: string; subject: string; exam_date: string }>>([])
+  const [loadingUpcomingExams, setLoadingUpcomingExams] = useState(false)
+  const [upcomingExamsError, setUpcomingExamsError] = useState<string | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   useEffect(() => {
     const userId = session?.user.id
-    if (!userId) return
+    if (!userId) {
+      setUpcomingExams([])
+      setLoadingUpcomingExams(false)
+      setUpcomingExamsError(null)
+      return
+    }
 
     const today = new Date().toISOString().slice(0, 10)
 
     async function loadExams() {
-      const { data } = await supabase
+      setLoadingUpcomingExams(true)
+      setUpcomingExamsError(null)
+
+      const { data, error } = await supabase
         .from('exam_logs')
         .select('id, subject, exam_date')
         .eq('user_id', userId)
+        .eq('is_upcoming', true)
         .gte('exam_date', today)
         .order('exam_date', { ascending: true })
         .limit(6)
 
-      setUpcomingExams((data as Array<{ id: string; subject: string; exam_date: string }> | null) ?? [])
+      if (error) {
+        setUpcomingExamsError(error.message)
+        setUpcomingExams([])
+      } else {
+        setUpcomingExams((data as Array<{ id: string; subject: string; exam_date: string }> | null) ?? [])
+      }
+
+      setLoadingUpcomingExams(false)
     }
 
     void loadExams()
@@ -68,6 +87,18 @@ export function StudyPage() {
 
     return map
   }, [blocks])
+
+  const handleDeleteBlock = async (blockId: string) => {
+    const shouldDelete = window.confirm('¿Seguro que quieres borrar este bloque de estudio? Esta acción no se puede deshacer.')
+    if (!shouldDelete) return
+
+    try {
+      setDeleteError(null)
+      await deleteBlock(blockId)
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : 'No se pudo eliminar el bloque de estudio')
+    }
+  }
 
   return (
     <div>
@@ -94,7 +125,7 @@ export function StudyPage() {
             to="/study/exams"
             className="rounded-2xl bg-pink-100 px-4 py-2 text-sm font-semibold text-pink-900"
           >
-            Examenes
+            Exámenes
           </Link>
           <Link
             to="/study/new"
@@ -106,12 +137,14 @@ export function StudyPage() {
         </div>
       </div>
 
-      {upcomingExams.length > 0 ? (
+      {loadingUpcomingExams || upcomingExamsError || upcomingExams.length > 0 ? (
         <div className="mt-5 rounded-3xl border border-yellow-200 bg-yellow-50 p-4">
           <div className="flex items-center justify-between">
             <h2 className="text-base font-bold text-yellow-900">Próximos exámenes</h2>
             <Link to="/study/exams?tab=upcoming" className="text-xs font-bold text-yellow-800">Registrar examen próximo</Link>
           </div>
+          {loadingUpcomingExams ? <p className="mt-3 text-sm font-semibold text-yellow-800">Cargando próximos exámenes...</p> : null}
+          {upcomingExamsError ? <p className="mt-3 text-sm font-semibold text-red-600">No se pudieron cargar los próximos exámenes: {upcomingExamsError}</p> : null}
           <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
             {upcomingExams.map((exam) => {
               const now = new Date().toISOString().slice(0, 10)
@@ -137,11 +170,12 @@ export function StudyPage() {
 
         {loading && <p className="mt-3 text-sm text-purple-700">Cargando bloques...</p>}
         {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+        {deleteError && <p className="mt-3 text-sm text-red-600">{deleteError}</p>}
 
         {!loading && !error && blocks.length === 0 && (
           <div className="mt-4">
             <EmptyState
-              title="Aun no tienes bloques de estudio"
+              title="Aún no tienes bloques de estudio"
               description="Crea tu primer bloque y convierte la semana en un plan claro desde la compu."
             />
           </div>
@@ -191,7 +225,7 @@ export function StudyPage() {
                               type="button"
                               className="inline-flex items-center gap-1 rounded-lg bg-white px-2 py-1 text-[11px] font-bold text-red-700"
                               onClick={() => {
-                                void deleteBlock(block.id)
+                                void handleDeleteBlock(block.id)
                               }}
                             >
                               <Trash2 className="h-3 w-3" />
