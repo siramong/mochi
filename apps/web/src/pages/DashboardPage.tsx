@@ -4,6 +4,7 @@ import { AlarmClock, BookOpen, Dumbbell, Flame, Heart, Star } from 'lucide-react
 import { MochiCompanion } from '@/components/common/MochiCompanion'
 import { supabase } from '@/lib/supabase'
 import { useSession } from '@/hooks/useSession'
+import { useCyclePhase } from '@/hooks/useCyclePhase'
 
 type DashboardStats = {
   todayBlocks: number
@@ -21,6 +22,7 @@ type ProgressData = {
 
 export function DashboardPage() {
   const { session } = useSession()
+  const { phase, dayOfCycle, daysUntilNextPeriod } = useCyclePhase()
   const [stats, setStats] = useState<DashboardStats>({
     todayBlocks: 0,
     routines: 0,
@@ -35,6 +37,14 @@ export function DashboardPage() {
   })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [weekly, setWeekly] = useState({
+    studyHours: 0,
+    sessions: 0,
+    routines: 0,
+    habitsCompleted: 0,
+    habitsTotal: 0,
+    points: 0,
+  })
 
   useEffect(() => {
     const userId = session?.user.id
@@ -81,6 +91,64 @@ export function DashboardPage() {
             .limit(1)
             .maybeSingle<{ unlocked_at: string; achievement: { title: string; icon: string | null } }>(),
         ])
+
+      const now = new Date()
+      const isMonday = now.getDay() === 1
+      const weekStart = new Date(now)
+      weekStart.setDate(now.getDate() - now.getDay() + 1 - (isMonday ? 7 : 0))
+      weekStart.setHours(0, 0, 0, 0)
+      const weekEnd = new Date(weekStart)
+      weekEnd.setDate(weekStart.getDate() + 7)
+
+      const [weeklyStudyRes, weeklySessionsRes, weeklyRoutinesRes, weeklyHabitsRes, habitsCountRes, weeklyGratitudeRes] = await Promise.all([
+        supabase
+          .from('study_sessions')
+          .select('duration_seconds, completed_at')
+          .eq('user_id', userId)
+          .gte('completed_at', weekStart.toISOString())
+          .lt('completed_at', weekEnd.toISOString()),
+        supabase
+          .from('study_sessions')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', userId)
+          .gte('completed_at', weekStart.toISOString())
+          .lt('completed_at', weekEnd.toISOString()),
+        supabase
+          .from('routine_logs')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', userId)
+          .gte('completed_at', weekStart.toISOString())
+          .lt('completed_at', weekEnd.toISOString()),
+        supabase
+          .from('habit_logs')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', userId)
+          .gte('log_date', weekStart.toISOString().slice(0, 10))
+          .lt('log_date', weekEnd.toISOString().slice(0, 10)),
+        supabase.from('habits').select('id', { count: 'exact', head: true }).eq('user_id', userId),
+        supabase
+          .from('gratitude_logs')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', userId)
+          .gte('logged_date', weekStart.toISOString().slice(0, 10))
+          .lt('logged_date', weekEnd.toISOString().slice(0, 10)),
+      ])
+
+      const studyHours = (((weeklyStudyRes.data as Array<{ duration_seconds: number }> | null) ?? []).reduce((sum, row) => sum + row.duration_seconds, 0) / 3600)
+      const sessionsCount = weeklySessionsRes.count ?? 0
+      const routinesCount = weeklyRoutinesRes.count ?? 0
+      const habitsCompleted = weeklyHabitsRes.count ?? 0
+      const habitsTotal = (habitsCountRes.count ?? 0) * 7
+      const points = sessionsCount * 5 + routinesCount * 10 + (weeklyGratitudeRes.count ?? 0) * 3
+
+      setWeekly({
+        studyHours: Number(studyHours.toFixed(1)),
+        sessions: sessionsCount,
+        routines: routinesCount,
+        habitsCompleted,
+        habitsTotal,
+        points,
+      })
 
       if (blocksRes.error || routinesRes.error || habitsRes.error || moodRes.error) {
         setError('No se pudo cargar el resumen de hoy')
@@ -201,6 +269,26 @@ export function DashboardPage() {
           </div>
           <p className="mt-1 text-sm text-blue-700">Revisa tus sesiones completadas y el tiempo total.</p>
         </Link>
+      </div>
+
+      <div className="mt-6 rounded-3xl border border-rose-200 bg-white p-4">
+        <p className="text-xs font-bold uppercase text-rose-700">Tu fase actual</p>
+        <p className="mt-1 text-lg font-black text-rose-950">{phase}</p>
+        <p className="text-sm font-semibold text-rose-700">Día {dayOfCycle} del ciclo · Próximo período en {daysUntilNextPeriod} días</p>
+      </div>
+
+      <div className="mt-6 rounded-3xl border border-indigo-200 bg-white p-5">
+        <h2 className="text-lg font-black text-indigo-950">Tu semana</h2>
+        <p className="text-sm text-indigo-700">Resumen de estudio, hábitos y constancia.</p>
+
+        <div className="mt-4 grid gap-3 md:grid-cols-3">
+          <div className="rounded-2xl bg-indigo-50 p-3"><p className="text-xs font-bold text-indigo-700">Horas de estudio</p><p className="text-2xl font-black text-indigo-950">{weekly.studyHours}</p></div>
+          <div className="rounded-2xl bg-blue-50 p-3"><p className="text-xs font-bold text-blue-700">Sesiones completadas</p><p className="text-2xl font-black text-blue-950">{weekly.sessions}</p></div>
+          <div className="rounded-2xl bg-teal-50 p-3"><p className="text-xs font-bold text-teal-700">Rutinas</p><p className="text-2xl font-black text-teal-950">{weekly.routines}</p></div>
+          <div className="rounded-2xl bg-green-50 p-3"><p className="text-xs font-bold text-green-700">Hábitos</p><p className="text-2xl font-black text-green-950">{weekly.habitsCompleted}/{weekly.habitsTotal}</p></div>
+          <div className="rounded-2xl bg-yellow-50 p-3"><p className="text-xs font-bold text-yellow-700">Puntos ganados</p><p className="text-2xl font-black text-yellow-950">{weekly.points}</p></div>
+          <div className="rounded-2xl bg-orange-50 p-3"><p className="text-xs font-bold text-orange-700">Racha más larga</p><p className="text-2xl font-black text-orange-950">{progress.currentStreak}</p></div>
+        </div>
       </div>
     </div>
   )

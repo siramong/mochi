@@ -5,6 +5,7 @@ export interface Profile {
   full_name: string | null
   wake_up_time: string | null
   total_points: number
+  is_admin?: boolean
 }
 
 // ─── Study ────────────────────────────────────────────────────────────────
@@ -33,10 +34,12 @@ export interface ExamLog {
   id: string
   user_id: string
   subject: string
-  grade: number
-  max_grade: number
+  grade: number | null
+  max_grade: number | null
   notes: string | null
+  preparation_notes?: string | null
   exam_date: string
+  is_upcoming?: boolean
   created_at: string
 }
 
@@ -174,8 +177,56 @@ export interface UserSettings {
   gratitude_enabled: boolean
   vouchers_enabled: boolean
   cooking_enabled: boolean
+  notes_enabled?: boolean
   created_at: string
   updated_at: string
+}
+
+// ─── Quick Notes ───────────────────────────────────────────────────────────
+
+export interface QuickNote {
+  id: string
+  user_id: string
+  title: string | null
+  content: string
+  color: 'yellow' | 'pink' | 'blue' | 'teal' | 'purple'
+  is_pinned: boolean
+  created_at: string
+  updated_at: string
+}
+
+// ─── Flashcards ────────────────────────────────────────────────────────────
+
+export interface Flashcard {
+  id: string
+  deck_id: string
+  front: string
+  back: string
+  difficulty_rating: 1 | 2 | 3 | null
+  last_reviewed_at: string | null
+  review_count: number
+}
+
+export interface FlashcardDeck {
+  id: string
+  user_id: string
+  study_session_id: string | null
+  subject: string
+  topic: string
+  created_at: string
+  flashcards?: Flashcard[]
+}
+
+// ─── Cycle logs ────────────────────────────────────────────────────────────
+
+export interface CycleLog {
+  id: string
+  user_id: string
+  period_start_date: string
+  period_end_date: string | null
+  cycle_length_days: number | null
+  notes: string | null
+  created_at: string
 }
 
 // ─── Gamification ─────────────────────────────────────────────────────────

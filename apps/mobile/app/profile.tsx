@@ -13,6 +13,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated'
 import { supabase } from '@/src/shared/lib/supabase'
+import { getLevelProgress, getMochiLevel, MOCHI_LEVELS } from '@mochi/supabase/levels'
 import { useSession } from '@/src/core/providers/SessionContext'
 import { MochiCharacter } from '@/src/shared/components/MochiCharacter'
 import type { Achievement, UserAchievement, Streak } from '@/src/shared/types/database'
@@ -112,6 +113,11 @@ export function ProfileScreen() {
     () => new Set(userAchievements.map((ua) => ua.achievement_id)),
     [userAchievements]
   )
+  const totalPoints = profile?.total_points ?? 0
+  const level = getMochiLevel(totalPoints)
+  const levelProgress = getLevelProgress(totalPoints)
+  const nextLevel = MOCHI_LEVELS.find((item) => item.level === level.level + 1) ?? null
+  const pointsToNext = nextLevel ? Math.max(0, nextLevel.minPoints - totalPoints) : 0
 
   if (loading && !profile) {
     return (
@@ -170,6 +176,16 @@ export function ProfileScreen() {
                 {streak?.current_streak ?? 0} días
               </Text>
             </View>
+          </View>
+
+          <View className="mt-3 w-full rounded-2xl border border-purple-200 bg-purple-100 px-3 py-3">
+            <Text className="text-xs font-bold text-purple-700">Nivel {level.level} · {level.name}</Text>
+            <View className="mt-2 h-2 w-full rounded-full bg-purple-200">
+              <View className="h-2 rounded-full bg-purple-500" style={{ width: `${levelProgress}%` }} />
+            </View>
+            <Text className="mt-1 text-xs font-semibold text-purple-700">
+              {nextLevel ? `${pointsToNext} puntos para ${nextLevel.name}` : 'Nivel máximo alcanzado'}
+            </Text>
           </View>
 
           {streak && streak.longest_streak > 0 && (

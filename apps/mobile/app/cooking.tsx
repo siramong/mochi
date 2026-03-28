@@ -270,7 +270,7 @@ export function CookingScreen() {
       }
 
       // Puntos y logros
-      await addPoints(userId, 5)
+      await addPoints(userId, 5, showAchievement)
       await checkCookingRecipeAchievements(userId, showAchievement)
 
       setShowGenerateModal(false)

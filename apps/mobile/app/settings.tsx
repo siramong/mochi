@@ -23,6 +23,7 @@ import {
   cancelAllNotifications,
   cancelAllStudyBlockReminders,
   cancelCookingReminder,
+  cancelWeeklySummaryNotification,
   cancelHabitReminder,
   cancelMorningReminder,
   getNotificationPermissionStatus,
@@ -30,6 +31,7 @@ import {
   loadHabitNotificationMap,
   requestNotificationPermissions,
   scheduleHabitRemindersForHabits,
+  scheduleWeeklySummaryNotification,
   saveNotificationPrefs,
   scheduleCookingReminder,
   scheduleMorningReminder,
@@ -65,6 +67,7 @@ type ModuleToggleKey =
   | 'gratitude_enabled'
   | 'vouchers_enabled'
   | 'cooking_enabled'
+  | 'notes_enabled'
 
 type ModuleItem = {
   key: ModuleToggleKey
@@ -81,6 +84,7 @@ const moduleItems: ModuleItem[] = [
   { key: 'gratitude_enabled', label: 'Gratitud', icon: 'flower-outline' },
   { key: 'vouchers_enabled', label: 'Vales (pareja)', icon: 'ticket-outline' },
   { key: 'cooking_enabled', label: 'Cocina', icon: 'restaurant-outline' },
+  { key: 'notes_enabled', label: 'Notas rápidas', icon: 'document-text-outline' },
 ]
 
 const defaultModuleSettings: Pick<
@@ -94,6 +98,7 @@ const defaultModuleSettings: Pick<
   | 'gratitude_enabled'
   | 'vouchers_enabled'
   | 'cooking_enabled'
+  | 'notes_enabled'
 > = {
   partner_features_enabled: false,
   study_enabled: true,
@@ -104,6 +109,7 @@ const defaultModuleSettings: Pick<
   gratitude_enabled: true,
   vouchers_enabled: false,
   cooking_enabled: true,
+  notes_enabled: true,
 }
 
 function isValidTime(value: string): boolean {
@@ -128,6 +134,7 @@ export function SettingsScreen() {
     morningEnabled: true,
     studyEnabled: true,
     habitEnabled: true,
+    weeklyEnabled: false,
     habitTime: '21:00',
     cookingEnabled: false,
     cookingTime: '19:00',
@@ -165,7 +172,7 @@ export function SettingsScreen() {
         supabase
           .from('user_settings')
           .select(
-            'partner_features_enabled, study_enabled, exercise_enabled, habits_enabled, goals_enabled, mood_enabled, gratitude_enabled, vouchers_enabled, cooking_enabled'
+            'partner_features_enabled, study_enabled, exercise_enabled, habits_enabled, goals_enabled, mood_enabled, gratitude_enabled, vouchers_enabled, cooking_enabled, notes_enabled'
           )
           .eq('user_id', userId)
           .maybeSingle(),
@@ -348,6 +355,7 @@ export function SettingsScreen() {
       if (updated.habitEnabled) {
         await scheduleHabitRemindersForHabits(habitTargets, updated.habitTime, habitNotificationMap)
       }
+      if (updated.weeklyEnabled) await scheduleWeeklySummaryNotification()
       if (updated.cookingEnabled) await scheduleCookingReminder(updated.cookingTime)
     } catch {
       setNotifPrefs((prev) => ({ ...prev, enabled: !value }))
@@ -397,6 +405,19 @@ export function SettingsScreen() {
       await scheduleHabitRemindersForHabits(habitTargets, notifPrefs.habitTime, habitNotificationMap)
     } else {
       await cancelHabitReminder()
+    }
+  }
+
+  const handleToggleWeeklySummary = async (value: boolean) => {
+    const updated = { ...notifPrefs, weeklyEnabled: value }
+    setNotifPrefs(updated)
+    await saveNotificationPrefs({ weeklyEnabled: value })
+
+    if (!notifPrefs.enabled) return
+    if (value) {
+      await scheduleWeeklySummaryNotification()
+    } else {
+      await cancelWeeklySummaryNotification()
     }
   }
 
@@ -824,6 +845,25 @@ export function SettingsScreen() {
                           </Text>
                         </TouchableOpacity>
                       )}
+                    </View>
+
+                    {/* Weekly summary reminder */}
+                    <View className="flex-row items-center justify-between rounded-2xl border border-indigo-100 bg-indigo-50 px-3 py-3">
+                      <View className="flex-1 pr-2">
+                        <View className="flex-row items-center gap-1.5">
+                          <Ionicons name="calendar-outline" size={15} color="#4338ca" />
+                          <Text className="text-sm font-bold text-indigo-900">Resumen semanal</Text>
+                        </View>
+                        <Text className="mt-0.5 text-xs font-semibold text-indigo-600">
+                          Domingo a las 10:00
+                        </Text>
+                      </View>
+                      <Switch
+                        value={notifPrefs.weeklyEnabled}
+                        onValueChange={(v) => { void handleToggleWeeklySummary(v) }}
+                        thumbColor={notifPrefs.weeklyEnabled ? '#4338ca' : '#94a3b8'}
+                        trackColor={{ false: '#cbd5e1', true: '#c7d2fe' }}
+                      />
                     </View>
                   </View>
                 )}

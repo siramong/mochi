@@ -282,7 +282,7 @@ export function RecipePlayerScreen() {
       .eq('id', cookSession.id)
 
     // Puntos y logros de cocina
-    await addPoints(userId, 15)
+    await addPoints(userId, 15, showAchievement)
     await checkCookingSessionAchievements(userId, showAchievement)
 
     setCompleted(true)

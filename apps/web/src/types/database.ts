@@ -13,6 +13,7 @@ export interface Profile {
   full_name: string | null
   wake_up_time: string | null
   total_points: number
+  is_admin?: boolean
 }
 
 export interface UserSettings {
@@ -27,6 +28,7 @@ export interface UserSettings {
   gratitude_enabled: boolean
   vouchers_enabled: boolean
   cooking_enabled: boolean
+  notes_enabled?: boolean
   created_at: string
   updated_at: string
 }

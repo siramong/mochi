@@ -14,6 +14,7 @@ const STORAGE_KEY = {
   MORNING_ENABLED: 'notifications:morning_enabled',
   STUDY_ENABLED: 'notifications:study_enabled',
   HABIT_ENABLED: 'notifications:habit_enabled',
+  WEEKLY_ENABLED: 'notifications:weekly_enabled',
   HABIT_TIME: 'notifications:habit_time',
   HABIT_ITEM_PREFIX: 'notifications:habit_item:',
   COOKING_ENABLED: 'notifications:cooking_enabled',
@@ -37,6 +38,7 @@ export type NotificationPrefs = {
   morningEnabled: boolean
   studyEnabled: boolean
   habitEnabled: boolean
+  weeklyEnabled: boolean
   habitTime: string
   cookingEnabled: boolean
   cookingTime: string
@@ -63,12 +65,13 @@ export async function getNotificationPermissionStatus(): Promise<Notifications.P
 // ─── Preferences (AsyncStorage) ──────────────────────────────────────────────
 
 export async function loadNotificationPrefs(): Promise<NotificationPrefs> {
-  const [enabled, morningEnabled, studyEnabled, habitEnabled, habitTime, cookingEnabled, cookingTime] =
+  const [enabled, morningEnabled, studyEnabled, habitEnabled, weeklyEnabled, habitTime, cookingEnabled, cookingTime] =
     await Promise.all([
       AsyncStorage.getItem(STORAGE_KEY.ENABLED),
       AsyncStorage.getItem(STORAGE_KEY.MORNING_ENABLED),
       AsyncStorage.getItem(STORAGE_KEY.STUDY_ENABLED),
       AsyncStorage.getItem(STORAGE_KEY.HABIT_ENABLED),
+      AsyncStorage.getItem(STORAGE_KEY.WEEKLY_ENABLED),
       AsyncStorage.getItem(STORAGE_KEY.HABIT_TIME),
       AsyncStorage.getItem(STORAGE_KEY.COOKING_ENABLED),
       AsyncStorage.getItem(STORAGE_KEY.COOKING_TIME),
@@ -78,6 +81,7 @@ export async function loadNotificationPrefs(): Promise<NotificationPrefs> {
     morningEnabled: morningEnabled !== 'false',
     studyEnabled: studyEnabled !== 'false',
     habitEnabled: habitEnabled !== 'false',
+    weeklyEnabled: weeklyEnabled === 'true',
     habitTime: habitTime ?? '21:00',
     // cooking off by default — la usuaria lo activa explícitamente
     cookingEnabled: cookingEnabled === 'true',
@@ -96,6 +100,8 @@ export async function saveNotificationPrefs(prefs: Partial<NotificationPrefs>): 
     entries.push([STORAGE_KEY.STUDY_ENABLED, prefs.studyEnabled ? 'true' : 'false'])
   if (prefs.habitEnabled !== undefined)
     entries.push([STORAGE_KEY.HABIT_ENABLED, prefs.habitEnabled ? 'true' : 'false'])
+  if (prefs.weeklyEnabled !== undefined)
+    entries.push([STORAGE_KEY.WEEKLY_ENABLED, prefs.weeklyEnabled ? 'true' : 'false'])
   if (prefs.habitTime !== undefined)
     entries.push([STORAGE_KEY.HABIT_TIME, prefs.habitTime])
   if (prefs.cookingEnabled !== undefined)
@@ -219,6 +225,66 @@ export async function cancelAllStudyBlockReminders(): Promise<void> {
   await Promise.all(
     studyIds.map((id) => Notifications.cancelScheduledNotificationAsync(id).catch(() => {}))
   )
+}
+
+export async function scheduleWeeklySummaryNotification(
+  dayOfWeek: number = 0,
+  hour: number = 10
+): Promise<void> {
+  await Notifications.cancelScheduledNotificationAsync('weekly-summary').catch(() => {})
+
+  await Notifications.scheduleNotificationAsync({
+    identifier: 'weekly-summary',
+    content: {
+      title: '¿Cómo fue tu semana?',
+      body: 'Revisa tu resumen semanal en Mochi',
+      sound: true,
+      data: { screen: 'weekly-summary' },
+    },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
+      weekday: dayOfWeek + 1,
+      hour,
+      minute: 0,
+    },
+  })
+}
+
+export async function cancelWeeklySummaryNotification(): Promise<void> {
+  await Notifications.cancelScheduledNotificationAsync('weekly-summary').catch(() => {})
+}
+
+export async function scheduleExamReminder(
+  examId: string,
+  subject: string,
+  examDate: string
+): Promise<void> {
+  const identifier = `exam-${examId}`
+  await Notifications.cancelScheduledNotificationAsync(identifier).catch(() => {})
+
+  const exam = new Date(`${examDate}T20:00:00`)
+  exam.setDate(exam.getDate() - 1)
+  if (Number.isNaN(exam.getTime()) || exam.getTime() <= Date.now()) {
+    return
+  }
+
+  await Notifications.scheduleNotificationAsync({
+    identifier,
+    content: {
+      title: `Examen de ${subject} mañana`,
+      body: 'Prepara tu repaso final para llegar con confianza.',
+      sound: true,
+      data: { screen: 'exam-log', examId },
+    },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.DATE,
+      date: exam,
+    },
+  })
+}
+
+export async function cancelExamReminder(examId: string): Promise<void> {
+  await Notifications.cancelScheduledNotificationAsync(`exam-${examId}`).catch(() => {})
 }
 
 // ─── Habit reminder ──────────────────────────────────────────────────────────
@@ -378,6 +444,12 @@ export async function syncNotifications(
     await scheduleHabitReminder(prefs.habitTime)
   } else {
     await cancelHabitReminder()
+  }
+
+  if (prefs.weeklyEnabled) {
+    await scheduleWeeklySummaryNotification()
+  } else {
+    await cancelWeeklySummaryNotification()
   }
 
   if (prefs.cookingEnabled) {

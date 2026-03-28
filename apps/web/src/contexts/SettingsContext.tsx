@@ -12,6 +12,7 @@ type EnabledModules = {
   gratitude: boolean
   vouchers: boolean
   cooking: boolean
+  notes: boolean
 }
 
 type SettingsContextValue = {
@@ -31,6 +32,7 @@ const defaultEnabledModules: EnabledModules = {
   gratitude: true,
   vouchers: false,
   cooking: true,
+  notes: true,
 }
 
 const SettingsContext = createContext<SettingsContextValue | undefined>(undefined)
@@ -87,6 +89,7 @@ export function SettingsProvider({ children }: SettingsProviderProps) {
       gratitude: settings.gratitude_enabled,
       vouchers: settings.vouchers_enabled && settings.partner_features_enabled,
       cooking: settings.cooking_enabled,
+      notes: settings.notes_enabled ?? true,
     }
   }, [settings])
 

@@ -3,6 +3,7 @@ import {
   askStudyCompanion,
   createAIClient,
   detectStudyDiscipline,
+  generateFlashcards,
   generateRecipe,
   generateStudySessionPlan,
   type RecipeGenerationOptions,
@@ -19,6 +20,7 @@ export {
   askMochiWhileCooking,
   askStudyCompanion,
   detectStudyDiscipline,
+  generateFlashcards,
   generateRecipe,
   generateStudySessionPlan,
 }

@@ -21,6 +21,7 @@ import { MochiCharacter } from '@/src/shared/components/MochiCharacter'
 import {
   askStudyCompanion,
   detectStudyDiscipline,
+  generateFlashcards,
   generateStudySessionPlan,
 } from '@/src/shared/lib/ai'
 import {
@@ -125,6 +126,7 @@ export function StudyTimerScreen() {
   const [timeLeft, setTimeLeft] = useState(0)
   const [isRunning, setIsRunning] = useState(false)
   const [isCompleting, setIsCompleting] = useState(false)
+  const [generatingFlashcards, setGeneratingFlashcards] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -252,7 +254,7 @@ export function StudyTimerScreen() {
 
       if (insertError) throw insertError
 
-      await addPoints(session.user.id, 5)
+      await addPoints(session.user.id, 5, showAchievement)
       await updateStreak(session.user.id)
       await checkStudyAchievements(session.user.id, showAchievement)
       await checkStreakAchievements(session.user.id, showAchievement)
@@ -261,6 +263,51 @@ export function StudyTimerScreen() {
       setError(err instanceof Error ? err.message : 'No se pudo completar la sesión')
     } finally {
       setIsCompleting(false)
+    }
+  }
+
+  async function handleGenerateFlashcards() {
+    if (!session?.user.id || !block || !specificTopic.trim()) {
+      setError('Necesitas un tema específico para generar flashcards')
+      return
+    }
+
+    try {
+      setGeneratingFlashcards(true)
+      setError(null)
+
+      const generated = await generateFlashcards(block.subject, specificTopic.trim(), 8)
+
+      const { data: deckData, error: deckError } = await supabase
+        .from('flashcard_decks')
+        .insert({
+          user_id: session.user.id,
+          study_session_id: null,
+          subject: block.subject,
+          topic: specificTopic.trim(),
+        })
+        .select('id')
+        .single<{ id: string }>()
+
+      if (deckError || !deckData) throw deckError ?? new Error('No se pudo crear el mazo')
+
+      const { error: cardsError } = await supabase.from('flashcards').insert(
+        generated.map((card) => ({
+          deck_id: deckData.id,
+          front: card.front,
+          back: card.back,
+          difficulty_rating: null,
+          review_count: 0,
+        }))
+      )
+
+      if (cardsError) throw cardsError
+
+      router.push(`/flashcards?deckId=${deckData.id}`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudieron generar flashcards')
+    } finally {
+      setGeneratingFlashcards(false)
     }
   }
 
@@ -440,6 +487,17 @@ export function StudyTimerScreen() {
         <View className="mt-4 rounded-full bg-yellow-200 px-5 py-2">
           <Text className="font-extrabold text-yellow-900">+5 puntos</Text>
         </View>
+        <TouchableOpacity
+          className={`mt-4 rounded-2xl px-6 py-3 ${generatingFlashcards ? 'bg-indigo-300' : 'bg-indigo-500'}`}
+          onPress={() => {
+            void handleGenerateFlashcards()
+          }}
+          disabled={generatingFlashcards}
+        >
+          <Text className="font-extrabold text-white">
+            {generatingFlashcards ? 'Generando...' : 'Generar flashcards del tema'}
+          </Text>
+        </TouchableOpacity>
         <TouchableOpacity className="mt-8 rounded-2xl bg-purple-500 px-8 py-4" onPress={() => router.back()}>
           <Text className="font-extrabold text-white">Volver al inicio</Text>
         </TouchableOpacity>

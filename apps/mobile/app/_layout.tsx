@@ -29,6 +29,7 @@ type ModuleVisibility = {
   gratitude_enabled: boolean;
   vouchers_enabled: boolean;
   cooking_enabled: boolean;
+  notes_enabled: boolean;
 };
 
 const defaultModuleVisibility: ModuleVisibility = {
@@ -41,6 +42,7 @@ const defaultModuleVisibility: ModuleVisibility = {
   gratitude_enabled: true,
   vouchers_enabled: false,
   cooking_enabled: true,
+  notes_enabled: true,
 };
 
 function isRouteAllowed(pathname: string, settings: ModuleVisibility): boolean {
@@ -50,9 +52,15 @@ function isRouteAllowed(pathname: string, settings: ModuleVisibility): boolean {
     pathname === "/onboarding" ||
     pathname === "/settings" ||
     pathname === "/profile" ||
+    pathname === "/weekly-summary" ||
+    pathname === "/flashcards" ||
     pathname.startsWith("/auth")
   ) {
     return true;
+  }
+
+  if (pathname === "/notes") {
+    return settings.notes_enabled;
   }
 
   if (pathname === "/habits") {
@@ -139,7 +147,7 @@ function RootLayoutNavigator() {
       const { data, error } = await supabase
         .from("user_settings")
         .select(
-          "partner_features_enabled, study_enabled, exercise_enabled, habits_enabled, goals_enabled, mood_enabled, gratitude_enabled, vouchers_enabled, cooking_enabled"
+          "partner_features_enabled, study_enabled, exercise_enabled, habits_enabled, goals_enabled, mood_enabled, gratitude_enabled, vouchers_enabled, cooking_enabled, notes_enabled"
         )
         .eq("user_id", session.user.id)
         .maybeSingle();
@@ -201,6 +209,8 @@ function RootLayoutNavigator() {
         if (screen === "habits") router.push("/habits");
         else if (screen === "study") router.push("/");
         else if (screen === "cooking") router.push("/?tab=cooking");
+        else if (screen === "weekly-summary") router.push("/weekly-summary");
+        else if (screen === "exam-log") router.push("/exam-log");
       });
     return () => { notificationResponseListener.current?.remove(); };
   }, []);

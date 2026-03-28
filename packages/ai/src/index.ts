@@ -51,6 +51,11 @@ export interface AIRecipeResponse {
   }>
 }
 
+export interface FlashcardPair {
+  front: string
+  back: string
+}
+
 function hasAttachment(base64?: string, mimeType?: string): boolean {
   return Boolean(base64 && mimeType)
 }
@@ -404,6 +409,40 @@ function buildClient(openrouter: OpenAI) {
     }
   }
 
+  async function generateFlashcards(
+    subject: string,
+    topic: string,
+    count: number = 8
+  ): Promise<FlashcardPair[]> {
+    const prompt = `Eres Mochi, asistente de estudio. Genera exactamente ${count} flashcards de estudio para:
+Materia: ${subject}
+Tema específico: ${topic}
+
+Responde ÚNICAMENTE con un array JSON válido, sin markdown ni texto extra:
+[
+  { "front": "¿Pregunta o concepto?", "back": "Respuesta o definición clara" }
+]
+
+Reglas:
+- Las preguntas deben ser específicas y concretas
+- Las respuestas deben ser concisas (máximo 2 oraciones)
+- Varía el tipo: definiciones, fórmulas, ejemplos, comparaciones
+- Todo en español`
+
+    const response = await callAI(prompt, { maxTokens: 1600 })
+    const clean = response.replace(/```json\s*/gi, '').replace(/```/g, '').trim()
+    const parsed = JSON.parse(clean) as FlashcardPair[]
+
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      throw new Error('No se pudieron generar flashcards válidas')
+    }
+
+    return parsed.slice(0, count).map((item) => ({
+      front: String(item.front ?? '').trim(),
+      back: String(item.back ?? '').trim(),
+    }))
+  }
+
   return {
     callAI,
     callAIWithMessages,
@@ -412,6 +451,7 @@ function buildClient(openrouter: OpenAI) {
     askStudyCompanion,
     askMochiWhileCooking,
     generateRecipe,
+    generateFlashcards,
   }
 }
 
@@ -500,4 +540,12 @@ export async function generateRecipe(
   cyclePhaseLabel?: string
 ): Promise<AIRecipeResponse> {
   return requireClient().generateRecipe(userPrompt, options, cyclePhaseLabel)
+}
+
+export async function generateFlashcards(
+  subject: string,
+  topic: string,
+  count: number = 8
+): Promise<FlashcardPair[]> {
+  return requireClient().generateFlashcards(subject, topic, count)
 }

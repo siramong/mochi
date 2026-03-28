@@ -3,6 +3,9 @@ import { Link } from 'react-router-dom'
 import { Hourglass, Pencil, Plus, Trash2 } from 'lucide-react'
 import { useStudyBlocks } from '@/hooks/useStudyBlocks'
 import { EmptyState } from '@/components/common/EmptyState'
+import { useSession } from '@/hooks/useSession'
+import { supabase } from '@/lib/supabase'
+import { useEffect, useState } from 'react'
 
 const days = [
   { label: 'Dom', value: 0 },
@@ -25,6 +28,29 @@ const colorMap: Record<string, string> = {
 
 export function StudyPage() {
   const { blocks, loading, error, deleteBlock } = useStudyBlocks()
+  const { session } = useSession()
+  const [upcomingExams, setUpcomingExams] = useState<Array<{ id: string; subject: string; exam_date: string }>>([])
+
+  useEffect(() => {
+    const userId = session?.user.id
+    if (!userId) return
+
+    const today = new Date().toISOString().slice(0, 10)
+
+    async function loadExams() {
+      const { data } = await supabase
+        .from('exam_logs')
+        .select('id, subject, exam_date')
+        .eq('user_id', userId)
+        .gte('exam_date', today)
+        .order('exam_date', { ascending: true })
+        .limit(6)
+
+      setUpcomingExams((data as Array<{ id: string; subject: string; exam_date: string }> | null) ?? [])
+    }
+
+    void loadExams()
+  }, [session?.user.id])
 
   const weeklyGroups = useMemo(() => {
     const map = new Map<number, typeof blocks>()
@@ -79,6 +105,32 @@ export function StudyPage() {
           </Link>
         </div>
       </div>
+
+      {upcomingExams.length > 0 ? (
+        <div className="mt-5 rounded-3xl border border-yellow-200 bg-yellow-50 p-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-bold text-yellow-900">Próximos exámenes</h2>
+            <Link to="/study/exams?tab=upcoming" className="text-xs font-bold text-yellow-800">Registrar examen próximo</Link>
+          </div>
+          <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+            {upcomingExams.map((exam) => {
+              const now = new Date().toISOString().slice(0, 10)
+              const days = Math.round((new Date(`${exam.exam_date}T00:00:00`).getTime() - new Date(`${now}T00:00:00`).getTime()) / (1000 * 60 * 60 * 24))
+              const badgeClass = days <= 1 ? 'bg-red-100 text-red-700' : days <= 3 ? 'bg-orange-100 text-orange-700' : days <= 7 ? 'bg-yellow-200 text-yellow-900' : 'bg-emerald-100 text-emerald-700'
+
+              return (
+                <div key={exam.id} className="min-w-[210px] rounded-2xl border border-yellow-200 bg-white p-3">
+                  <p className="text-sm font-extrabold text-yellow-900">{exam.subject}</p>
+                  <p className="mt-1 text-xs font-semibold text-yellow-700">{exam.exam_date}</p>
+                  <span className={`mt-2 inline-flex rounded-full px-2 py-1 text-xs font-bold ${badgeClass}`}>
+                    {days <= 0 ? '¡Hoy!' : `En ${days} días`}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      ) : null}
 
       <div className="mt-5 rounded-3xl border border-purple-200 bg-white p-4">
         <h2 className="text-base font-bold text-purple-900">Vista semanal</h2>

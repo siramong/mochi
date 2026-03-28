@@ -185,7 +185,7 @@ export function RoutinePlayerScreen() {
         routine_id: routine.id,
         completed_at: new Date().toISOString(),
       })
-      await addPoints(session.user.id, 10)
+      await addPoints(session.user.id, 10, showAchievement)
       await updateStreak(session.user.id)
       await checkExerciseAchievements(session.user.id, showAchievement)
       await checkStreakAchievements(session.user.id, showAchievement)

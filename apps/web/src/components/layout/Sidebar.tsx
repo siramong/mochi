@@ -1,5 +1,5 @@
 import type { ComponentType } from 'react'
-import { BookOpen, ChefHat, Dumbbell, Gift, Heart, House, Notebook, Settings, Sparkles, Target, Trophy, UserRound } from 'lucide-react'
+import { BarChart2, BookOpen, ChefHat, Dumbbell, Gift, Heart, House, Layers, Notebook, Settings, Sparkles, Target, Trophy, UserRound } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 import { useUserSettings } from '@/hooks/useUserSettings'
 
@@ -20,7 +20,10 @@ const navItems: NavItem[] = [
   { to: '/mood', label: 'Ánimo', icon: Heart, module: 'mood' },
   { to: '/gratitude', label: 'Gratitud', icon: Notebook, module: 'gratitude' },
   { to: '/vouchers', label: 'Vales', icon: Gift, module: 'vouchers' },
+  { to: '/notes', label: 'Notas', icon: Notebook, module: 'notes' },
+  { to: '/flashcards', label: 'Flashcards', icon: Layers, module: 'study' },
   { to: '/profile', label: 'Perfil', icon: UserRound },
+  { to: '/analytics', label: 'Analíticas', icon: BarChart2 },
   { to: '/settings', label: 'Ajustes', icon: Settings },
 ]
 

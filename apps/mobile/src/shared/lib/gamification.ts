@@ -1,4 +1,5 @@
 import { supabase } from '@/src/shared/lib/supabase'
+import { getMochiLevel } from '@mochi/supabase/levels'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -13,8 +14,39 @@ type OnUnlock = (achievement: UnlockedAchievement) => void
 
 // ─── Puntos ───────────────────────────────────────────────────────────────────
 
-export async function addPoints(userId: string, points: number): Promise<void> {
+export async function addPoints(
+  userId: string,
+  points: number,
+  onLevelUp?: OnUnlock
+): Promise<void> {
+  const { data: beforeProfile } = await supabase
+    .from('profiles')
+    .select('total_points')
+    .eq('id', userId)
+    .maybeSingle<{ total_points: number }>()
+
+  const previousPoints = beforeProfile?.total_points ?? 0
+  const previousLevel = getMochiLevel(previousPoints)
+
   await supabase.rpc('increment_points', { user_id: userId, points })
+
+  const { data: afterProfile } = await supabase
+    .from('profiles')
+    .select('total_points')
+    .eq('id', userId)
+    .maybeSingle<{ total_points: number }>()
+
+  const nextPoints = afterProfile?.total_points ?? (previousPoints + points)
+  const nextLevel = getMochiLevel(nextPoints)
+
+  if (nextLevel.level > previousLevel.level && onLevelUp) {
+    onLevelUp({
+      title: `¡Subiste a ${nextLevel.name}!`,
+      description: `Alcanzaste el nivel ${nextLevel.level}`,
+      points: 0,
+      icon: 'trophy',
+    })
+  }
 }
 
 // ─── Desbloqueo de logros ─────────────────────────────────────────────────────

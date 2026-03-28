@@ -31,6 +31,7 @@ type ModuleVisibility = {
   gratitude_enabled: boolean
   vouchers_enabled: boolean
   cooking_enabled: boolean
+  notes_enabled: boolean
 }
 
 const defaultModuleVisibility: ModuleVisibility = {
@@ -43,6 +44,7 @@ const defaultModuleVisibility: ModuleVisibility = {
   gratitude_enabled: true,
   vouchers_enabled: false,
   cooking_enabled: true,
+  notes_enabled: true,
 }
 
 const tabOrder: MobileScreen[] = ['home', 'study', 'exercise', 'habits', 'cooking']
@@ -111,7 +113,7 @@ export function HomeScreen() {
       const { data, error } = await supabase
         .from('user_settings')
         .select(
-          'partner_features_enabled, study_enabled, exercise_enabled, habits_enabled, goals_enabled, mood_enabled, gratitude_enabled, vouchers_enabled, cooking_enabled'
+          'partner_features_enabled, study_enabled, exercise_enabled, habits_enabled, goals_enabled, mood_enabled, gratitude_enabled, vouchers_enabled, cooking_enabled, notes_enabled'
         )
         .eq('user_id', session.user.id)
         .maybeSingle()

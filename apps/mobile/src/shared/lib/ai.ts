@@ -4,6 +4,7 @@ import {
   askStudyCompanion as sharedAskStudyCompanion,
   createAIClient,
   detectStudyDiscipline as sharedDetectStudyDiscipline,
+  generateFlashcards as sharedGenerateFlashcards,
   generateRecipe as sharedGenerateRecipe,
   generateStudySessionPlan as sharedGenerateStudySessionPlan,
   callAI,
@@ -142,6 +143,7 @@ export async function getDailyMotivation(
 }
 
 export { type RecipeGenerationOptions, type RecipeGenerationType }
+export { callAI }
 
 export async function generateRecipe(
   userPrompt: string,
@@ -235,3 +237,15 @@ export async function askStudyCompanion(
 }
 
 export type { RecipeDifficulty }
+
+export async function generateFlashcards(
+  subject: string,
+  topic: string,
+  count: number = 8
+): Promise<Array<{ front: string; back: string }>> {
+  if (!canUseAI()) {
+    throw new Error('Configura EXPO_PUBLIC_OPENROUTER_API_KEY para generar flashcards')
+  }
+
+  return sharedGenerateFlashcards(subject, topic, count)
+}

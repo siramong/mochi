@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons'
 import { useEffect, useState } from 'react'
-import { Text, TouchableOpacity, View, ScrollView } from 'react-native'
+import { Text, TouchableOpacity, View, ScrollView, Linking } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { router } from 'expo-router'
 import Animated, {
@@ -34,13 +34,20 @@ type HomeDashboardProps = {
     gratitude_enabled: boolean
     vouchers_enabled: boolean
     cooking_enabled: boolean
+    notes_enabled: boolean
   }
+}
+
+type UpcomingExam = {
+  id: string
+  subject: string
+  exam_date: string
 }
 
 type QuickAccessItem = {
   label: string
-  route: '/goals' | '/vouchers' | '/mood' | '/gratitude'
-  enabledKey: 'goals_enabled' | 'vouchers_enabled' | 'mood_enabled' | 'gratitude_enabled'
+  route: '/goals' | '/vouchers' | '/mood' | '/gratitude' | '/notes'
+  enabledKey: 'goals_enabled' | 'vouchers_enabled' | 'mood_enabled' | 'gratitude_enabled' | 'notes_enabled'
   icon: keyof typeof Ionicons.glyphMap
   cardClass: string
   iconColor: string
@@ -92,6 +99,15 @@ const quickAccessItems: QuickAccessItem[] = [
     cardClass: 'border-emerald-200 bg-emerald-100',
     iconColor: '#047857',
     textClass: 'text-emerald-900',
+  },
+  {
+    label: 'Notas',
+    route: '/notes',
+    enabledKey: 'notes_enabled',
+    icon: 'document-text-outline',
+    cardClass: 'border-violet-200 bg-violet-100',
+    iconColor: '#6d28d9',
+    textClass: 'text-violet-900',
   },
 ]
 
@@ -151,6 +167,14 @@ export function HomeDashboard({ userName, onNavigateToCooking, moduleVisibility 
   const [habitLogsCount, setHabitLogsCount] = useState(0)
   const [latestRecipe, setLatestRecipe] = useState<Recipe | null>(null)
   const [recipeCount, setRecipeCount] = useState(0)
+  const [upcomingExams, setUpcomingExams] = useState<UpcomingExam[]>([])
+  const [weeklySummary, setWeeklySummary] = useState({
+    studySessions: 0,
+    currentStreak: 0,
+    habitsAverageLabel: '0/0',
+    pointsGained: 0,
+    moodDots: [] as Array<number | null>,
+  })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [animationSeed, setAnimationSeed] = useState(0)
@@ -227,10 +251,20 @@ export function HomeDashboard({ userName, onNavigateToCooking, moduleVisibility 
         setLoading(true)
         setError(null)
 
-        const todayDayOfWeek = new Date().getDay()
-        const todayISO = new Date().toISOString().slice(0, 10)
+        const todayDate = new Date()
+        const todayDayOfWeek = todayDate.getDay()
+        const todayISO = todayDate.toISOString().slice(0, 10)
+        const weekStart = new Date(todayDate)
+        weekStart.setDate(todayDate.getDate() - todayDate.getDay() + 1)
+        weekStart.setHours(0, 0, 0, 0)
+        const weekStartISO = weekStart.toISOString().slice(0, 10)
+        const moodDays = Array.from({ length: 7 }, (_, index) => {
+          const day = new Date(weekStart)
+          day.setDate(weekStart.getDate() + index)
+          return day.toISOString().slice(0, 10)
+        })
 
-        const [blocksRes, routinesRes, habitsCountRes, habitsLogsRes, latestRecipeRes, recipeCountRes] =
+        const [blocksRes, routinesRes, habitsCountRes, habitsLogsRes, latestRecipeRes, recipeCountRes, upcomingExamsRes, weeklySessionsRes, weeklyRoutineLogsRes, weeklyGratitudeRes, weeklyHabitLogsRes, weeklyMoodRes, streakRes] =
           await Promise.all([
             supabase.from('study_blocks').select('*').eq('user_id', userId).eq('day_of_week', todayDayOfWeek).order('start_time', { ascending: true }),
             supabase.from('routines').select(`*, routine_exercises (id, routine_id, exercise_id, order_index, exercise:exercises (id, name, sets, reps, duration_seconds, notes))`).eq('user_id', userId),
@@ -238,6 +272,13 @@ export function HomeDashboard({ userName, onNavigateToCooking, moduleVisibility 
             supabase.from('habit_logs').select('id', { count: 'exact', head: true }).eq('user_id', userId).eq('log_date', todayISO),
             supabase.from('recipes').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
             supabase.from('recipes').select('id', { count: 'exact', head: true }).eq('user_id', userId),
+            supabase.from('exam_logs').select('id, subject, exam_date').eq('user_id', userId).gte('exam_date', todayISO).order('exam_date', { ascending: true }).limit(3),
+            supabase.from('study_sessions').select('id', { count: 'exact', head: true }).eq('user_id', userId).gte('completed_at', weekStartISO),
+            supabase.from('routine_logs').select('id', { count: 'exact', head: true }).eq('user_id', userId).gte('completed_at', weekStartISO),
+            supabase.from('gratitude_logs').select('id', { count: 'exact', head: true }).eq('user_id', userId).gte('logged_date', weekStartISO),
+            supabase.from('habit_logs').select('log_date').eq('user_id', userId).gte('log_date', weekStartISO),
+            supabase.from('mood_logs').select('mood, logged_date').eq('user_id', userId).in('logged_date', moodDays),
+            supabase.from('streaks').select('current_streak').eq('user_id', userId).maybeSingle(),
           ])
 
         if (blocksRes.error) throw blocksRes.error
@@ -249,6 +290,29 @@ export function HomeDashboard({ userName, onNavigateToCooking, moduleVisibility 
         setHabitLogsCount(habitsLogsRes.count ?? 0)
         setLatestRecipe((latestRecipeRes.data as Recipe | null) ?? null)
         setRecipeCount(recipeCountRes.count ?? 0)
+        setUpcomingExams((upcomingExamsRes.data as UpcomingExam[] | null) ?? [])
+
+        const moodMap = new Map<string, number>()
+        ;((weeklyMoodRes.data as Array<{ mood: number; logged_date: string }> | null) ?? []).forEach((row) => {
+          moodMap.set(row.logged_date, row.mood)
+        })
+
+        const habitLogs = (weeklyHabitLogsRes.data as Array<{ log_date: string }> | null) ?? []
+        const uniqueHabitDays = new Set(habitLogs.map((item) => item.log_date)).size
+        const totalHabits = habitsCountRes.count ?? 0
+        const avgPerDay = uniqueHabitDays > 0 ? Math.round((habitLogs.length / uniqueHabitDays) * 10) / 10 : 0
+
+        const studyPoints = (weeklySessionsRes.count ?? 0) * 5
+        const routinePoints = (weeklyRoutineLogsRes.count ?? 0) * 10
+        const gratitudePoints = (weeklyGratitudeRes.count ?? 0) * 3
+
+        setWeeklySummary({
+          studySessions: weeklySessionsRes.count ?? 0,
+          currentStreak: (streakRes.data as { current_streak: number } | null)?.current_streak ?? 0,
+          habitsAverageLabel: `${avgPerDay}/${totalHabits}`,
+          pointsGained: studyPoints + routinePoints + gratitudePoints,
+          moodDots: moodDays.map((day) => moodMap.get(day) ?? null),
+        })
         setAnimationSeed((prev) => prev + 1)
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Error cargando datos')
@@ -263,6 +327,24 @@ export function HomeDashboard({ userName, onNavigateToCooking, moduleVisibility 
   const handleTotalTime = (routine: RoutineWithExercises): string => {
     const totalSeconds = routine.routine_exercises.reduce((sum, re) => sum + (re.exercise?.duration_seconds ?? 0), 0)
     return `${Math.ceil(totalSeconds / 60)} min`
+  }
+
+  const getDaysUntilExam = (examDate: string): number => {
+    const todayDate = new Date()
+    todayDate.setHours(0, 0, 0, 0)
+
+    const exam = new Date(`${examDate}T00:00:00`)
+    exam.setHours(0, 0, 0, 0)
+
+    return Math.round((exam.getTime() - todayDate.getTime()) / (1000 * 60 * 60 * 24))
+  }
+
+  const getUrgencyStyles = (days: number): { badgeClass: string; text: string } => {
+    if (days <= 0) return { badgeClass: 'bg-red-100 text-red-700', text: 'Hoy' }
+    if (days === 1) return { badgeClass: 'bg-red-100 text-red-700', text: 'Mañana' }
+    if (days <= 3) return { badgeClass: 'bg-orange-100 text-orange-700', text: `En ${days} días` }
+    if (days <= 7) return { badgeClass: 'bg-yellow-100 text-yellow-800', text: `En ${days} días` }
+    return { badgeClass: 'bg-emerald-100 text-emerald-700', text: `En ${days} días` }
   }
 
   return (
@@ -420,6 +502,40 @@ export function HomeDashboard({ userName, onNavigateToCooking, moduleVisibility 
         </TouchableOpacity>
       )}
 
+      {moduleVisibility.study_enabled && upcomingExams.length > 0 && (
+        <AnimatedDashboardCard delay={80} animationSeed={animationSeed} className="mt-4 rounded-3xl border-2 border-yellow-300 bg-white p-5">
+          <View className="mb-3 flex-row items-center">
+            <Ionicons name="time-outline" size={18} color="#b45309" />
+            <Text className="ml-2 text-base font-bold text-yellow-900">Próximos exámenes</Text>
+          </View>
+
+          {upcomingExams.map((exam) => {
+            const days = getDaysUntilExam(exam.exam_date)
+            const urgency = getUrgencyStyles(days)
+
+            return (
+              <View key={exam.id} className="mb-2 rounded-2xl border border-yellow-200 bg-yellow-50 p-3">
+                <View className="flex-row items-center justify-between">
+                  <Text className="text-sm font-extrabold text-yellow-900">{exam.subject}</Text>
+                  <View className={`rounded-full px-2 py-1 ${urgency.badgeClass}`}>
+                    <Text className="text-xs font-bold">{urgency.text}</Text>
+                  </View>
+                </View>
+              </View>
+            )
+          })}
+
+          {upcomingExams.some((exam) => getDaysUntilExam(exam.exam_date) === 0) && (
+            <View className="mt-1 flex-row items-center rounded-2xl border border-pink-200 bg-pink-50 px-3 py-2">
+              <MochiCharacter mood="excited" size={34} />
+              <Text className="ml-2 flex-1 text-xs font-semibold text-pink-700">
+                Hoy tienes examen. Respira, confía en tu proceso y hazlo increíble.
+              </Text>
+            </View>
+          )}
+        </AnimatedDashboardCard>
+      )}
+
       {moduleVisibility.exercise_enabled && (
         <AnimatedDashboardCard delay={100} animationSeed={animationSeed} className="mt-4 rounded-3xl border-2 border-teal-200 bg-white p-5">
           <View className="mb-2 flex-row items-center">
@@ -546,6 +662,54 @@ export function HomeDashboard({ userName, onNavigateToCooking, moduleVisibility 
         )}
         </AnimatedDashboardCard>
       )}
+
+      <AnimatedDashboardCard delay={240} animationSeed={animationSeed} className="mt-4 rounded-3xl border-2 border-indigo-200 bg-white p-5">
+        <View className="mb-3 flex-row items-center">
+          <Ionicons name="stats-chart-outline" size={18} color="#3730a3" />
+          <Text className="ml-2 text-base font-bold text-indigo-900">Esta semana</Text>
+        </View>
+
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-3">
+          <View className="mr-2 flex-row items-center rounded-2xl bg-indigo-50 px-3 py-2">
+            <Ionicons name="book-outline" size={14} color="#4338ca" />
+            <Text className="ml-1 text-xs font-bold text-indigo-900">{weeklySummary.studySessions} sesiones</Text>
+          </View>
+          <View className="mr-2 flex-row items-center rounded-2xl bg-orange-50 px-3 py-2">
+            <Ionicons name="flame-outline" size={14} color="#c2410c" />
+            <Text className="ml-1 text-xs font-bold text-orange-900">{weeklySummary.currentStreak} días</Text>
+          </View>
+          <View className="mr-2 flex-row items-center rounded-2xl bg-green-50 px-3 py-2">
+            <Ionicons name="leaf-outline" size={14} color="#15803d" />
+            <Text className="ml-1 text-xs font-bold text-green-900">{weeklySummary.habitsAverageLabel} hábitos/día</Text>
+          </View>
+          <View className="mr-2 flex-row items-center rounded-2xl bg-yellow-50 px-3 py-2">
+            <Ionicons name="star-outline" size={14} color="#a16207" />
+            <Text className="ml-1 text-xs font-bold text-yellow-900">{weeklySummary.pointsGained} puntos</Text>
+          </View>
+        </ScrollView>
+
+        <View className="mb-3 flex-row items-center">
+          {weeklySummary.moodDots.map((mood, index) => {
+            const bgClass =
+              mood === null
+                ? 'bg-slate-200'
+                : mood <= 2
+                  ? 'bg-orange-300'
+                  : mood === 3
+                    ? 'bg-yellow-300'
+                    : 'bg-emerald-300'
+
+            return <View key={`${index}-${mood ?? 'none'}`} className={`mr-2 h-2 w-2 rounded-full ${bgClass}`} />
+          })}
+        </View>
+
+        <TouchableOpacity
+          className="self-start rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2"
+          onPress={() => { void Linking.openURL('https://mochi.siramong.tech/analytics') }}
+        >
+          <Text className="text-xs font-bold text-indigo-700">Ver analíticas completas</Text>
+        </TouchableOpacity>
+      </AnimatedDashboardCard>
 
       <View className="mb-12" />
     </ScrollView>

@@ -15,6 +15,14 @@ type FormSettings = {
   gratitude_enabled: boolean
   vouchers_enabled: boolean
   cooking_enabled: boolean
+  notes_enabled: boolean
+}
+
+type CycleForm = {
+  period_start_date: string
+  period_end_date: string
+  cycle_length_days: string
+  notes: string
 }
 
 const defaultForm: FormSettings = {
@@ -29,6 +37,7 @@ const defaultForm: FormSettings = {
   gratitude_enabled: true,
   vouchers_enabled: false,
   cooking_enabled: true,
+  notes_enabled: true,
 }
 
 export function SettingsPage() {
@@ -37,6 +46,13 @@ export function SettingsPage() {
   const [form, setForm] = useState<FormSettings>(defaultForm)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
+  const [cycleForm, setCycleForm] = useState<CycleForm>({
+    period_start_date: '',
+    period_end_date: '',
+    cycle_length_days: '28',
+    notes: '',
+  })
+  const [cycleHistory, setCycleHistory] = useState<Array<{ id: string; period_start_date: string; period_end_date: string | null }>>([])
 
   useEffect(() => {
     const userId = session?.user.id
@@ -63,7 +79,17 @@ export function SettingsPage() {
         vouchers_enabled:
           (settings?.partner_features_enabled ?? false) && (settings?.vouchers_enabled ?? false),
         cooking_enabled: settings?.cooking_enabled ?? true,
+        notes_enabled: settings?.notes_enabled ?? true,
       }))
+
+      const cycleRes = await supabase
+        .from('cycle_logs')
+        .select('id, period_start_date, period_end_date')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(3)
+
+      setCycleHistory((cycleRes.data as Array<{ id: string; period_start_date: string; period_end_date: string | null }> | null) ?? [])
     }
 
     void loadBaseData()
@@ -96,6 +122,7 @@ export function SettingsPage() {
         gratitude_enabled: form.gratitude_enabled,
         vouchers_enabled: form.vouchers_enabled,
         cooking_enabled: form.cooking_enabled,
+        notes_enabled: form.notes_enabled,
       }),
     ])
 
@@ -119,7 +146,31 @@ export function SettingsPage() {
     { key: 'gratitude_enabled', label: 'Gratitud' },
     { key: 'vouchers_enabled', label: 'Vales' },
     { key: 'cooking_enabled', label: 'Cocina' },
+    { key: 'notes_enabled', label: 'Notas rápidas' },
   ]
+
+  const handleSaveCycle = async () => {
+    const userId = session?.user.id
+    if (!userId || !cycleForm.period_start_date) return
+
+    await supabase.from('cycle_logs').insert({
+      user_id: userId,
+      period_start_date: cycleForm.period_start_date,
+      period_end_date: cycleForm.period_end_date || null,
+      cycle_length_days: Number(cycleForm.cycle_length_days) || 28,
+      notes: cycleForm.notes.trim() || null,
+    })
+
+    const cycleRes = await supabase
+      .from('cycle_logs')
+      .select('id, period_start_date, period_end_date')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(3)
+
+    setCycleHistory((cycleRes.data as Array<{ id: string; period_start_date: string; period_end_date: string | null }> | null) ?? [])
+    setCycleForm({ period_start_date: '', period_end_date: '', cycle_length_days: '28', notes: '' })
+  }
 
   return (
     <div>
@@ -186,6 +237,49 @@ export function SettingsPage() {
           {saving ? 'Guardando...' : 'Guardar ajustes'}
         </button>
       </form>
+
+      <section className="mt-5 rounded-3xl border border-rose-200 bg-white p-5">
+        <h2 className="text-lg font-black text-rose-900">Seguimiento de ciclo</h2>
+        <p className="mt-1 text-sm text-rose-700">
+          Registra el inicio de tu período para que Mochi adapte sus recomendaciones.
+        </p>
+
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          <label className="space-y-1">
+            <span className="text-xs font-bold uppercase text-rose-800">Inicio del período</span>
+            <input type="date" value={cycleForm.period_start_date} onChange={(e) => setCycleForm((prev) => ({ ...prev, period_start_date: e.target.value }))} className="w-full rounded-xl border border-rose-200 px-3 py-2 text-sm" />
+          </label>
+          <label className="space-y-1">
+            <span className="text-xs font-bold uppercase text-rose-800">Fin del período (opcional)</span>
+            <input type="date" value={cycleForm.period_end_date} onChange={(e) => setCycleForm((prev) => ({ ...prev, period_end_date: e.target.value }))} className="w-full rounded-xl border border-rose-200 px-3 py-2 text-sm" />
+          </label>
+        </div>
+
+        <div className="mt-3 grid gap-3 md:grid-cols-2">
+          <label className="space-y-1">
+            <span className="text-xs font-bold uppercase text-rose-800">Duración del ciclo</span>
+            <input type="number" min={20} max={40} value={cycleForm.cycle_length_days} onChange={(e) => setCycleForm((prev) => ({ ...prev, cycle_length_days: e.target.value }))} className="w-full rounded-xl border border-rose-200 px-3 py-2 text-sm" />
+          </label>
+          <label className="space-y-1">
+            <span className="text-xs font-bold uppercase text-rose-800">Notas</span>
+            <textarea value={cycleForm.notes} onChange={(e) => setCycleForm((prev) => ({ ...prev, notes: e.target.value }))} className="min-h-20 w-full rounded-xl border border-rose-200 px-3 py-2 text-sm" />
+          </label>
+        </div>
+
+        <button type="button" className="mt-3 rounded-2xl bg-rose-500 px-4 py-2 text-sm font-semibold text-white" onClick={() => { void handleSaveCycle() }}>
+          Guardar
+        </button>
+
+        <div className="mt-4 space-y-2">
+          <p className="text-xs font-bold uppercase text-rose-800">Últimos registros</p>
+          {cycleHistory.map((item) => (
+            <div key={item.id} className="rounded-xl bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-900">
+              {item.period_start_date} {item.period_end_date ? `→ ${item.period_end_date}` : '(sin fecha fin)'}
+            </div>
+          ))}
+          {cycleHistory.length === 0 ? <p className="text-sm text-rose-600">Aún no hay registros.</p> : null}
+        </div>
+      </section>
     </div>
   )
 }

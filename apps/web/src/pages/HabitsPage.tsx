@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Trash2 } from 'lucide-react'
 import { EmptyState } from '@/components/common/EmptyState'
 import { useHabits, type HabitColor, type HabitIcon } from '@/hooks/useHabits'
+import { useCyclePhase } from '@/hooks/useCyclePhase'
 import { useSession } from '@/hooks/useSession'
 
 function getLast7Days(): string[] {
@@ -44,6 +45,7 @@ export function HabitsPage() {
 
   const { habits, loading, fetchHabits, fetchWeeklyLogs, createHabit, logHabit, deleteHabitLog, deleteHabit } =
     useHabits(userId)
+  const { phase, personality } = useCyclePhase()
 
   const [newHabitName, setNewHabitName] = useState('')
   const [selectedColor, setSelectedColor] = useState<HabitColor>('pink')
@@ -135,6 +137,13 @@ export function HabitsPage() {
     <div>
       <h1 className="text-2xl font-black text-purple-950">Mis hábitos</h1>
       <p className="mt-1 text-sm text-purple-700">Construye consistencia con pasos pequeños todos los días</p>
+
+      {personality ? (
+        <div className="mt-3 rounded-2xl border border-purple-200 bg-purple-50 p-3">
+          <p className="text-xs font-bold uppercase text-purple-700">Tip de fase: {phase}</p>
+          <p className="text-sm font-semibold text-purple-900">{personality.recommendation}</p>
+        </div>
+      ) : null}
 
       <div className="mt-4 rounded-3xl border border-green-200 bg-green-50 p-4">
         <p className="text-xs font-bold uppercase text-green-800">Nuevo hábito</p>

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { EmptyState } from '@/components/common/EmptyState'
+import { useCyclePhase } from '@/hooks/useCyclePhase'
 import { useSession } from '@/hooks/useSession'
 import { supabase } from '@/lib/supabase'
 import type { Exercise, Routine } from '@/types/database'
@@ -39,6 +40,7 @@ export function ExercisePage() {
   const [routineExerciseIds, setRoutineExerciseIds] = useState<Set<string>>(new Set())
 
   const [saving, setSaving] = useState(false)
+  const { phase } = useCyclePhase()
 
   const loadExerciseModule = useCallback(async () => {
     if (!userId) {
@@ -190,6 +192,17 @@ export function ExercisePage() {
     <div>
       <h1 className="text-2xl font-black text-purple-950">Rutinas y ejercicios</h1>
       <p className="mt-1 text-sm text-purple-700">Gestiona tus ejercicios y crea rutinas simples desde web</p>
+
+      <div className="mt-3 rounded-2xl border border-teal-200 bg-teal-50 p-3">
+        <p className="text-xs font-bold uppercase text-teal-700">Intensidad sugerida</p>
+        <p className="text-sm font-semibold text-teal-900">
+          {phase === 'menstrual'
+            ? 'Hoy conviene intensidad baja y movilidad suave.'
+            : phase === 'ovulatoria'
+              ? 'Hoy puedes probar una rutina intensa si te sientes bien.'
+              : 'Mantén una intensidad media y constante.'}
+        </p>
+      </div>
 
       {loading ? <p className="mt-4 text-sm text-purple-700">Cargando módulo...</p> : null}
       {error ? <p className="mt-4 text-sm text-red-600">{error}</p> : null}
