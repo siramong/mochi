@@ -21,7 +21,7 @@
       "channel": "production"
     },
     "production-apk": {
-      "extends": "production",
+      "extends": "preview",
       "android": {
         "buildType": "apk",
         "gradleCommand": ":app:assembleRelease"
