@@ -33,6 +33,7 @@ type ModuleOption = {
   borderColor: string
   selectedBg: string
   defaultEnabled: boolean
+  editable?: boolean
 }
 
 const moduleOptions: ModuleOption[] = [
@@ -116,13 +117,14 @@ const moduleOptions: ModuleOption[] = [
   {
     key: 'vouchers_enabled',
     label: 'Vales',
-    description: 'Canjea puntos por recompensas con tu pareja',
+    description: 'Disponible cuando funciones de pareja esté habilitado por administración',
     icon: 'ticket-outline',
     color: 'bg-yellow-100',
     iconColor: '#92400e',
     borderColor: 'border-yellow-300',
     selectedBg: 'bg-yellow-100',
     defaultEnabled: false,
+    editable: false,
   },
 ]
 
@@ -141,6 +143,11 @@ export function OnboardingScreen() {
   const formIsValid = useMemo(() => fullName.trim().length > 1, [fullName])
 
   const toggleModule = (key: string) => {
+    const module = moduleOptions.find((item) => item.key === key)
+    if (!module || module.editable === false) {
+      return
+    }
+
     setSelectedModules((prev) => {
       const next = new Set(prev)
       if (next.has(key)) {
@@ -189,7 +196,6 @@ export function OnboardingScreen() {
       // Guardar ajustes de módulos
       const modulePayload = {
         user_id: user.id,
-        partner_features_enabled: selectedModules.has('vouchers_enabled'),
         study_enabled: selectedModules.has('study_enabled'),
         exercise_enabled: selectedModules.has('exercise_enabled'),
         habits_enabled: selectedModules.has('habits_enabled'),
@@ -197,7 +203,6 @@ export function OnboardingScreen() {
         goals_enabled: selectedModules.has('goals_enabled'),
         mood_enabled: selectedModules.has('mood_enabled'),
         gratitude_enabled: selectedModules.has('gratitude_enabled'),
-        vouchers_enabled: selectedModules.has('vouchers_enabled'),
         notes_enabled: true,
       }
 
@@ -354,6 +359,7 @@ export function OnboardingScreen() {
         <View className="gap-3">
           {moduleOptions.map((module) => {
             const isSelected = selectedModules.has(module.key)
+            const isReadOnly = module.editable === false
             return (
               <TouchableOpacity
                 key={module.key}
@@ -364,6 +370,7 @@ export function OnboardingScreen() {
                 }`}
                 onPress={() => toggleModule(module.key)}
                 activeOpacity={0.85}
+                disabled={isReadOnly}
               >
                 <View
                   className={`mr-4 h-11 w-11 items-center justify-center rounded-xl ${
@@ -391,13 +398,16 @@ export function OnboardingScreen() {
                   >
                     {module.description}
                   </Text>
+                  {isReadOnly ? (
+                    <Text className="mt-1 text-[11px] font-bold text-amber-700">Solo informativo</Text>
+                  ) : null}
                 </View>
                 <View
                   className={`h-6 w-6 items-center justify-center rounded-full border-2 ${
                     isSelected ? 'border-purple-500 bg-purple-500' : 'border-slate-300 bg-white'
                   }`}
                 >
-                  {isSelected && <Ionicons name="checkmark" size={14} color="white" />}
+                  {isSelected && !isReadOnly ? <Ionicons name="checkmark" size={14} color="white" /> : null}
                 </View>
               </TouchableOpacity>
             )

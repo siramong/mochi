@@ -75,6 +75,8 @@ type ModuleItem = {
   icon: keyof typeof Ionicons.glyphMap
 }
 
+const readOnlyModuleKeys: ModuleToggleKey[] = ['partner_features_enabled', 'vouchers_enabled']
+
 const moduleItems: ModuleItem[] = [
   { key: 'study_enabled', label: 'Estudio', icon: 'book-outline' },
   { key: 'exercise_enabled', label: 'Ejercicio', icon: 'barbell-outline' },
@@ -278,10 +280,10 @@ export function SettingsScreen() {
   const handleToggleModule = async (key: ModuleToggleKey, value: boolean) => {
     if (!userId) return
 
-    if (key === 'partner_features_enabled') {
+    if (readOnlyModuleKeys.includes(key)) {
       showAlert({
         title: 'Cambio restringido',
-        message: 'Las funciones de pareja solo se pueden activar desde administración.',
+        message: 'Este módulo se administra desde base de datos y no se puede cambiar desde la app.',
         buttons: [{ text: 'Entendido', style: 'cancel' }],
       })
       return
@@ -298,7 +300,14 @@ export function SettingsScreen() {
     try {
       const payload = {
         user_id: userId,
-        ...nextSettings,
+        study_enabled: nextSettings.study_enabled,
+        exercise_enabled: nextSettings.exercise_enabled,
+        habits_enabled: nextSettings.habits_enabled,
+        goals_enabled: nextSettings.goals_enabled,
+        mood_enabled: nextSettings.mood_enabled,
+        gratitude_enabled: nextSettings.gratitude_enabled,
+        cooking_enabled: nextSettings.cooking_enabled,
+        notes_enabled: nextSettings.notes_enabled,
       }
 
       const { error: upsertError } = await supabase
@@ -646,9 +655,7 @@ export function SettingsScreen() {
                       </View>
                       <Switch
                         value={moduleSettings[module.key]}
-                        disabled={
-                          module.key === 'vouchers_enabled' && !moduleSettings.partner_features_enabled
-                        }
+                        disabled={readOnlyModuleKeys.includes(module.key)}
                         onValueChange={(nextValue) => {
                           void handleToggleModule(module.key, nextValue)
                         }}
@@ -661,7 +668,7 @@ export function SettingsScreen() {
 
                 <View className="rounded-2xl border border-blue-200 bg-blue-50 p-3">
                   <Text className="text-xs font-semibold text-blue-700">
-                    Los módulos desactivados se ocultarán del perfil
+                    Los módulos desactivados se ocultarán del perfil. Funciones de pareja y vales son informativas.
                   </Text>
                 </View>
               </View>

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
-import { Check, ChevronRight, Lock } from 'lucide-react'
+import { Check, ChevronRight } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useSession } from '@/hooks/useSession'
 
@@ -15,7 +15,6 @@ type ModuleOption = {
     | 'goals_enabled'
     | 'mood_enabled'
     | 'gratitude_enabled'
-    | 'vouchers_enabled'
   label: string
   colorClass: string
 }
@@ -28,7 +27,6 @@ const moduleOptions: ModuleOption[] = [
   { key: 'goals_enabled', label: 'Metas', colorClass: 'border-pink-200 bg-pink-50' },
   { key: 'mood_enabled', label: 'Estado de ánimo', colorClass: 'border-rose-200 bg-rose-50' },
   { key: 'gratitude_enabled', label: 'Gratitud', colorClass: 'border-lime-200 bg-lime-50' },
-  { key: 'vouchers_enabled', label: 'Vales', colorClass: 'border-yellow-200 bg-yellow-50' },
 ]
 
 export function OnboardingPage() {
@@ -38,7 +36,6 @@ export function OnboardingPage() {
   const [step, setStep] = useState<Step>(1)
   const [name, setName] = useState('')
   const [wakeUpTime, setWakeUpTime] = useState('05:20')
-  const [partnerFeaturesEnabled, setPartnerFeaturesEnabled] = useState(false)
   const [selectedModules, setSelectedModules] = useState<Set<ModuleOption['key']>>(
     new Set(['study_enabled', 'exercise_enabled', 'habits_enabled', 'cooking_enabled', 'goals_enabled'])
   )
@@ -50,18 +47,11 @@ export function OnboardingPage() {
     if (!userId) return
 
     async function loadInitialData() {
-      const [profileRes, settingsRes] = await Promise.all([
-        supabase
-          .from('profiles')
-          .select('full_name, wake_up_time')
-          .eq('id', userId)
-          .maybeSingle<{ full_name: string | null; wake_up_time: string | null }>(),
-        supabase
-          .from('user_settings')
-          .select('partner_features_enabled')
-          .eq('user_id', userId)
-          .maybeSingle<{ partner_features_enabled: boolean }>(),
-      ])
+      const profileRes = await supabase
+        .from('profiles')
+        .select('full_name, wake_up_time')
+        .eq('id', userId)
+        .maybeSingle<{ full_name: string | null; wake_up_time: string | null }>()
 
       if (profileRes.data?.full_name) {
         setName(profileRes.data.full_name)
@@ -69,10 +59,6 @@ export function OnboardingPage() {
 
       if (profileRes.data?.wake_up_time) {
         setWakeUpTime(profileRes.data.wake_up_time)
-      }
-
-      if (settingsRes.data?.partner_features_enabled) {
-        setPartnerFeaturesEnabled(true)
       }
     }
 
@@ -98,8 +84,6 @@ export function OnboardingPage() {
   }
 
   const toggleModule = (key: ModuleOption['key']) => {
-    if (key === 'vouchers_enabled' && !partnerFeaturesEnabled) return
-
     setSelectedModules((previous) => {
       const next = new Set(previous)
       if (next.has(key)) {
@@ -134,7 +118,6 @@ export function OnboardingPage() {
     const { error: settingsError } = await supabase.from('user_settings').upsert(
       {
         user_id: userId,
-        partner_features_enabled: partnerFeaturesEnabled,
         study_enabled: selectedModules.has('study_enabled'),
         exercise_enabled: selectedModules.has('exercise_enabled'),
         habits_enabled: selectedModules.has('habits_enabled'),
@@ -142,7 +125,6 @@ export function OnboardingPage() {
         goals_enabled: selectedModules.has('goals_enabled'),
         mood_enabled: selectedModules.has('mood_enabled'),
         gratitude_enabled: selectedModules.has('gratitude_enabled'),
-        vouchers_enabled: partnerFeaturesEnabled && selectedModules.has('vouchers_enabled'),
       },
       { onConflict: 'user_id' }
     )
@@ -231,31 +213,22 @@ export function OnboardingPage() {
               <div className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-2">
                 {moduleOptions.map((module) => {
                   const isSelected = selectedModules.has(module.key)
-                  const vouchersDisabled = module.key === 'vouchers_enabled' && !partnerFeaturesEnabled
 
                   return (
                     <button
                       key={module.key}
                       type="button"
-                      title={
-                        vouchersDisabled
-                          ? 'Activa funciones privadas y premium para habilitar vales.'
-                          : module.label
-                      }
+                      title={module.label}
                       onClick={() => toggleModule(module.key)}
-                      disabled={vouchersDisabled}
                       className={[
                         'flex items-center justify-between rounded-2xl border px-3 py-3 text-left',
                         module.colorClass,
                         isSelected ? 'ring-2 ring-purple-300' : '',
-                        vouchersDisabled ? 'cursor-not-allowed opacity-60' : '',
                       ].join(' ')}
                     >
                       <span className="text-sm font-semibold text-slate-800">{module.label}</span>
                       <span>
-                        {vouchersDisabled ? (
-                          <Lock className="h-4 w-4 text-slate-500" />
-                        ) : isSelected ? (
+                        {isSelected ? (
                           <Check className="h-4 w-4 text-purple-600" />
                         ) : null}
                       </span>
@@ -263,12 +236,6 @@ export function OnboardingPage() {
                   )
                 })}
               </div>
-
-              {!partnerFeaturesEnabled ? (
-                <p className="mt-3 text-xs font-semibold text-purple-700">
-                  Vales se habilita cuando actives funciones privadas y premium en Ajustes.
-                </p>
-              ) : null}
 
               {error ? <p className="mt-3 text-sm font-semibold text-red-600">{error}</p> : null}
 
