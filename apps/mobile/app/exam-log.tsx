@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons'
-import { useCallback, useMemo, useRef, useState } from 'react'
+import AsyncStorage from '@react-native-async-storage/async-storage'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -38,6 +39,58 @@ type UpcomingExamItem = {
   preparation_notes: string | null
 }
 
+type MissionStepKey = 'diagnosis' | 'guidedPractice' | 'mockExam' | 'finalReview'
+
+type CalmChecklistState = {
+  pendingClosure: boolean
+  miniReview: boolean
+  rest: boolean
+}
+
+type MissionState = Record<MissionStepKey, boolean>
+
+type ExamPreparationState = {
+  calm: CalmChecklistState
+  mission: MissionState
+}
+
+const DEFAULT_CALM_CHECKLIST: CalmChecklistState = {
+  pendingClosure: false,
+  miniReview: false,
+  rest: false,
+}
+
+const DEFAULT_MISSION: MissionState = {
+  diagnosis: false,
+  guidedPractice: false,
+  mockExam: false,
+  finalReview: false,
+}
+
+const MISSION_ORDER: Array<{ key: MissionStepKey; label: string }> = [
+  { key: 'diagnosis', label: 'Diagnóstico' },
+  { key: 'guidedPractice', label: 'Práctica guiada' },
+  { key: 'mockExam', label: 'Simulacro' },
+  { key: 'finalReview', label: 'Repaso final' },
+]
+
+const CALM_ORDER: Array<{ key: keyof CalmChecklistState; label: string }> = [
+  { key: 'pendingClosure', label: 'Cierre de pendientes' },
+  { key: 'miniReview', label: 'Mini repaso' },
+  { key: 'rest', label: 'Descanso' },
+]
+
+function createDefaultPreparationState(): ExamPreparationState {
+  return {
+    calm: { ...DEFAULT_CALM_CHECKLIST },
+    mission: { ...DEFAULT_MISSION },
+  }
+}
+
+function buildExamPreparationKey(userId: string, examId: string): string {
+  return `exam:preparation:${userId}:${examId}`
+}
+
 export function ExamLogScreen() {
   const insets = useSafeAreaInsets()
   const { session } = useSession()
@@ -61,6 +114,9 @@ export function ExamLogScreen() {
   const [savingUpcoming, setSavingUpcoming] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [gamificationWarning, setGamificationWarning] = useState<string | null>(null)
+  const [prepStates, setPrepStates] = useState<Record<string, ExamPreparationState>>({})
+  const [prepLoading, setPrepLoading] = useState(false)
+  const [prepError, setPrepError] = useState<string | null>(null)
   const saveResultMutexRef = useRef(false)
 
   const today = new Date().toLocaleDateString('es-ES', {
@@ -154,6 +210,136 @@ export function ExamLogScreen() {
     if (days <= 0) return '¡Hoy!'
     if (days === 1) return 'Mañana'
     return `En ${days} días`
+  }
+
+  useEffect(() => {
+    if (!session?.user.id || upcomingExams.length === 0) {
+      setPrepStates({})
+      setPrepLoading(false)
+      setPrepError(null)
+      return
+    }
+
+    void (async () => {
+      try {
+        setPrepLoading(true)
+        setPrepError(null)
+
+        const keys = upcomingExams.map((exam) => buildExamPreparationKey(session.user.id, exam.id))
+        const stored = await AsyncStorage.multiGet(keys)
+
+        const nextState: Record<string, ExamPreparationState> = {}
+
+        upcomingExams.forEach((exam, index) => {
+          const value = stored[index]?.[1]
+
+          if (!value) {
+            nextState[exam.id] = createDefaultPreparationState()
+            return
+          }
+
+          try {
+            const parsed = JSON.parse(value) as Partial<ExamPreparationState>
+            nextState[exam.id] = {
+              calm: {
+                pendingClosure: Boolean(parsed.calm?.pendingClosure),
+                miniReview: Boolean(parsed.calm?.miniReview),
+                rest: Boolean(parsed.calm?.rest),
+              },
+              mission: {
+                diagnosis: Boolean(parsed.mission?.diagnosis),
+                guidedPractice: Boolean(parsed.mission?.guidedPractice),
+                mockExam: Boolean(parsed.mission?.mockExam),
+                finalReview: Boolean(parsed.mission?.finalReview),
+              },
+            }
+          } catch {
+            nextState[exam.id] = createDefaultPreparationState()
+          }
+        })
+
+        setPrepStates(nextState)
+      } catch {
+        setPrepError('No se pudo cargar el progreso del cofre y la misión')
+      } finally {
+        setPrepLoading(false)
+      }
+    })()
+  }, [session?.user.id, upcomingExams])
+
+  const persistExamPreparation = useCallback(
+    async (examId: string, data: ExamPreparationState) => {
+      if (!session?.user.id) return
+
+      try {
+        await AsyncStorage.setItem(buildExamPreparationKey(session.user.id, examId), JSON.stringify(data))
+        setPrepError(null)
+      } catch {
+        setPrepError('No se pudo guardar el progreso del cofre y la misión')
+      }
+    },
+    [session?.user.id]
+  )
+
+  const getPrepState = useCallback(
+    (examId: string): ExamPreparationState => prepStates[examId] ?? createDefaultPreparationState(),
+    [prepStates]
+  )
+
+  const toggleCalmStep = useCallback(
+    (examId: string, step: keyof CalmChecklistState) => {
+      const current = getPrepState(examId)
+      const updated: ExamPreparationState = {
+        calm: {
+          ...current.calm,
+          [step]: !current.calm[step],
+        },
+        mission: {
+          ...current.mission,
+        },
+      }
+
+      setPrepStates((prev) => ({
+        ...prev,
+        [examId]: updated,
+      }))
+
+      void persistExamPreparation(examId, updated)
+    },
+    [getPrepState, persistExamPreparation]
+  )
+
+  const toggleMissionStep = useCallback(
+    (examId: string, step: MissionStepKey) => {
+      const current = getPrepState(examId)
+      const updated: ExamPreparationState = {
+        calm: {
+          ...current.calm,
+        },
+        mission: {
+          ...current.mission,
+          [step]: !current.mission[step],
+        },
+      }
+
+      setPrepStates((prev) => ({
+        ...prev,
+        [examId]: updated,
+      }))
+
+      void persistExamPreparation(examId, updated)
+    },
+    [getPrepState, persistExamPreparation]
+  )
+
+  function getMissionProgress(mission: MissionState): number {
+    const completed = MISSION_ORDER.reduce((count, step) => count + (mission[step.key] ? 1 : 0), 0)
+    return Math.round((completed / MISSION_ORDER.length) * 100)
+  }
+
+  function getNextMissionStep(mission: MissionState): string {
+    const pendingStep = MISSION_ORDER.find((step) => !mission[step.key])
+    return pendingStep ? pendingStep.label : 'Misión completada'
   }
 
   async function handleSaveResult() {
@@ -303,6 +489,8 @@ export function ExamLogScreen() {
     setError(null)
     setGamificationWarning(null)
 
+    let createdExam: { id: string; subject: string; exam_date: string } | null = null
+
     try {
       const { data, error: insertError } = await supabase
         .from('exam_logs')
@@ -321,15 +509,27 @@ export function ExamLogScreen() {
 
       if (insertError) throw insertError
 
-      await scheduleExamReminder(data.id, data.subject, data.exam_date)
+      createdExam = data as { id: string; subject: string; exam_date: string }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo guardar el examen próximo')
+      setSavingUpcoming(false)
+      return
+    }
 
+    if (createdExam) {
+      try {
+        await scheduleExamReminder(createdExam.id, createdExam.subject, createdExam.exam_date)
+      } catch (err) {
+        setGamificationWarning(
+          'El examen se guardó correctamente, pero no pudimos programar el recordatorio. Puedes intentarlo más tarde.'
+        )
+        console.warn('No se pudo programar el recordatorio del examen:', err)
+      }
+    } finally {
       setUpcomingSubject('')
       setUpcomingDate('')
       setUpcomingNotes('')
       await loadExams()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo guardar el examen próximo')
-    } finally {
       setSavingUpcoming(false)
     }
   }
@@ -381,6 +581,12 @@ export function ExamLogScreen() {
           {gamificationWarning ? (
             <View className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-3">
               <Text className="text-sm font-semibold text-amber-700">{gamificationWarning}</Text>
+            </View>
+          ) : null}
+
+          {prepError ? (
+            <View className="mt-4 rounded-2xl border border-red-200 bg-red-50 p-3">
+              <Text className="text-sm font-semibold text-red-700">{prepError}</Text>
             </View>
           ) : null}
 
@@ -510,34 +716,110 @@ export function ExamLogScreen() {
                   </View>
                 ) : (
                   <View className="mt-4">
-                    {upcomingExams.map((exam) => (
-                      <View key={exam.id} className="mb-3 rounded-2xl border border-pink-200 bg-pink-50 p-3">
-                        <View className="flex-row items-center justify-between">
-                          <Text className="text-sm font-extrabold text-pink-900">{exam.subject}</Text>
-                          <View className="rounded-full bg-amber-100 px-2 py-1">
-                            <Text className="text-xs font-bold text-amber-700">{getUpcomingLabel(exam.exam_date)}</Text>
-                          </View>
-                        </View>
-                        <Text className="mt-1 text-xs font-semibold uppercase text-pink-500">
-                          {formatExamDate(exam.exam_date)}
-                        </Text>
-                        {exam.preparation_notes ? (
-                          <Text className="mt-1 text-xs font-semibold text-pink-700">{exam.preparation_notes}</Text>
-                        ) : null}
-                        <TouchableOpacity
-                          className="mt-2 self-start rounded-xl bg-white px-3 py-1"
-                          onPress={() => {
-                            setSubject(exam.subject)
-                            setGrade('')
-                            setNotes('')
-                            setSelectedUpcomingId(exam.id)
-                            setActiveTab('results')
-                          }}
-                        >
-                          <Text className="text-xs font-bold text-pink-700">Registrar resultado</Text>
-                        </TouchableOpacity>
+                    {prepLoading ? (
+                      <View className="items-center py-4">
+                        <ActivityIndicator size="small" color="#ec4899" />
+                        <Text className="mt-2 text-xs font-semibold text-pink-700">Cargando progreso de misión...</Text>
                       </View>
-                    ))}
+                    ) : null}
+
+                    {upcomingExams.map((exam) => {
+                      const preparation = getPrepState(exam.id)
+                      const missionProgress = getMissionProgress(preparation.mission)
+                      const nextMissionStep = getNextMissionStep(preparation.mission)
+                      const calmActive = getDaysUntil(exam.exam_date) <= 1
+
+                      return (
+                        <View key={exam.id} className="mb-3 rounded-2xl border border-pink-200 bg-pink-50 p-3">
+                          <View className="flex-row items-center justify-between">
+                            <Text className="text-sm font-extrabold text-pink-900">{exam.subject}</Text>
+                            <View className="rounded-full bg-amber-100 px-2 py-1">
+                              <Text className="text-xs font-bold text-amber-700">{getUpcomingLabel(exam.exam_date)}</Text>
+                            </View>
+                          </View>
+                          <Text className="mt-1 text-xs font-semibold uppercase text-pink-500">
+                            {formatExamDate(exam.exam_date)}
+                          </Text>
+                          {exam.preparation_notes ? (
+                            <Text className="mt-1 text-xs font-semibold text-pink-700">{exam.preparation_notes}</Text>
+                          ) : null}
+
+                          {calmActive ? (
+                            <View className="mt-3 rounded-2xl border border-teal-200 bg-teal-50 p-3">
+                              <Text className="text-xs font-bold text-teal-700">Cofre de Calma activo</Text>
+                              {CALM_ORDER.map((item) => {
+                                const checked = preparation.calm[item.key]
+
+                                return (
+                                  <TouchableOpacity
+                                    key={`${exam.id}-${item.key}`}
+                                    className="mt-2 flex-row items-center"
+                                    onPress={() => {
+                                      toggleCalmStep(exam.id, item.key)
+                                    }}
+                                  >
+                                    <Ionicons
+                                      name={checked ? 'checkmark-circle' : 'ellipse-outline'}
+                                      size={18}
+                                      color={checked ? '#0f766e' : '#475569'}
+                                    />
+                                    <Text className="ml-2 text-xs font-semibold text-slate-700">{item.label}</Text>
+                                  </TouchableOpacity>
+                                )
+                              })}
+                            </View>
+                          ) : null}
+
+                          <View className="mt-3 rounded-2xl border border-indigo-200 bg-indigo-50 p-3">
+                            <Text className="text-xs font-bold text-indigo-700">Misión Parcial Perfecto</Text>
+                            <Text className="mt-1 text-xs font-semibold text-indigo-800">Progreso: {missionProgress}%</Text>
+                            <View className="mt-2 h-2 w-full overflow-hidden rounded-full bg-indigo-100">
+                              <View
+                                className="h-2 rounded-full bg-indigo-500"
+                                style={{ width: `${missionProgress}%` }}
+                              />
+                            </View>
+                            <Text className="mt-2 text-xs font-semibold text-indigo-800">
+                              Siguiente paso recomendado: {nextMissionStep}
+                            </Text>
+
+                            {MISSION_ORDER.map((step) => {
+                              const completed = preparation.mission[step.key]
+
+                              return (
+                                <TouchableOpacity
+                                  key={`${exam.id}-${step.key}`}
+                                  className="mt-2 flex-row items-center"
+                                  onPress={() => {
+                                    toggleMissionStep(exam.id, step.key)
+                                  }}
+                                >
+                                  <Ionicons
+                                    name={completed ? 'checkmark-circle' : 'ellipse-outline'}
+                                    size={18}
+                                    color={completed ? '#4338ca' : '#475569'}
+                                  />
+                                  <Text className="ml-2 text-xs font-semibold text-slate-700">{step.label}</Text>
+                                </TouchableOpacity>
+                              )
+                            })}
+                          </View>
+
+                          <TouchableOpacity
+                            className="mt-2 self-start rounded-xl bg-white px-3 py-1"
+                            onPress={() => {
+                              setSubject(exam.subject)
+                              setGrade('')
+                              setNotes('')
+                              setSelectedUpcomingId(exam.id)
+                              setActiveTab('results')
+                            }}
+                          >
+                            <Text className="text-xs font-bold text-pink-700">Registrar resultado</Text>
+                          </TouchableOpacity>
+                        </View>
+                      )
+                    })}
                   </View>
                 )}
               </View>

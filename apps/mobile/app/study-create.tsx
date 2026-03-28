@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -14,6 +14,7 @@ import { router } from 'expo-router'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { supabase } from '@/src/shared/lib/supabase'
 import { useSession } from '@/src/core/providers/SessionContext'
+import { useCycle } from '@/src/core/providers/CycleContext'
 import TimePickerModal from '@/src/shared/components/TimePickerModal'
 import { suggestStudyDuration } from '@/src/shared/lib/ai'
 import { useCustomAlert } from '@/src/shared/components/CustomAlert'
@@ -29,17 +30,61 @@ const daysOfWeek = [
 ]
 
 const colors = [
-  { value: 'pink', label: '🌸 Rosa', hex: '#fce7f3' },
-  { value: 'blue', label: '💙 Azul', hex: '#dbeafe' },
-  { value: 'yellow', label: '💛 Amarillo', hex: '#fef3c7' },
-  { value: 'teal', label: '💚 Teal', hex: '#ccfbf1' },
-  { value: 'purple', label: '💜 Púrpura', hex: '#e9d5ff' },
-  { value: 'green', label: '💚 Verde', hex: '#dcfce7' },
+  { value: 'pink', label: 'Rosa', hex: '#fce7f3' },
+  { value: 'blue', label: 'Azul', hex: '#dbeafe' },
+  { value: 'yellow', label: 'Amarillo', hex: '#fef3c7' },
+  { value: 'teal', label: 'Turquesa', hex: '#ccfbf1' },
+  { value: 'purple', label: 'Púrpura', hex: '#e9d5ff' },
+  { value: 'green', label: 'Verde', hex: '#dcfce7' },
 ]
+
+type EnergyMode = 'baja' | 'media' | 'alta'
+
+type EnergySuggestion = {
+  mode: EnergyMode
+  minutes: number
+  title: string
+  subtitle: string
+}
+
+function normalizeTimeValue(value: string): string {
+  const [hoursRaw = '0', minutesRaw = '0'] = value.split(':')
+  const hours = Number.parseInt(hoursRaw, 10)
+  const minutes = Number.parseInt(minutesRaw, 10)
+
+  const safeHours = Number.isFinite(hours) ? Math.max(0, Math.min(23, hours)) : 0
+  const safeMinutes = Number.isFinite(minutes) ? Math.max(0, Math.min(59, minutes)) : 0
+
+  return `${String(safeHours).padStart(2, '0')}:${String(safeMinutes).padStart(2, '0')}`
+}
+
+function addMinutesToTime(baseTime: string, minutesToAdd: number): string {
+  const [hoursRaw = '0', minutesRaw = '0'] = baseTime.split(':')
+  const hours = Number.parseInt(hoursRaw, 10)
+  const minutes = Number.parseInt(minutesRaw, 10)
+
+  const totalMinutes = (Number.isFinite(hours) ? hours : 0) * 60 + (Number.isFinite(minutes) ? minutes : 0)
+  const wrapped = ((totalMinutes + minutesToAdd) % (24 * 60) + 24 * 60) % (24 * 60)
+
+  return `${String(Math.floor(wrapped / 60)).padStart(2, '0')}:${String(wrapped % 60).padStart(2, '0')}`
+}
+
+function getEnergyTemplate(mode: EnergyMode): { minutes: number; title: string } {
+  if (mode === 'baja') {
+    return { minutes: 25, title: 'Baja energía' }
+  }
+
+  if (mode === 'alta') {
+    return { minutes: 75, title: 'Alta energía' }
+  }
+
+  return { minutes: 45, title: 'Media energía' }
+}
 
 export function CreateStudyBlockScreen() {
   const insets = useSafeAreaInsets()
   const { session } = useSession()
+  const { cycleData, loading: cycleLoading } = useCycle()
   const { showAlert, AlertComponent } = useCustomAlert()
   const [subject, setSubject] = useState('')
   const [dayOfWeek, setDayOfWeek] = useState(1)
@@ -50,6 +95,82 @@ export function CreateStudyBlockScreen() {
   const [showStartPicker, setShowStartPicker] = useState(false)
   const [showEndPicker, setShowEndPicker] = useState(false)
   const [aiLoading, setAiLoading] = useState(false)
+  const [moodValue, setMoodValue] = useState<number | null>(null)
+  const [energyLoading, setEnergyLoading] = useState(false)
+  const [energyError, setEnergyError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!session?.user.id) {
+      setMoodValue(null)
+      setEnergyError(null)
+      setEnergyLoading(false)
+      return
+    }
+
+    void (async () => {
+      try {
+        setEnergyLoading(true)
+        setEnergyError(null)
+
+        const { data, error } = await supabase
+          .from('mood_logs')
+          .select('mood, logged_date')
+          .eq('user_id', session.user.id)
+          .order('logged_date', { ascending: false })
+          .limit(1)
+          .maybeSingle<{ mood: number | null }>()
+
+        if (error) throw error
+        setMoodValue(typeof data?.mood === 'number' ? data.mood : null)
+      } catch (error) {
+        setMoodValue(null)
+        setEnergyError(
+          error instanceof Error ? error.message : 'No se pudieron cargar tus datos de energía'
+        )
+      } finally {
+        setEnergyLoading(false)
+      }
+    })()
+  }, [session?.user.id])
+
+  const energySuggestion = useMemo<EnergySuggestion>(() => {
+    let score = 2
+
+    if (typeof moodValue === 'number') {
+      if (moodValue <= 2) score -= 1
+      else if (moodValue >= 4) score += 1
+    }
+
+    if (cycleData?.phase === 'menstrual') {
+      score -= 1
+    } else if (cycleData?.phase === 'folicular' || cycleData?.phase === 'ovulatoria') {
+      score += 1
+    }
+
+    const mode: EnergyMode = score <= 1 ? 'baja' : score >= 4 ? 'alta' : 'media'
+    const template = getEnergyTemplate(mode)
+
+    const moodText =
+      typeof moodValue === 'number'
+        ? `Tu último ánimo fue ${moodValue}/5.`
+        : 'Sin registro reciente de ánimo.'
+
+    const cycleText = cycleData?.phase
+      ? `Fase de ciclo: ${cycleData.phase}.`
+      : 'Sin fase de ciclo disponible.'
+
+    return {
+      mode,
+      minutes: template.minutes,
+      title: template.title,
+      subtitle: `${moodText} ${cycleText}`,
+    }
+  }, [cycleData?.phase, moodValue])
+
+  const applyEnergyPlan = () => {
+    const nextEndTime = addMinutesToTime(normalizeTimeValue(startTime), energySuggestion.minutes)
+    setEndTime(nextEndTime)
+  }
 
   const handleAISuggestDuration = async () => {
     if (!subject.trim()) {
@@ -64,13 +185,15 @@ export function CreateStudyBlockScreen() {
     setAiLoading(true)
     try {
       const minutes = await suggestStudyDuration(subject)
-      const start = parseInt(startTime.split(':')[0])
-      const end = start + Math.floor(minutes / 60)
-      const mins = minutes % 60
-
-      setEndTime(`${String(end).padStart(2, '0')}:${String(mins).padStart(2, '0')}`)
+      const nextEndTime = addMinutesToTime(normalizeTimeValue(startTime), minutes)
+      setEndTime(nextEndTime)
     } catch (error) {
       console.error('AI suggestion error:', error)
+      showAlert({
+        title: 'No se pudo generar sugerencia',
+        message: 'No logramos calcular una duración con IA en este momento. Intenta nuevamente.',
+        buttons: [{ text: 'Aceptar', style: 'cancel' }],
+      })
     } finally {
       setAiLoading(false)
     }
@@ -233,6 +356,37 @@ export function CreateStudyBlockScreen() {
                 <Text className="ml-2 font-bold text-purple-700">Sugerir duración con IA</Text>
               </>
             )}
+          </TouchableOpacity>
+        </View>
+
+        {/* Energy lab */}
+        <View className="mt-4 rounded-3xl border-2 border-violet-200 bg-white p-4">
+          <View className="flex-row items-center justify-between">
+            <Text className="text-sm font-bold text-violet-900">Laboratorio de energía</Text>
+            {energyLoading || cycleLoading ? <ActivityIndicator size="small" color="#7c3aed" /> : null}
+          </View>
+
+          <Text className="mt-2 text-base font-extrabold text-violet-900">Modo recomendado: {energySuggestion.title}</Text>
+          <Text className="mt-1 text-xs font-semibold text-violet-700">{energySuggestion.subtitle}</Text>
+
+          {energyError ? (
+            <View className="mt-3 rounded-2xl border border-red-200 bg-red-50 p-3">
+              <Text className="text-xs font-semibold text-red-700">{energyError}</Text>
+            </View>
+          ) : null}
+
+          <View className="mt-3 rounded-2xl bg-violet-50 p-3">
+            <Text className="text-xs font-bold text-violet-700">Plantilla aplicada</Text>
+            <Text className="mt-1 text-sm font-semibold text-violet-900">
+              {energySuggestion.minutes} minutos ({energySuggestion.mode})
+            </Text>
+          </View>
+
+          <TouchableOpacity
+            className="mt-3 items-center rounded-2xl bg-violet-600 py-3 active:opacity-90"
+            onPress={applyEnergyPlan}
+          >
+            <Text className="font-extrabold text-white">Aplicar plan recomendado</Text>
           </TouchableOpacity>
         </View>
 

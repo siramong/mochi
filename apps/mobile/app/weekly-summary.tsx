@@ -9,14 +9,32 @@ import { useSession } from '@/src/core/providers/SessionContext'
 import { supabase } from '@/src/shared/lib/supabase'
 import { callAI } from '@/src/shared/lib/ai'
 
-export function WeeklySummaryScreen() {
-  const { session } = useSession()
-  const userId = session?.user.id
-  const captureViewRef = useRef<View | null>(null)
+type AtlasIntensity = 'Baja' | 'Media' | 'Alta'
 
-  const [loading, setLoading] = useState(true)
-  const [message, setMessage] = useState('')
-  const [stats, setStats] = useState({
+type AtlasWeek = {
+  key: string
+  startISO: string
+  endISO: string
+  sessions: number
+  exams: number
+  intensity: AtlasIntensity
+  recommendation: string
+  isCurrentWeek: boolean
+}
+
+type WeeklySummaryStats = {
+  studyHours: number
+  sessions: number
+  routines: number
+  habitsCompleted: number
+  habitsTotal: number
+  points: number
+  streak: number
+  moods: Array<number | null>
+}
+
+function createEmptyStats(): WeeklySummaryStats {
+  return {
     studyHours: 0,
     sessions: 0,
     routines: 0,
@@ -24,8 +42,60 @@ export function WeeklySummaryScreen() {
     habitsTotal: 0,
     points: 0,
     streak: 0,
-    moods: [] as Array<number | null>,
-  })
+    moods: [],
+  }
+}
+
+function toISODate(date: Date): string {
+  return date.toISOString().slice(0, 10)
+}
+
+function getMonday(date: Date): Date {
+  const monday = new Date(date)
+  const day = monday.getDay()
+  const diff = day === 0 ? -6 : 1 - day
+  monday.setDate(monday.getDate() + diff)
+  monday.setHours(0, 0, 0, 0)
+  return monday
+}
+
+function getWeekKeyByDate(dateISO: string): string {
+  const date = new Date(`${dateISO}T00:00:00`)
+  return toISODate(getMonday(date))
+}
+
+function getAtlasIntensity(sessions: number, exams: number): AtlasIntensity {
+  const score = sessions + exams * 2
+  if (score >= 10 || exams >= 2) return 'Alta'
+  if (score >= 5) return 'Media'
+  return 'Baja'
+}
+
+function getAtlasRecommendation(intensity: AtlasIntensity): string {
+  if (intensity === 'Alta') {
+    return 'Reduce sobrecarga con bloques más cortos y descansos programados.'
+  }
+
+  if (intensity === 'Media') {
+    return 'Mantén el ritmo y reserva un repaso profundo al final de la semana.'
+  }
+
+  return 'Aprovecha para adelantar materias clave con sesiones ligeras y constantes.'
+}
+
+export function WeeklySummaryScreen() {
+  const { session } = useSession()
+  const userId = session?.user.id
+  const captureViewRef = useRef<View | null>(null)
+
+  const [loading, setLoading] = useState(true)
+  const [message, setMessage] = useState('')
+  const [stats, setStats] = useState<WeeklySummaryStats>(createEmptyStats)
+  const [atlasWeeks, setAtlasWeeks] = useState<AtlasWeek[]>([])
+  const [atlasLoading, setAtlasLoading] = useState(true)
+  const [atlasError, setAtlasError] = useState<string | null>(null)
+  const [summaryError, setSummaryError] = useState<string | null>(null)
+  const [shareError, setShareError] = useState<string | null>(null)
 
   const range = useMemo(() => {
     const now = new Date()
@@ -44,6 +114,23 @@ export function WeeklySummaryScreen() {
     }
   }, [])
 
+  const atlasRange = useMemo(() => {
+    const currentMonday = getMonday(new Date())
+    const atlasStart = new Date(currentMonday)
+    atlasStart.setDate(currentMonday.getDate() - 15 * 7)
+
+    const atlasEnd = new Date(currentMonday)
+    atlasEnd.setDate(currentMonday.getDate() + 6)
+
+    return {
+      start: atlasStart,
+      end: atlasEnd,
+      startISO: toISODate(atlasStart),
+      endISO: toISODate(atlasEnd),
+      currentWeekKey: toISODate(currentMonday),
+    }
+  }, [])
+
   useFocusEffect(
     useCallback(() => {
       if (!userId) {
@@ -53,11 +140,17 @@ export function WeeklySummaryScreen() {
 
       async function loadSummary() {
         setLoading(true)
+        setAtlasLoading(true)
+        setAtlasError(null)
+        setSummaryError(null)
 
         const nextDay = new Date(range.end)
         nextDay.setDate(nextDay.getDate() + 1)
 
-        const [studyRes, sessionsRes, routineRes, habitsRes, habitsCountRes, gratitudeRes, streakRes, moodRes] = await Promise.all([
+        const atlasNextDay = new Date(atlasRange.end)
+        atlasNextDay.setDate(atlasRange.end.getDate() + 1)
+
+        const [studyRes, sessionsRes, routineRes, habitsRes, habitsCountRes, gratitudeRes, streakRes, moodRes, atlasSessionsRes, atlasExamsRes] = await Promise.all([
           supabase
             .from('study_sessions')
             .select('duration_seconds')
@@ -96,7 +189,39 @@ export function WeeklySummaryScreen() {
             .eq('user_id', userId)
             .gte('logged_date', range.startISO)
             .lte('logged_date', range.endISO),
+          supabase
+            .from('study_sessions')
+            .select('completed_at')
+            .eq('user_id', userId)
+            .gte('completed_at', atlasRange.start.toISOString())
+            .lt('completed_at', atlasNextDay.toISOString()),
+          supabase
+            .from('exam_logs')
+            .select('exam_date')
+            .eq('user_id', userId)
+            .gte('exam_date', atlasRange.startISO)
+            .lte('exam_date', atlasRange.endISO),
         ])
+
+        const baseError =
+          studyRes.error ??
+          sessionsRes.error ??
+          routineRes.error ??
+          habitsRes.error ??
+          habitsCountRes.error ??
+          gratitudeRes.error ??
+          streakRes.error ??
+          moodRes.error
+
+        if (baseError) {
+          setSummaryError(baseError.message ?? 'No se pudo cargar el resumen semanal')
+          setStats(createEmptyStats())
+          setMessage('')
+          setAtlasWeeks([])
+          setAtlasLoading(false)
+          setLoading(false)
+          return
+        }
 
         const studyHours = (((studyRes.data as Array<{ duration_seconds: number }> | null) ?? []).reduce((sum, row) => sum + row.duration_seconds, 0) / 3600)
         const sessions = sessionsRes.count ?? 0
@@ -127,6 +252,56 @@ export function WeeklySummaryScreen() {
           moods: moodDots,
         })
 
+        try {
+          if (atlasSessionsRes.error) throw atlasSessionsRes.error
+          if (atlasExamsRes.error) throw atlasExamsRes.error
+
+          const sessionsByWeek = new Map<string, number>()
+          ;((atlasSessionsRes.data as Array<{ completed_at: string }> | null) ?? []).forEach((row) => {
+            const sessionDate = row.completed_at.slice(0, 10)
+            const weekKey = getWeekKeyByDate(sessionDate)
+            sessionsByWeek.set(weekKey, (sessionsByWeek.get(weekKey) ?? 0) + 1)
+          })
+
+          const examsByWeek = new Map<string, number>()
+          ;((atlasExamsRes.data as Array<{ exam_date: string }> | null) ?? []).forEach((row) => {
+            const weekKey = getWeekKeyByDate(row.exam_date)
+            examsByWeek.set(weekKey, (examsByWeek.get(weekKey) ?? 0) + 1)
+          })
+
+          const weeks: AtlasWeek[] = []
+          for (let index = 0; index < 16; index += 1) {
+            const weekStart = new Date(atlasRange.start)
+            weekStart.setDate(atlasRange.start.getDate() + index * 7)
+
+            const weekEnd = new Date(weekStart)
+            weekEnd.setDate(weekStart.getDate() + 6)
+
+            const weekKey = toISODate(weekStart)
+            const sessions = sessionsByWeek.get(weekKey) ?? 0
+            const exams = examsByWeek.get(weekKey) ?? 0
+            const intensity = getAtlasIntensity(sessions, exams)
+
+            weeks.push({
+              key: weekKey,
+              startISO: weekKey,
+              endISO: toISODate(weekEnd),
+              sessions,
+              exams,
+              intensity,
+              recommendation: getAtlasRecommendation(intensity),
+              isCurrentWeek: weekKey === atlasRange.currentWeekKey,
+            })
+          }
+
+          setAtlasWeeks(weeks)
+        } catch {
+          setAtlasWeeks([])
+          setAtlasError('No se pudo construir el atlas del semestre')
+        } finally {
+          setAtlasLoading(false)
+        }
+
         const aiPrompt = `Resumen semanal de estudiante:\nHoras estudio: ${Number(studyHours.toFixed(1))}\nSesiones: ${sessions}\nRutinas: ${routines}\nHábitos: ${habitsCompleted}/${habitsTotal}\nPuntos: ${points}\nRacha: ${(streakRes.data as { longest_streak: number } | null)?.longest_streak ?? 0}\n\nEscribe un mensaje motivador de 2 a 3 líneas, cálido y en español.`
 
         try {
@@ -140,15 +315,28 @@ export function WeeklySummaryScreen() {
       }
 
       void loadSummary()
-    }, [range.end, range.endISO, range.start, range.startISO, userId])
+    }, [atlasRange.currentWeekKey, atlasRange.end, atlasRange.endISO, atlasRange.start, atlasRange.startISO, range.end, range.endISO, range.start, range.startISO, userId])
   )
 
   const shareSummary = async () => {
-    if (!captureViewRef.current) return
-    const uri = await captureRef(captureViewRef, { format: 'png', quality: 1 })
-    const canShare = await Sharing.isAvailableAsync()
-    if (canShare) {
+    if (!captureViewRef.current) {
+      setShareError('No se pudo preparar la imagen para compartir. Intenta de nuevo.')
+      return
+    }
+
+    try {
+      setShareError(null)
+      const uri = await captureRef(captureViewRef, { format: 'png', quality: 1 })
+      const canShare = await Sharing.isAvailableAsync()
+
+      if (!canShare) {
+        setShareError('Este dispositivo no permite compartir desde esta pantalla.')
+        return
+      }
+
       await Sharing.shareAsync(uri)
+    } catch {
+      setShareError('No se pudo compartir el resumen. Intenta nuevamente.')
     }
   }
 
@@ -164,6 +352,20 @@ export function WeeklySummaryScreen() {
       <SafeAreaView className="flex-1 items-center justify-center bg-indigo-50">
         <ActivityIndicator size="large" color="#6366f1" />
         <Text className="mt-3 text-sm font-semibold text-indigo-700">Preparando tu resumen semanal...</Text>
+      </SafeAreaView>
+    )
+  }
+
+  if (summaryError) {
+    return (
+      <SafeAreaView className="flex-1 items-center justify-center bg-indigo-50 px-6">
+        <View className="w-full rounded-2xl border border-red-200 bg-red-50 p-4">
+          <Text className="text-base font-extrabold text-red-700">No pudimos cargar tu resumen semanal</Text>
+          <Text className="mt-2 text-sm font-semibold text-red-700">{summaryError}</Text>
+          <Text className="mt-2 text-xs font-semibold text-red-600">
+            Intenta abrir esta pantalla nuevamente en unos segundos.
+          </Text>
+        </View>
       </SafeAreaView>
     )
   }
@@ -201,6 +403,51 @@ export function WeeklySummaryScreen() {
           </View>
         </View>
 
+        <View className="mt-4 rounded-2xl border border-violet-200 bg-white p-3">
+          <Text className="text-base font-extrabold text-violet-900">Atlas de semestre</Text>
+          <Text className="mt-1 text-xs font-semibold text-violet-700">16 semanas de carga y presión académica</Text>
+
+          {atlasLoading ? (
+            <View className="items-center py-4">
+              <ActivityIndicator size="small" color="#7c3aed" />
+              <Text className="mt-2 text-xs font-semibold text-violet-700">Cargando atlas...</Text>
+            </View>
+          ) : null}
+
+          {atlasError ? (
+            <View className="mt-3 rounded-xl border border-red-200 bg-red-50 p-2">
+              <Text className="text-xs font-semibold text-red-700">{atlasError}</Text>
+            </View>
+          ) : null}
+
+          {!atlasLoading && !atlasError ? (
+            <View className="mt-3">
+              {atlasWeeks.map((week) => (
+                <View
+                  key={week.key}
+                  className={`mb-2 rounded-xl border p-2 ${week.isCurrentWeek ? 'border-violet-400 bg-violet-50' : 'border-violet-100 bg-violet-50'}`}
+                >
+                  <View className="flex-row items-center justify-between">
+                    <Text className="text-xs font-bold text-violet-900">
+                      Semana {week.startISO} - {week.endISO}
+                    </Text>
+                    <View
+                      className={`rounded-full px-2 py-1 ${week.intensity === 'Alta' ? 'bg-rose-100' : week.intensity === 'Media' ? 'bg-amber-100' : 'bg-emerald-100'}`}
+                    >
+                      <Text className="text-[10px] font-bold text-slate-800">{week.intensity}</Text>
+                    </View>
+                  </View>
+
+                  <Text className="mt-1 text-[11px] font-semibold text-violet-800">
+                    Sesiones: {week.sessions} · Exámenes: {week.exams}
+                  </Text>
+                  <Text className="mt-1 text-[11px] font-semibold text-violet-700">{week.recommendation}</Text>
+                </View>
+              ))}
+            </View>
+          ) : null}
+        </View>
+
         <View
           ref={(node) => {
             captureViewRef.current = node
@@ -217,6 +464,12 @@ export function WeeklySummaryScreen() {
         <TouchableOpacity className="mb-10 mt-4 items-center rounded-2xl bg-indigo-600 py-3" onPress={() => { void shareSummary() }}>
           <Text className="font-bold text-white">Compartir resumen</Text>
         </TouchableOpacity>
+
+        {shareError ? (
+          <View className="mb-10 rounded-2xl border border-red-200 bg-red-50 p-3">
+            <Text className="text-center text-sm font-semibold text-red-700">{shareError}</Text>
+          </View>
+        ) : null}
       </ScrollView>
     </SafeAreaView>
   )
