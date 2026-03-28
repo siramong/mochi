@@ -115,3 +115,56 @@ mochi/
 - Keep components small — extract logic into custom hooks.
 - Always handle loading, error and empty states.
 - The app targets women — copy must be warm, encouraging and positive.
+
+---
+
+## Agent System
+
+Para tareas complejas, bugs o decisiones técnicas, invoca el agente correcto desde `.github/agents/`. Todos los agentes conocen el stack y las convenciones de Mochi.
+
+### Cuándo usar cada agente
+
+| Situación | Agente a invocar |
+|-----------|-----------------|
+| No sé por dónde empezar una tarea grande | `@mochi-orchestrator` |
+| Feature que toca 2+ archivos o requiere una tabla nueva | `@mochi-planner` |
+| Duda de arquitectura o diseño de schema | `@mochi-architect` |
+| Trabajo en `apps/web` | `@mochi-web-dev` |
+| Trabajo en `apps/mobile` | `@mochi-mobile-dev` |
+| Migración SQL, RLS o RPC en Supabase | `@mochi-database` |
+| Feature con IA (OpenRouter, prompts, parsing) | `@mochi-ai-integration` |
+| Diseño de pantalla nueva o decisión de UX | `@mochi-design` |
+| Verificar edge cases y flujos de error | `@mochi-qa` |
+| Revisar código generado antes de commit | `@mochi-reviewer` |
+| Feature que atraviesa 3+ agentes a la vez | `@mochi-coordinator` |
+| Problema de CI/CD, EAS build o Vercel | `@mochi-devops` |
+| La app está lenta o el bundle creció | `@mochi-optimizer` |
+| Evaluar si una feature vale la pena construirla | `@mochi-product` |
+| Brainstorming de features nuevas e innovadoras | `@mochi-creative` |
+| Un agente produce output de baja calidad repetidamente | `@mochi-prompt-engineer` |
+
+### Flujo recomendado por tipo de tarea
+
+```
+Bug reportado
+  └── @mochi-reviewer (diagnosis) → agente del área → @mochi-qa
+
+Feature pequeña (1 archivo, sin DB)
+  └── agente del área directamente
+
+Feature mediana (2-3 archivos, posible tabla nueva)
+  └── @mochi-planner → agente del área → @mochi-qa
+
+Feature grande (múltiples módulos, nueva tabla, web + mobile)
+  └── @mochi-orchestrator
+        ├── @mochi-planner
+        ├── @mochi-architect
+        ├── @mochi-database (primero — el schema bloquea todo)
+        ├── @mochi-web-dev + @mochi-mobile-dev (paralelos)
+        ├── @mochi-qa
+        └── @mochi-reviewer
+```
+
+### Reglas de los agentes (heredan las reglas globales)
+
+Todos los agentes en `.github/agents/` siguen las mismas convenciones técnicas de este archivo. Si hay contradicción entre un agente y este archivo, **este archivo gana**. Para corregir un agente, invocar `@mochi-prompt-engineer`.
