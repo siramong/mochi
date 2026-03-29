@@ -62,15 +62,6 @@ jobs:
       - name: Gate 3 - Build validation (Expo export Android)
         run: pnpm --filter mochi-mobile exec expo export --platform android --output-dir .expo-export/android --clear
 
-      - name: Upload gate bundle trace
-        if: always()
-        uses: actions/upload-artifact@v5
-        with:
-          name: mobile-gate-export-${{ github.run_number }}.${{ github.run_attempt }}
-          path: apps/mobile/.expo-export/android
-          if-no-files-found: ignore
-          retention-days: 7
-
   build-production-apk:
     name: Build + Draft Release (Android APK)
     runs-on: ubuntu-latest
@@ -160,19 +151,6 @@ jobs:
             fi
           } > apps/mobile/release-notes.md
 
-      - name: Upload APK and build logs (traceability)
-        if: always()
-        uses: actions/upload-artifact@v5
-        with:
-          name: mobile-apk-trace-${{ steps.meta.outputs.release_tag || github.run_id }}
-          path: |
-            apps/mobile/${{ github.event.inputs.artifactName }}.apk
-            apps/mobile/eas-build.log
-            apps/mobile/changelog.md
-            apps/mobile/release-notes.md
-          if-no-files-found: ignore
-          retention-days: 14
-
       - name: Create GitHub draft release
         id: gh_release
         uses: softprops/action-gh-release@v2
@@ -198,8 +176,5 @@ jobs:
             echo "### Qué revisar"
             echo "- Permisos de contents:write y GITHUB_TOKEN"
             echo "- Colisión de tag: ${{ steps.meta.outputs.release_tag }}"
-            echo "- Logs de EAS y metadata en artifacts del run"
-            echo
-            echo "### Artefactos de fallback"
-            echo "- APK y logs: mobile-apk-trace-*"
+            echo "- Logs del job Build Production APK (EAS local) y del paso Create GitHub draft release"
           } >> "$GITHUB_STEP_SUMMARY"
