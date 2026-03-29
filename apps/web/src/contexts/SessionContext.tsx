@@ -17,6 +17,27 @@ type SessionProviderProps = {
   children: ReactNode
 }
 
+const SESSION_TIMEOUT_MS = 8000
+const PROFILE_TIMEOUT_MS = 8000
+
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, timeoutMessage: string): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined
+
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      reject(new Error(timeoutMessage))
+    }, timeoutMs)
+  })
+
+  try {
+    return (await Promise.race([promise, timeoutPromise])) as T
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId)
+    }
+  }
+}
+
 async function fetchOnboardingStatus(userId: string): Promise<boolean> {
   const { data, error } = await supabase
     .from('profiles')
@@ -41,10 +62,15 @@ export function SessionProvider({ children }: SessionProviderProps) {
     if (!session?.user.id) return
 
     try {
-      const needsOnboarding = await fetchOnboardingStatus(session.user.id)
+      const needsOnboarding = await withTimeout(
+        fetchOnboardingStatus(session.user.id),
+        PROFILE_TIMEOUT_MS,
+        'Tiempo de espera agotado al cargar perfil',
+      )
       setRequiresOnboarding(needsOnboarding)
       setProfileError(null)
     } catch (error) {
+      setRequiresOnboarding(false)
       setProfileError(error instanceof Error ? error.message : 'Error cargando perfil')
     }
   }, [session?.user.id])
@@ -61,7 +87,11 @@ export function SessionProvider({ children }: SessionProviderProps) {
       try {
         const {
           data: { session: initialSession },
-        } = await supabase.auth.getSession()
+        } = await withTimeout(
+          supabase.auth.getSession(),
+          SESSION_TIMEOUT_MS,
+          'Tiempo de espera agotado al cargar sesión',
+        )
 
         if (!mounted) return
 
@@ -69,13 +99,18 @@ export function SessionProvider({ children }: SessionProviderProps) {
 
         if (initialSession?.user.id) {
           try {
-            const needsOnboarding = await fetchOnboardingStatus(initialSession.user.id)
+            const needsOnboarding = await withTimeout(
+              fetchOnboardingStatus(initialSession.user.id),
+              PROFILE_TIMEOUT_MS,
+              'Tiempo de espera agotado al cargar perfil',
+            )
             if (mounted) {
               setRequiresOnboarding(needsOnboarding)
               setProfileError(null)
             }
           } catch (error) {
             if (mounted) {
+              setRequiresOnboarding(false)
               setProfileError(error instanceof Error ? error.message : 'Error cargando perfil')
             }
           }
@@ -109,13 +144,18 @@ export function SessionProvider({ children }: SessionProviderProps) {
       }
 
       try {
-        const needsOnboarding = await fetchOnboardingStatus(nextSession.user.id)
+        const needsOnboarding = await withTimeout(
+          fetchOnboardingStatus(nextSession.user.id),
+          PROFILE_TIMEOUT_MS,
+          'Tiempo de espera agotado al cargar perfil',
+        )
         if (mounted) {
           setRequiresOnboarding(needsOnboarding)
           setProfileError(null)
         }
       } catch (error) {
         if (mounted) {
+          setRequiresOnboarding(false)
           setProfileError(error instanceof Error ? error.message : 'Error cargando perfil')
         }
       }

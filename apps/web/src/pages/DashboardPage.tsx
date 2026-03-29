@@ -24,6 +24,28 @@ type ProgressData = {
 export function DashboardPage() {
   const { session } = useSession()
   const { phase, dayOfCycle, daysUntilNextPeriod } = useCyclePhase()
+  const DASHBOARD_TIMEOUT_MS = 12000
+  const isCycleInfoUnavailable = phase === 'unknown' || dayOfCycle <= 0
+  const phaseLabel = phase === 'unknown' ? 'Desconocido' : phase
+
+  async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, errorMessage: string): Promise<T> {
+    let timer: ReturnType<typeof setTimeout> | null = null
+
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => {
+        reject(new Error(errorMessage))
+      }, timeoutMs)
+    })
+
+    try {
+      return await Promise.race([promise, timeoutPromise])
+    } finally {
+      if (timer) {
+        clearTimeout(timer)
+      }
+    }
+  }
+
   const [stats, setStats] = useState<DashboardStats>({
     todayBlocks: 0,
     routines: 0,
@@ -66,7 +88,7 @@ export function DashboardPage() {
         weekAgo.setDate(weekAgo.getDate() - 6)
 
         const [blocksRes, routinesRes, habitsRes, moodRes, profileRes, streakRes, lastAchievementRes] =
-          await Promise.allSettled([
+          await withTimeout(Promise.allSettled([
             supabase
               .from('study_blocks')
               .select('id', { count: 'exact', head: true })
@@ -92,7 +114,7 @@ export function DashboardPage() {
               .order('unlocked_at', { ascending: false })
               .limit(1)
               .maybeSingle<{ unlocked_at: string; achievement: { title: string } }>(),
-          ])
+              ]), DASHBOARD_TIMEOUT_MS, 'Tiempo de espera agotado al cargar el dashboard')
 
         const now = new Date()
         const isMonday = now.getDay() === 1
@@ -102,7 +124,7 @@ export function DashboardPage() {
         const weekEnd = new Date(weekStart)
         weekEnd.setDate(weekStart.getDate() + 7)
 
-        const [weeklyStudyRes, weeklySessionsRes, weeklyRoutinesRes, weeklyHabitsRes, habitsCountRes, weeklyGratitudeRes] = await Promise.allSettled([
+        const [weeklyStudyRes, weeklySessionsRes, weeklyRoutinesRes, weeklyHabitsRes, habitsCountRes, weeklyGratitudeRes] = await withTimeout(Promise.allSettled([
           supabase
             .from('study_sessions')
             .select('duration_seconds, completed_at')
@@ -134,7 +156,7 @@ export function DashboardPage() {
             .eq('user_id', userId)
             .gte('logged_date', weekStart.toISOString().slice(0, 10))
             .lt('logged_date', weekEnd.toISOString().slice(0, 10)),
-        ])
+          ]), DASHBOARD_TIMEOUT_MS, 'Tiempo de espera agotado al cargar el dashboard')
 
         if (!isActive) return
 
@@ -325,8 +347,12 @@ export function DashboardPage() {
 
       <div className="mt-6 rounded-3xl border border-rose-200 bg-white p-4">
         <p className="text-xs font-bold uppercase text-rose-700">Tu fase actual</p>
-        <p className="mt-1 text-lg font-black text-rose-950">{phase}</p>
-        <p className="text-sm font-semibold text-rose-700">Día {dayOfCycle} del ciclo · Próximo período en {daysUntilNextPeriod} días</p>
+        <p className="mt-1 text-lg font-black text-rose-950">{phaseLabel}</p>
+        <p className="text-sm font-semibold text-rose-700">
+          {isCycleInfoUnavailable
+            ? 'Registra tu periodo para ver esta información'
+            : `Día ${dayOfCycle} del ciclo · Próximo período en ${daysUntilNextPeriod} días`}
+        </p>
       </div>
 
       <div className="mt-6 rounded-3xl border border-indigo-200 bg-white p-5">

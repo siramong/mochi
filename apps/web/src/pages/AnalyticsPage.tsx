@@ -58,6 +58,21 @@ const HEAT_LEVEL_COLORS: Record<HeatmapCell['level'], string> = {
   4: '#059669',
 }
 
+const HABIT_BAR_COLORS: Record<string, string> = {
+  pink: '#F9A8D4',
+  yellow: '#FDE68A',
+  blue: '#93C5FD',
+  teal: '#99F6E4',
+  purple: '#C4B5FD',
+}
+
+const HABIT_BAR_FALLBACK_COLOR = HABIT_BAR_COLORS.teal
+
+function resolveHabitBarColor(colorToken?: string): string {
+  if (!colorToken) return HABIT_BAR_FALLBACK_COLOR
+  return HABIT_BAR_COLORS[colorToken.toLowerCase()] ?? HABIT_BAR_FALLBACK_COLOR
+}
+
 function startOfDay(date: Date): Date {
   const clone = new Date(date)
   clone.setHours(0, 0, 0, 0)
@@ -206,7 +221,7 @@ export function AnalyticsPage() {
             .returns<Habit[]>(),
           supabase
             .from('habit_logs')
-            .select('id, user_id, habit_id, log_date, created_at')
+            .select('id, user_id, habit_id, log_date')
             .eq('user_id', userId)
             .gte('log_date', since90ISODate)
             .lte('log_date', todayISO)
@@ -609,13 +624,26 @@ export function AnalyticsPage() {
                 <div className="mt-2 h-72 rounded-2xl border border-emerald-100 bg-emerald-50/40 p-2">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={habitFrequency30.slice(0, 8)}>
-                      <CartesianGrid strokeDasharray="3 3" />
+                      <CartesianGrid stroke="#D1D5DB" strokeDasharray="4 4" vertical={false} />
                       <XAxis dataKey="name" hide />
-                      <YAxis />
-                      <Tooltip />
+                      <YAxis
+                        axisLine={{ stroke: '#CBD5E1' }}
+                        tickLine={{ stroke: '#CBD5E1' }}
+                        tick={{ fill: '#64748B', fontSize: 12 }}
+                      />
+                      <Tooltip
+                        cursor={{ fill: '#ECFDF5' }}
+                        contentStyle={{
+                          backgroundColor: '#FFFFFF',
+                          border: '1px solid #D1FAE5',
+                          borderRadius: 12,
+                        }}
+                        labelStyle={{ color: '#064E3B', fontWeight: 700 }}
+                        itemStyle={{ color: '#065F46', fontWeight: 600 }}
+                      />
                       <Bar dataKey="completions30" radius={[8, 8, 0, 0]}>
                         {habitFrequency30.slice(0, 8).map((habit) => (
-                          <Cell key={habit.id} fill={habit.color || '#10b981'} />
+                          <Cell key={habit.id} fill={resolveHabitBarColor(habit.color)} />
                         ))}
                       </Bar>
                     </BarChart>
@@ -639,10 +667,10 @@ export function AnalyticsPage() {
             {habitLogs90.length === 0 ? (
               <p className="mt-2 text-sm font-semibold text-emerald-700">Aún no hay registros para construir el heatmap.</p>
             ) : (
-              <div className="mt-2 overflow-x-auto rounded-2xl border border-emerald-100 bg-emerald-50/40 p-3">
-                <div className="inline-flex gap-1">
+              <div className="mt-2 overflow-x-auto rounded-2xl border border-emerald-100 bg-emerald-50/40 px-3 py-4">
+                <div className="mx-auto inline-flex min-w-max gap-1.5">
                   {habitHeatmapWeeks.map((week, weekIndex) => (
-                    <div key={`week-${weekIndex}`} className="grid grid-rows-7 gap-1">
+                    <div key={`week-${weekIndex}`} className="grid grid-rows-7 gap-1.5">
                       {week.map((day) => {
                         const cell = heatmapByDate.get(day)
                         const color = HEAT_LEVEL_COLORS[cell?.level ?? 0]
@@ -651,7 +679,7 @@ export function AnalyticsPage() {
                         return (
                           <span
                             key={day}
-                            className="h-3 w-3 rounded-[3px]"
+                            className="h-3.5 w-3.5 rounded-[4px]"
                             style={{ backgroundColor: color }}
                             title={`${day}: ${count} hábitos completados`}
                           />
@@ -666,7 +694,7 @@ export function AnalyticsPage() {
                   {[0, 1, 2, 3, 4].map((level) => (
                     <span
                       key={level}
-                      className="h-3 w-3 rounded-[3px]"
+                      className="h-3.5 w-3.5 rounded-[4px]"
                       style={{ backgroundColor: HEAT_LEVEL_COLORS[level as HeatmapCell['level']] }}
                     />
                   ))}

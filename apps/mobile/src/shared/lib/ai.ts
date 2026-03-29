@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import Constants from "expo-constants";
 import {
   AIError,
   askMochiWhileCooking as sharedAskMochiWhileCooking,
@@ -39,7 +40,22 @@ export {
   parseAIJson,
 };
 
-const OPENROUTER_KEY = process.env.EXPO_PUBLIC_OPENROUTER_API_KEY || "";
+function resolveOpenRouterKey(): string {
+  const envKey = process.env.EXPO_PUBLIC_OPENROUTER_API_KEY?.trim();
+  if (envKey) return envKey;
+
+  const extra = Constants.expoConfig?.extra as
+    | { openrouterApiKey?: unknown }
+    | undefined;
+  const extraKey =
+    typeof extra?.openrouterApiKey === "string"
+      ? extra.openrouterApiKey.trim()
+      : "";
+
+  return extraKey;
+}
+
+const OPENROUTER_KEY = resolveOpenRouterKey();
 
 if (OPENROUTER_KEY) {
   createAIClient(OPENROUTER_KEY);

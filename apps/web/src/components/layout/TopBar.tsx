@@ -22,7 +22,17 @@ export function TopBar() {
       </div>
 
       <div className="hidden xl:block">
-        <MochiCompanion mood="happy" size={42} title="Mochi" message="Contigo hoy" />
+        <div className="rounded-2xl border border-pink-100 bg-gradient-to-br from-pink-50 via-purple-50 to-blue-50 px-3 py-2 shadow-sm">
+          <div className="flex items-center gap-3">
+            <MochiCompanion mood="happy" size={42} title="Mochi" message="Contigo hoy" />
+            <div className="max-w-[180px]">
+              <p className="text-xs font-bold text-purple-800">Mochi te acompaña</p>
+              <p className="text-[11px] font-medium leading-snug text-purple-700">
+                Un paso a la vez. Lo estás haciendo muy bien.
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div className="flex items-center gap-3">

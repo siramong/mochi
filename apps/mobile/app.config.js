@@ -3,6 +3,8 @@ const withMochiHealthConnectPermissionDelegate = require('./plugins/with-mochi-h
 module.exports = ({ config }) => {
   const baseConfig = config
   const basePlugins = Array.isArray(baseConfig.plugins) ? baseConfig.plugins : []
+  const baseExtra =
+    baseConfig.extra && typeof baseConfig.extra === 'object' ? baseConfig.extra : {}
 
   const plugins = basePlugins.filter((plugin) => {
     if (typeof plugin !== 'string') return true
@@ -11,6 +13,10 @@ module.exports = ({ config }) => {
 
   return {
     ...baseConfig,
+    extra: {
+      ...baseExtra,
+      openrouterApiKey: process.env.EXPO_PUBLIC_OPENROUTER_API_KEY ?? null,
+    },
     plugins: [...plugins, withMochiHealthConnectPermissionDelegate],
   }
 }
