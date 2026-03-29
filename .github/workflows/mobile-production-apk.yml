@@ -26,7 +26,6 @@ concurrency:
 env:
   EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
   NODE_VERSION: "20"
-  PNPM_VERSION: "10.32.1"
   EAS_CLI_VERSION: "16.26.0"
 
 jobs:
@@ -38,17 +37,15 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v5
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
-          run_install: false
-
       - name: Setup Node.js
         uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
+
+      - name: Enable Corepack (pnpm from packageManager)
+        run: |
+          corepack enable
+          corepack prepare "$(node -p \"require('./package.json').packageManager\")" --activate
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -73,17 +70,15 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
-          run_install: false
-
       - name: Setup Node.js
         uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
+
+      - name: Enable Corepack (pnpm from packageManager)
+        run: |
+          corepack enable
+          corepack prepare "$(node -p \"require('./package.json').packageManager\")" --activate
 
       - name: Setup Java 17 (Android local build)
         uses: actions/setup-java@v4
