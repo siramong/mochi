@@ -26,7 +26,7 @@ concurrency:
 env:
   EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
   NODE_VERSION: "20"
-  EAS_CLI_VERSION: "16.26.0"
+  EAS_CLI_VERSION: "18.4.0"
 
 jobs:
   quality-gates:
@@ -55,7 +55,7 @@ jobs:
       - name: Gate 1 - Lint/format check (mobile)
         id: prettier_check
         continue-on-error: true
-        run: corepack pnpm --filter mochi-mobile exec prettier --write "**/*.{ts,tsx}""
+        run: corepack pnpm --filter mochi-mobile exec prettier --write "**/*.{ts,tsx}"
 
       - name: Gate 1 summary (format)
         if: always()
