@@ -34,7 +34,6 @@
     "expo-web-browser": "~55.0.2",
     "nativewind": "^4.2.3",
     "openai": "^6.32.0",
-    "prettier": "^3.8.1",
     "react": "19.2.4",
     "react-native": "0.83.2",
     "react-native-css-interop": "^0.2.3",
@@ -50,6 +49,7 @@
     "@types/react": "~19.2.2",
     "babel-plugin-module-resolver": "^5.0.3",
     "babel-preset-expo": "^55.0.11",
+    "prettier": "^3.8.1",
     "prettier-plugin-tailwindcss": "^0.5.11",
     "tailwindcss": "^3.4.17",
     "typescript": "~5.9.2"
