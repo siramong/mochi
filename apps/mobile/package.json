@@ -17,6 +17,7 @@
     "@react-native-community/datetimepicker": "^8.6.0",
     "@react-navigation/native": "^7.1.33",
     "@supabase/supabase-js": "^2.99.2",
+    "eas-cli": "^18.4.0",
     "expo": "~55.0.7",
     "expo-build-properties": "^55.0.10",
     "expo-constants": "~55.0.9",
