@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Eye, EyeOff, Loader2 } from 'lucide-react'
+import { CheckCircle2, Eye, EyeOff, Loader2 } from 'lucide-react'
+import { getAuthCallbackUrl, POST_AUTH_REDIRECT_PATH } from '@/lib/auth-redirect'
 import { supabase } from '@/lib/supabase'
 import { useSession } from '@/hooks/useSession'
 
@@ -49,7 +50,7 @@ function EmailSentScreen({ email, onBack }: EmailSentScreenProps) {
             transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
             className="mx-auto mb-4 inline-flex items-center justify-center h-16 w-16 rounded-2xl bg-purple-100"
           >
-            <span className="text-2xl">✓</span>
+            <CheckCircle2 className="h-9 w-9 text-purple-700" />
           </motion.div>
 
           <h2 className="mt-4 text-2xl font-extrabold text-purple-900">¡Revisa tu correo!</h2>
@@ -99,7 +100,7 @@ export function LoginPage() {
   }
 
   if (session) {
-    return <Navigate to="/dashboard" replace />
+    return <Navigate to={POST_AUTH_REDIRECT_PATH} replace />
   }
 
   function resetForm() {
@@ -181,7 +182,7 @@ export function LoginPage() {
     setErrors({})
 
     try {
-      const redirectTo = `${window.location.origin}/auth/callback`
+      const redirectTo = getAuthCallbackUrl()
 
       const { error } = await supabase.auth.signUp({
         email,
@@ -211,7 +212,7 @@ export function LoginPage() {
     setErrors({})
 
     try {
-      const redirectTo = `${window.location.origin}/auth/callback`
+      const redirectTo = getAuthCallbackUrl()
 
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
