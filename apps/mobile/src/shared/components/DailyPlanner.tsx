@@ -1,25 +1,30 @@
-import { Text, View, ScrollView, Pressable } from 'react-native'
-import { useEnergyDaily } from '@/src/shared/hooks/useEnergyDaily'
-import { useTodaysPlannedTasks } from '@/src/shared/hooks/useTodaysPlannedTasks'
-import { scoreTodaysTasks } from '@/src/shared/lib/plannerLogic'
-import { useCyclePhase } from '@/src/shared/hooks/useCyclePhase'
-import { useStreaks } from '@/src/shared/hooks/useStreaks'
-import { router } from 'expo-router'
+import { Text, View, ScrollView, Pressable } from "react-native";
+import { useEnergyDaily } from "@/src/shared/hooks/useEnergyDaily";
+import { useTodaysPlannedTasks } from "@/src/shared/hooks/useTodaysPlannedTasks";
+import { scoreTodaysTasks } from "@/src/shared/lib/plannerLogic";
+import { useCyclePhase } from "@/src/shared/hooks/useCyclePhase";
+import { useStreaks } from "@/src/shared/hooks/useStreaks";
+import { router } from "expo-router";
 
 export function DailyPlanner() {
-  const { todayEnergy, isLoading: energyLoading } = useEnergyDaily()
-  const { tasks, isLoading: tasksLoading } = useTodaysPlannedTasks()
-  const cyclePhase = useCyclePhase()
-  const { currentStreak } = useStreaks()
+  const { todayEnergy, isLoading: energyLoading } = useEnergyDaily();
+  const { tasks, isLoading: tasksLoading } = useTodaysPlannedTasks();
+  const cyclePhase = useCyclePhase();
+  const { currentStreak } = useStreaks();
 
-  const scores = scoreTodaysTasks(todayEnergy, cyclePhase, currentStreak, tasks)
+  const scores = scoreTodaysTasks(
+    todayEnergy,
+    cyclePhase,
+    currentStreak,
+    tasks,
+  );
 
   if (energyLoading || tasksLoading) {
     return (
       <View className="bg-pink-100 rounded-3xl p-4 mb-4">
         <Text className="text-center text-gray-500 text-sm">Cargando...</Text>
       </View>
-    )
+    );
   }
 
   if (scores.length === 0) {
@@ -32,7 +37,7 @@ export function DailyPlanner() {
           No hay tareas planificadas para hoy. ¡Descansa o crea una nueva tarea!
         </Text>
       </View>
-    )
+    );
   }
 
   return (
@@ -61,19 +66,19 @@ export function DailyPlanner() {
             onPress={() => {
               // Navigate based on task type
               const routes: Record<string, string> = {
-                study: '/study-detail',
-                routine: '/routine-detail',
-                goal: '/goal-detail',
-                habit: '/habit-detail',
-              }
-              const route = routes[task.type] || '/'
+                study: "/study-detail",
+                routine: "/routine-detail",
+                goal: "/goal-detail",
+                habit: "/habit-detail",
+              };
+              const route = routes[task.type] || "/";
               router.push({
                 pathname: route,
                 params: { id: task.id },
-              })
+              });
             }}
             className={`${
-              index !== scores.length - 1 ? 'border-b border-pink-200' : ''
+              index !== scores.length - 1 ? "border-b border-pink-200" : ""
             } py-3`}
           >
             <View className="flex-row items-start justify-between gap-2">
@@ -81,15 +86,17 @@ export function DailyPlanner() {
                 <Text className="font-semibold text-gray-800 text-base">
                   {task.title}
                 </Text>
-                <Text className="text-xs text-gray-600 mt-1.5">{task.reason}</Text>
+                <Text className="text-xs text-gray-600 mt-1.5">
+                  {task.reason}
+                </Text>
                 <View className="flex-row items-center gap-1 mt-2">
                   <View className="bg-purple-200 rounded-full px-2 py-0.5">
                     <Text className="text-xs font-medium text-purple-800">
-                      {task.recommendedLevel === 'light'
-                        ? 'Ligera'
-                        : task.recommendedLevel === 'medium'
-                          ? 'Media'
-                          : 'Intensa'}
+                      {task.recommendedLevel === "light"
+                        ? "Ligera"
+                        : task.recommendedLevel === "medium"
+                          ? "Media"
+                          : "Intensa"}
                     </Text>
                   </View>
                 </View>
@@ -111,5 +118,5 @@ export function DailyPlanner() {
         </Text>
       </View>
     </View>
-  )
+  );
 }

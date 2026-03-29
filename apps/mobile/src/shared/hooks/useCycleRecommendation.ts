@@ -1,18 +1,25 @@
-import { useMemo } from 'react'
-import { useCycle } from '@/src/core/providers/CycleContext'
-import { getCyclePersonality, type MochiCyclePersonality } from '@/src/shared/lib/cyclePersonality'
-import type { CyclePhase } from '@/src/shared/lib/healthConnect'
+import { useMemo } from "react";
+import { useCycle } from "@/src/core/providers/CycleContext";
+import {
+  getCyclePersonality,
+  type MochiCyclePersonality,
+} from "@/src/shared/lib/cyclePersonality";
+import type { CyclePhase } from "@/src/shared/lib/healthConnect";
 
-type RecommendationContext = 'study' | 'exercise' | 'cooking' | 'habit' | 'mood' | 'general'
+type RecommendationContext =
+  | "study"
+  | "exercise"
+  | "cooking"
+  | "habit"
+  | "mood"
+  | "general";
 
-export function useCycleRecommendation(
-  context: RecommendationContext
-): {
-  tip: string | null
-  personality: MochiCyclePersonality | null
-  phase: CyclePhase | null
+export function useCycleRecommendation(context: RecommendationContext): {
+  tip: string | null;
+  personality: MochiCyclePersonality | null;
+  phase: CyclePhase | null;
 } {
-  const { cycleData } = useCycle()
+  const { cycleData } = useCycle();
 
   return useMemo(() => {
     if (!cycleData) {
@@ -20,10 +27,10 @@ export function useCycleRecommendation(
         tip: null,
         personality: null,
         phase: null,
-      }
+      };
     }
 
-    const personality = getCyclePersonality(cycleData.phase)
+    const personality = getCyclePersonality(cycleData.phase);
 
     const tipByContext: Record<RecommendationContext, string> = {
       study: personality.studyTip,
@@ -32,14 +39,14 @@ export function useCycleRecommendation(
       habit: personality.habitTip,
       mood: personality.moodNote,
       general: personality.generalNote,
-    }
+    };
 
     return {
       tip: tipByContext[context],
       personality,
       phase: cycleData.phase,
-    }
-  }, [context, cycleData])
+    };
+  }, [context, cycleData]);
 }
 
-export default useCycleRecommendation
+export default useCycleRecommendation;

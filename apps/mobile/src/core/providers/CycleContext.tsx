@@ -1,21 +1,29 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { AppState, type AppStateStatus } from 'react-native'
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
+import { AppState, type AppStateStatus } from "react-native";
 import {
   getCurrentCyclePhase,
   hasCyclePermissions,
   isHealthConnectAvailable,
   requestCyclePermissions,
   type CyclePhaseData,
-} from '@/src/shared/lib/healthConnect'
+} from "@/src/shared/lib/healthConnect";
 
 type CycleContextValue = {
-  cycleData: CyclePhaseData | null
-  loading: boolean
-  isAvailable: boolean
-  hasPermission: boolean
-  requestPermission: () => Promise<void>
-  refresh: () => Promise<void>
-}
+  cycleData: CyclePhaseData | null;
+  loading: boolean;
+  isAvailable: boolean;
+  hasPermission: boolean;
+  requestPermission: () => Promise<void>;
+  refresh: () => Promise<void>;
+};
 
 const CycleContext = createContext<CycleContextValue>({
   cycleData: null,
@@ -24,88 +32,91 @@ const CycleContext = createContext<CycleContextValue>({
   hasPermission: false,
   requestPermission: async () => {},
   refresh: async () => {},
-})
+});
 
 export function CycleProvider({ children }: { children: ReactNode }) {
-  const [cycleData, setCycleData] = useState<CyclePhaseData | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [isAvailable, setIsAvailable] = useState(false)
-  const [hasPermission, setHasPermission] = useState(false)
+  const [cycleData, setCycleData] = useState<CyclePhaseData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [isAvailable, setIsAvailable] = useState(false);
+  const [hasPermission, setHasPermission] = useState(false);
 
   const refresh = useCallback(async () => {
-    setLoading(true)
+    setLoading(true);
 
     try {
-      const available = await isHealthConnectAvailable()
-      setIsAvailable(available)
+      const available = await isHealthConnectAvailable();
+      setIsAvailable(available);
 
       if (!available) {
-        setHasPermission(false)
-        setCycleData(null)
-        return
+        setHasPermission(false);
+        setCycleData(null);
+        return;
       }
 
-      const granted = await hasCyclePermissions()
-      setHasPermission(granted)
+      const granted = await hasCyclePermissions();
+      setHasPermission(granted);
 
       if (!granted) {
-        setCycleData(null)
-        return
+        setCycleData(null);
+        return;
       }
 
-      const phase = await getCurrentCyclePhase()
-      setCycleData(phase)
+      const phase = await getCurrentCyclePhase();
+      setCycleData(phase);
     } catch {
-      setIsAvailable(false)
-      setHasPermission(false)
-      setCycleData(null)
+      setIsAvailable(false);
+      setHasPermission(false);
+      setCycleData(null);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }, [])
+  }, []);
 
   const requestPermission = useCallback(async () => {
     try {
-      const available = await isHealthConnectAvailable()
-      setIsAvailable(available)
+      const available = await isHealthConnectAvailable();
+      setIsAvailable(available);
 
       if (!available) {
-        setHasPermission(false)
-        setCycleData(null)
-        return
+        setHasPermission(false);
+        setCycleData(null);
+        return;
       }
 
-      const granted = await requestCyclePermissions()
-      setHasPermission(granted)
+      const granted = await requestCyclePermissions();
+      setHasPermission(granted);
 
       if (granted) {
-        const phase = await getCurrentCyclePhase()
-        setCycleData(phase)
+        const phase = await getCurrentCyclePhase();
+        setCycleData(phase);
       } else {
-        setCycleData(null)
+        setCycleData(null);
       }
     } catch {
-      setIsAvailable(false)
-      setHasPermission(false)
-      setCycleData(null)
+      setIsAvailable(false);
+      setHasPermission(false);
+      setCycleData(null);
     }
-  }, [])
+  }, []);
 
   useEffect(() => {
-    void refresh()
-  }, [refresh])
+    void refresh();
+  }, [refresh]);
 
   useEffect(() => {
-    const subscription = AppState.addEventListener('change', (nextState: AppStateStatus) => {
-      if (nextState === 'active') {
-        void refresh()
-      }
-    })
+    const subscription = AppState.addEventListener(
+      "change",
+      (nextState: AppStateStatus) => {
+        if (nextState === "active") {
+          void refresh();
+        }
+      },
+    );
 
     return () => {
-      subscription.remove()
-    }
-  }, [refresh])
+      subscription.remove();
+    };
+  }, [refresh]);
 
   const value = useMemo<CycleContextValue>(
     () => ({
@@ -116,14 +127,23 @@ export function CycleProvider({ children }: { children: ReactNode }) {
       requestPermission,
       refresh,
     }),
-    [cycleData, hasPermission, isAvailable, loading, refresh, requestPermission]
-  )
+    [
+      cycleData,
+      hasPermission,
+      isAvailable,
+      loading,
+      refresh,
+      requestPermission,
+    ],
+  );
 
-  return <CycleContext.Provider value={value}>{children}</CycleContext.Provider>
+  return (
+    <CycleContext.Provider value={value}>{children}</CycleContext.Provider>
+  );
 }
 
 export function useCycle(): CycleContextValue {
-  return useContext(CycleContext)
+  return useContext(CycleContext);
 }
 
-export default CycleProvider
+export default CycleProvider;

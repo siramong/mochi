@@ -1,1 +1,1 @@
-export * from '@mochi/supabase/types'
+export * from "@mochi/supabase/types";

@@ -1,39 +1,39 @@
-import { useEffect, useState } from 'react'
-import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native'
-import { router, useLocalSearchParams } from 'expo-router'
-import { Ionicons } from '@expo/vector-icons'
-import type { EmailOtpType } from '@supabase/supabase-js'
-import { supabase } from '@/src/shared/lib/supabase'
-import { MochiCharacter } from '@/src/shared/components/MochiCharacter'
+import { useEffect, useState } from "react";
+import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native";
+import { router, useLocalSearchParams } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import type { EmailOtpType } from "@supabase/supabase-js";
+import { supabase } from "@/src/shared/lib/supabase";
+import { MochiCharacter } from "@/src/shared/components/MochiCharacter";
 
-type VerifyState = 'loading' | 'success' | 'error'
+type VerifyState = "loading" | "success" | "error";
 
 export function AuthCallbackScreen() {
   const params = useLocalSearchParams<{
-    token_hash?: string
-    type?: string
-    access_token?: string
-    refresh_token?: string
-    error?: string
-    error_description?: string
-  }>()
+    token_hash?: string;
+    type?: string;
+    access_token?: string;
+    refresh_token?: string;
+    error?: string;
+    error_description?: string;
+  }>();
 
-  const [state, setState] = useState<VerifyState>('loading')
-  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [state, setState] = useState<VerifyState>("loading");
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    void verifySession()
+    void verifySession();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, []);
 
   async function verifySession() {
     // Case 1: explicit error param from Supabase redirect
     if (params.error) {
       setErrorMessage(
-        params.error_description ?? 'El enlace de verificación no es válido.',
-      )
-      setState('error')
-      return
+        params.error_description ?? "El enlace de verificación no es válido.",
+      );
+      setState("error");
+      return;
     }
 
     // Case 2: OTP token hash (email confirmation flow)
@@ -41,15 +41,15 @@ export function AuthCallbackScreen() {
       const { error } = await supabase.auth.verifyOtp({
         token_hash: params.token_hash,
         type: params.type as EmailOtpType,
-      })
+      });
 
       if (error) {
-        setErrorMessage(error.message)
-        setState('error')
+        setErrorMessage(error.message);
+        setState("error");
       } else {
-        setState('success')
+        setState("success");
       }
-      return
+      return;
     }
 
     // Case 3: access_token + refresh_token (PKCE / implicit flow)
@@ -57,28 +57,28 @@ export function AuthCallbackScreen() {
       const { error } = await supabase.auth.setSession({
         access_token: params.access_token,
         refresh_token: params.refresh_token,
-      })
+      });
 
       if (error) {
-        setErrorMessage(error.message)
-        setState('error')
+        setErrorMessage(error.message);
+        setState("error");
       } else {
-        setState('success')
+        setState("success");
       }
-      return
+      return;
     }
 
     // Case 4: Nothing useful in params
-    setErrorMessage('El enlace es inválido o ya expiró.')
-    setState('error')
+    setErrorMessage("El enlace es inválido o ya expiró.");
+    setState("error");
   }
 
   function goToLogin() {
-    router.replace('/login')
+    router.replace("/login");
   }
 
   // ─── Loading ───────────────────────────────────────────────────────────────
-  if (state === 'loading') {
+  if (state === "loading") {
     return (
       <View className="flex-1 items-center justify-center bg-purple-50 px-6">
         <View className="w-full max-w-sm items-center rounded-3xl border border-purple-100 bg-white p-8">
@@ -86,15 +86,17 @@ export function AuthCallbackScreen() {
           <Text className="mt-4 text-center text-lg font-bold text-purple-900">
             Verificando tu cuenta...
           </Text>
-          <Text className="mt-1 text-center text-sm text-purple-400">Solo un momento...</Text>
+          <Text className="mt-1 text-center text-sm text-purple-400">
+            Solo un momento...
+          </Text>
           <ActivityIndicator className="mt-4" color="#7c3aed" />
         </View>
       </View>
-    )
+    );
   }
 
   // ─── Success ───────────────────────────────────────────────────────────────
-  if (state === 'success') {
+  if (state === "success") {
     return (
       <View className="flex-1 items-center justify-center bg-purple-50 px-6">
         <View className="w-full max-w-sm items-center rounded-3xl border border-purple-100 bg-white p-8">
@@ -116,7 +118,7 @@ export function AuthCallbackScreen() {
           </Text>
         </View>
       </View>
-    )
+    );
   }
 
   // ─── Error ─────────────────────────────────────────────────────────────────
@@ -135,7 +137,9 @@ export function AuthCallbackScreen() {
         </Text>
 
         {errorMessage ? (
-          <Text className="mt-2 text-center text-sm text-red-500">{errorMessage}</Text>
+          <Text className="mt-2 text-center text-sm text-red-500">
+            {errorMessage}
+          </Text>
         ) : null}
 
         <TouchableOpacity
@@ -147,7 +151,7 @@ export function AuthCallbackScreen() {
         </TouchableOpacity>
       </View>
     </View>
-  )
+  );
 }
 
-export default AuthCallbackScreen
+export default AuthCallbackScreen;
