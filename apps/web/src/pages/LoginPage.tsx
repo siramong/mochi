@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Eye, EyeOff, Loader2 } from 'lucide-react'
@@ -151,7 +151,7 @@ export function LoginPage() {
       if (error) {
         setErrors({ general: mapAuthError(error.message) })
       }
-    } catch (err) {
+    } catch {
       setErrors({
         general: 'Ocurrió un error. Intenta de nuevo.',
       })
@@ -197,7 +197,7 @@ export function LoginPage() {
         setSentEmail(email)
         setAuthState('email-sent')
       }
-    } catch (err) {
+    } catch {
       setErrors({
         general: 'Ocurrió un error. Intenta de nuevo.',
       })
@@ -225,7 +225,7 @@ export function LoginPage() {
       } else if (data?.url) {
         window.location.href = data.url
       }
-    } catch (err) {
+    } catch {
       setErrors({
         general: 'Ocurrió un error. Intenta de nuevo.',
       })

@@ -18,6 +18,7 @@ import { useCycle } from '@/src/core/providers/CycleContext'
 import type { StudyBlock, RoutineWithExercises, Recipe } from '@/src/shared/types/database'
 import { MochiCharacter } from '@/src/shared/components/MochiCharacter'
 import { DailyMotivation } from '@/src/features/home/components/DailyMotivation'
+import { DailyPlanner } from '@/src/shared/components/DailyPlanner'
 import { CycleWidget } from '@/src/shared/components/CycleWidget'
 import { getGreeting, getTimeColor, getTimeIcon, getTimeOfDay, type TimeOfDay } from '@/src/shared/lib/timeContext'
 
@@ -389,6 +390,9 @@ export function HomeDashboard({ userName, onNavigateToCooking, moduleVisibility 
           cyclePhase={cycleData?.phase}
         />
       </View>
+
+      {/* Daily Planner */}
+      <DailyPlanner />
 
       {shouldShowCycleWidget && (
         <CycleWidget

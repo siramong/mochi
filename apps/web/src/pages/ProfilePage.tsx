@@ -62,7 +62,7 @@ export function ProfilePage() {
     }
 
     return activeDays
-  }, [streak?.current_streak, streak?.last_activity_date])
+  }, [streak])
 
   if (loading) {
     return <p className="text-sm text-purple-700">Cargando perfil...</p>

@@ -1,25 +1,14 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useState } from 'react'
 import { View } from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
-import { router, useLocalSearchParams } from 'expo-router'
-import Animated, {
-  Easing,
-  useAnimatedStyle,
-  useSharedValue,
-  withRepeat,
-  withSequence,
-  withTiming,
-} from 'react-native-reanimated'
-import { supabase } from '@/src/shared/lib/supabase'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { useRouter } from 'expo-router'
+
+import HomeDashboard from '@/src/features/home/components/HomeDashboard'
+import { DailyPlanner } from '@/src/shared/components/DailyPlanner'
+import { QuickCaptureModal } from '@/src/shared/components/QuickCaptureModal'
+import { RecoveryPlanModal } from '@/src/shared/components/RecoveryPlanModal'
+import { useStreakRecovery } from '@/src/shared/hooks/useStreakRecovery'
 import { useSession } from '@/src/core/providers/SessionContext'
-import { useScreenTheme } from '@/src/shared/hooks/useScreenTheme'
-import { BottomNav, MobileScreen } from '@/src/features/home/components/BottomNav'
-import { ExerciseRoutine } from '@/src/features/exercise/components/ExerciseRoutine'
-import { HomeDashboard } from '@/src/features/home/components/HomeDashboard'
-import { StudySchedule } from '@/src/features/study/components/StudySchedule'
-import { MochiCharacter } from '@/src/shared/components/MochiCharacter'
-import { HabitsScreen } from '@/app/habits'
-import { CookingScreen } from '@/app/cooking'
 
 type ModuleVisibility = {
   partner_features_enabled: boolean
@@ -47,218 +36,58 @@ const defaultModuleVisibility: ModuleVisibility = {
   notes_enabled: true,
 }
 
-const tabOrder: MobileScreen[] = ['home', 'study', 'exercise', 'habits', 'cooking']
-
-function getVisibleTabs(settings: ModuleVisibility): MobileScreen[] {
-  return tabOrder.filter((tab) => {
-    if (tab === 'home') return true
-    if (tab === 'study') return settings.study_enabled
-    if (tab === 'exercise') return settings.exercise_enabled
-    if (tab === 'habits') return settings.habits_enabled
-    return settings.cooking_enabled
-  })
-}
-
-const screenThemes: Record<
-  MobileScreen,
-  { statusBarStyle: 'light' | 'dark'; navigationBarStyle: 'light' | 'dark' }
-> = {
-  home:     { statusBarStyle: 'dark', navigationBarStyle: 'dark' },
-  study:    { statusBarStyle: 'dark', navigationBarStyle: 'dark' },
-  exercise: { statusBarStyle: 'dark', navigationBarStyle: 'dark' },
-  habits:   { statusBarStyle: 'dark', navigationBarStyle: 'dark' },
-  cooking:  { statusBarStyle: 'dark', navigationBarStyle: 'dark' },
-}
-
-const screenBackgroundClass: Record<MobileScreen, string> = {
-  home: 'bg-purple-100',
-  study: 'bg-purple-100',
-  exercise: 'bg-teal-100',
-  habits: 'bg-purple-50',
-  cooking: 'bg-orange-50',
-}
-
-// Valida que un string sea una MobileScreen conocida
-function isMobileScreen(value: string): value is MobileScreen {
-  return ['home', 'study', 'exercise', 'habits', 'cooking'].includes(value)
-}
-
-export function HomeScreen() {
+export default function Home() {
+  const insets = useSafeAreaInsets()
+  const router = useRouter()
   const { session } = useSession()
-  const params = useLocalSearchParams<{ tab?: string }>()
-  const [currentScreen, setCurrentScreen] = useState<MobileScreen>('home')
-  const [moduleVisibility, setModuleVisibility] = useState<ModuleVisibility>(defaultModuleVisibility)
-  const [userName, setUserName] = useState('Amiga')
-  const [loadingName, setLoadingName] = useState(true)
-  const loadingScale = useSharedValue(1)
-  const contentOpacity = useSharedValue(1)
-  const contentTranslateY = useSharedValue(0)
-  const tabParam = useMemo(() => {
-    if (typeof params.tab === 'string') return params.tab
-    if (Array.isArray(params.tab) && typeof params.tab[0] === 'string') return params.tab[0]
-    return undefined
-  }, [params.tab])
+  const [recoveryDismissed, setRecoveryDismissed] = useState(false)
+  const [quickCaptureOpen, setQuickCaptureOpen] = useState(false)
 
-  const visibleTabs = useMemo(() => getVisibleTabs(moduleVisibility), [moduleVisibility])
+  const { activeRecoveryPlan, createRecoveryPlan, dismissRecoveryPlan } = useStreakRecovery(session?.user.id)
 
-  useEffect(() => {
-    let mounted = true
+  const handleRecoveryStart = () => {
+    if (!session?.user.id) return
 
-    async function loadModuleVisibility() {
-      if (!session?.user.id) {
-        if (mounted) setModuleVisibility(defaultModuleVisibility)
-        return
-      }
-
-      const { data, error } = await supabase
-        .from('user_settings')
-        .select(
-          'partner_features_enabled, study_enabled, exercise_enabled, habits_enabled, goals_enabled, mood_enabled, gratitude_enabled, vouchers_enabled, cooking_enabled, notes_enabled'
-        )
-        .eq('user_id', session.user.id)
-        .maybeSingle()
-
-      if (!mounted) return
-      if (error) {
-        setModuleVisibility(defaultModuleVisibility)
-        return
-      }
-
-      setModuleVisibility({
-        ...defaultModuleVisibility,
-        ...((data as Partial<ModuleVisibility> | null) ?? {}),
-      })
-    }
-
-    void loadModuleVisibility()
-
-    return () => {
-      mounted = false
-    }
-  }, [session?.user.id])
-
-  useEffect(() => {
-    if (tabParam && isMobileScreen(tabParam) && visibleTabs.includes(tabParam)) {
-      setCurrentScreen(tabParam)
-      return
-    }
-
-    setCurrentScreen('home')
-  }, [tabParam, visibleTabs])
-
-  useEffect(() => {
-    if (visibleTabs.includes(currentScreen)) return
-    setCurrentScreen('home')
-    router.replace('/')
-  }, [currentScreen, visibleTabs])
-
-  const navigateToScreen = useCallback((screen: MobileScreen) => {
-    if (!visibleTabs.includes(screen)) {
-      setCurrentScreen('home')
-      router.replace('/')
-      return
-    }
-
-    // Actualización optimista: el color activo del bottom nav cambia al instante.
-    setCurrentScreen(screen)
-
-    if (screen === 'home') {
-      router.replace('/')
-      return
-    }
-
-    router.replace({ pathname: '/', params: { tab: screen } })
-  }, [visibleTabs])
-
-  useScreenTheme(screenThemes[currentScreen])
-
-  useEffect(() => {
-    if (loadingName) {
-      loadingScale.value = withRepeat(
-        withSequence(
-          withTiming(1.06, { duration: 650, easing: Easing.inOut(Easing.quad) }),
-          withTiming(1,    { duration: 650, easing: Easing.inOut(Easing.quad) })
-        ),
-        -1, false
-      )
-      return
-    }
-    loadingScale.value = withTiming(1, { duration: 180 })
-  }, [loadingName, loadingScale])
-
-  const loadingAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: loadingScale.value }],
-  }))
-
-  const contentAnimatedStyle = useAnimatedStyle(() => ({
-    opacity: contentOpacity.value,
-    transform: [{ translateY: contentTranslateY.value }],
-  }))
-
-  useEffect(() => {
-    contentOpacity.value = 0
-    contentTranslateY.value = 8
-    contentOpacity.value = withTiming(1, { duration: 220, easing: Easing.out(Easing.quad) })
-    contentTranslateY.value = withTiming(0, { duration: 220, easing: Easing.out(Easing.quad) })
-  }, [currentScreen, contentOpacity, contentTranslateY])
-
-  useEffect(() => {
-    let mounted = true
-    async function loadName() {
-      if (!session?.user.id) {
-        if (mounted) { setUserName('Amiga'); setLoadingName(false) }
-        return
-      }
-      setLoadingName(true)
-      const { data } = await supabase
-        .from('profiles')
-        .select('full_name')
-        .eq('id', session.user.id)
-        .single()
-      if (!mounted) return
-      setUserName(data?.full_name?.trim() || 'Amiga')
-      setLoadingName(false)
-    }
-    void loadName()
-    return () => { mounted = false }
-  }, [session?.user.id])
-
-  const renderContent = () => {
-    switch (currentScreen) {
-      case 'home':
-        return (
-          <HomeDashboard
-            userName={userName}
-            onNavigateToCooking={() => navigateToScreen('cooking')}
-            moduleVisibility={moduleVisibility}
-          />
-        )
-      case 'study':    return <StudySchedule />
-      case 'exercise': return <ExerciseRoutine />
-      case 'habits':   return <HabitsScreen />
-      case 'cooking':  return <CookingScreen />
-      default:         return null
-    }
+    void (async () => {
+      await createRecoveryPlan(session.user.id)
+      setRecoveryDismissed(true)
+    })()
   }
 
-  if (loadingName) {
-    return (
-      <View className="flex-1 items-center justify-center bg-purple-100">
-        <Animated.View style={loadingAnimatedStyle}>
-          <MochiCharacter mood="thinking" size={96} />
-        </Animated.View>
-      </View>
-    )
+  const handleRecoveryDismiss = () => {
+    setRecoveryDismissed(true)
+
+    if (!activeRecoveryPlan?.id) return
+    void dismissRecoveryPlan(activeRecoveryPlan.id)
   }
+
+  // Show recovery modal if streak recovery is active and not dismissed yet
+  const showRecoveryModal = activeRecoveryPlan !== null && !recoveryDismissed
 
   return (
-    <SafeAreaView className={`flex-1 ${screenBackgroundClass[currentScreen]}`}>
-      <Animated.View className="flex-1" style={contentAnimatedStyle}>
-        {renderContent()}
-      </Animated.View>
-      <BottomNav currentScreen={currentScreen} onNavigate={navigateToScreen} visibleTabs={visibleTabs} />
-    </SafeAreaView>
+    <View className="flex-1 bg-white" style={{ paddingTop: insets.top }}>
+      <HomeDashboard
+        userName="Amiga"
+        onNavigateToCooking={() => {
+          router.push('/cooking')
+        }}
+        moduleVisibility={defaultModuleVisibility}
+      />
+      <DailyPlanner />
+
+      {/* Recovery Plan Modal - appears when streak = 0 */}
+      <RecoveryPlanModal
+        visible={showRecoveryModal}
+        plan={activeRecoveryPlan}
+        onStart={handleRecoveryStart}
+        onDismiss={handleRecoveryDismiss}
+      />
+
+      {/* Quick Capture Modal - FAB */}
+      <QuickCaptureModal
+        visible={quickCaptureOpen}
+        onClose={() => setQuickCaptureOpen(false)}
+      />
+    </View>
   )
 }
-
-export default HomeScreen

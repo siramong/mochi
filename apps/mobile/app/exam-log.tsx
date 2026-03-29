@@ -525,13 +525,13 @@ export function ExamLogScreen() {
         )
         console.warn('No se pudo programar el recordatorio del examen:', err)
       }
-    } finally {
-      setUpcomingSubject('')
-      setUpcomingDate('')
-      setUpcomingNotes('')
-      await loadExams()
-      setSavingUpcoming(false)
     }
+
+    setUpcomingSubject('')
+    setUpcomingDate('')
+    setUpcomingNotes('')
+    await loadExams()
+    setSavingUpcoming(false)
   }
 
   return (
@@ -816,6 +816,18 @@ export function ExamLogScreen() {
                             }}
                           >
                             <Text className="text-xs font-bold text-pink-700">Registrar resultado</Text>
+                          </TouchableOpacity>
+
+                          <TouchableOpacity
+                            className="mt-2 self-start rounded-xl bg-green-100 px-3 py-1"
+                            onPress={() => {
+                              router.push({
+                                pathname: '/exam-sprint-progress',
+                                params: { examId: exam.id, subject: exam.subject },
+                              })
+                            }}
+                          >
+                            <Text className="text-xs font-bold text-green-700">Crear Sprint</Text>
                           </TouchableOpacity>
                         </View>
                       )

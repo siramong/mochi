@@ -372,3 +372,78 @@ export interface AIRecipeResponse {
     tip: string | null
   }>
 }
+
+// ─── Energy & Wellness ────────────────────────────────────────────────────
+
+export interface EnergyLevel {
+  id: string
+  user_id: string
+  overall_rating: number
+  logged_date: string
+  notes: string | null
+  created_at: string
+}
+
+// ─── Exam Prep Sprints ────────────────────────────────────────────────────
+
+export interface ExamPrepSprint {
+  id: string
+  user_id: string
+  exam_id: string
+  start_date: string
+  end_date: string
+  daily_target_hours: number
+  target_grade: number | null
+  created_at: string
+  updated_at: string
+}
+
+export interface ExamSprintMilestone {
+  id: string
+  sprint_id: string
+  milestone_number: number
+  target_date: string
+  description: string
+  is_completed: boolean
+}
+
+export interface ExamSprintProgress {
+  id: string
+  user_id: string
+  sprint_id: string
+  progress_date: string
+  hours_studied: number
+  mood_rating: number | null
+  notes: string | null
+  is_day_completed: boolean
+  created_at: string
+}
+
+// ─── Streak Recovery ──────────────────────────────────────────────────────
+
+export interface StreakRecoveryPlan {
+  id: string
+  user_id: string
+  initiated_at: string
+  recovery_tasks: Array<{
+    day: number
+    description: string
+    difficulty: 'easy' | 'medium' | 'hard'
+  }>
+  is_active: boolean
+  completed_tasks: number
+  created_at: string
+}
+
+// ─── Action Conversion ────────────────────────────────────────────────────
+
+export interface ActionConversion {
+  id: string
+  user_id: string
+  original_note: string
+  converted_action_type: 'study' | 'routine' | 'goal' | 'habit'
+  converted_data: Record<string, unknown>
+  confidence_score: number
+  ai_reasoning: string | null
+  created_at: string
+}

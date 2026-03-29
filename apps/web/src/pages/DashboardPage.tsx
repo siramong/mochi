@@ -5,6 +5,8 @@ import { MochiCompanion } from '@/components/common/MochiCompanion'
 import { supabase } from '@/lib/supabase'
 import { useSession } from '@/hooks/useSession'
 import { useCyclePhase } from '@/hooks/useCyclePhase'
+import { DailyPlannerDashboard } from '@/components/DailyPlannerDashboard'
+import { EnergyLevelCard } from '@/components/EnergyLevelCard'
 
 type DashboardStats = {
   todayBlocks: number
@@ -230,6 +232,12 @@ export function DashboardPage() {
           <div className="rounded-2xl bg-white p-3">
             <p className="inline-flex items-center text-xs font-bold uppercase text-yellow-700">
               <Star className="mr-1 h-4 w-4" /> Puntos totales
+                  {/* Quick capture & modals */}
+                  <div className="mb-6 flex gap-2">
+                    <button className="flex-1 rounded-xl bg-gradient-to-r from-purple-100 to-pink-100 px-4 py-2 text-sm font-semibold text-purple-700 hover:from-purple-200 hover:to-pink-200 transition-all">
+                      ⚡ Idea rápida
+                    </button>
+                  </div>
             </p>
             <p className="mt-1 text-3xl font-black text-yellow-900">{progress.totalPoints}</p>
           </div>
@@ -240,6 +248,13 @@ export function DashboardPage() {
             <p className="mt-1 text-3xl font-black text-orange-900">{progress.currentStreak}</p>
           </div>
           <div className="rounded-2xl bg-white p-3">
+                  {/* Energy and Planner Section */}
+                  <div className="mt-6 grid gap-6 md:grid-cols-2">
+                    <EnergyLevelCard />
+                    <div>
+                      <DailyPlannerDashboard />
+                    </div>
+                  </div>
             <p className="text-xs font-bold uppercase text-purple-700">Último logro desbloqueado</p>
             <p className="mt-1 text-sm font-semibold text-purple-900">
               {progress.lastAchievementTitle ?? 'Aún no hay logros desbloqueados'}

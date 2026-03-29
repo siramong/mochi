@@ -148,6 +148,54 @@ export async function unlockAchievement(
   }
 }
 
+// ─── Recuperación de Racha ───────────────────────────────────────────────────
+
+/**
+ * Crea un plan de recuperación de racha cuando la racha se rompe (streak = 0).
+ * Este plan sugiere 3 tareas para los próximos 3 días.
+ */
+export async function createStreakRecoveryPlan(userId: string): Promise<string | null> {
+  try {
+    const recoveryTasks = [
+      {
+        day: 1,
+        description: 'Haz una pequeña actividad: 15 min de estudio o una rutina corta',
+        difficulty: 'easy' as const,
+      },
+      {
+        day: 2,
+        description: 'Completa una meta diaria: 30 min de estudio o una rutina completa',
+        difficulty: 'medium' as const,
+      },
+      {
+        day: 3,
+        description: 'Vuelve a tu rutina normal con toda la energía',
+        difficulty: 'hard' as const,
+      },
+    ]
+
+    const { data, error } = await supabase
+      .from('streak_recovery_plans')
+      .insert({
+        user_id: userId,
+        recovery_tasks: recoveryTasks,
+        is_active: true,
+        completed_tasks: 0,
+      })
+      .select('id')
+
+    if (error) {
+      console.error('Error creating recovery plan:', error)
+      return null
+    }
+
+    return (data?.[0] as { id: string })?.id ?? null
+  } catch (err) {
+    console.error('Error creating recovery plan:', err)
+    return null
+  }
+}
+
 // ─── Helper interno ───────────────────────────────────────────────────────────
 
 /**
