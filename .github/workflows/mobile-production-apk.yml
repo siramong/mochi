@@ -41,9 +41,13 @@ jobs:
         uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
+          package-manager-cache: false
 
       - name: Enable Corepack
         run: corepack enable
+
+      - name: Verify pnpm version
+        run: corepack pnpm --version
 
       - name: Install dependencies
         run: corepack pnpm install --frozen-lockfile
@@ -72,9 +76,13 @@ jobs:
         uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
+          package-manager-cache: false
 
       - name: Enable Corepack
         run: corepack enable
+
+      - name: Verify pnpm version
+        run: corepack pnpm --version
 
       - name: Setup Java 17 (Android local build)
         uses: actions/setup-java@v4
@@ -101,7 +109,7 @@ jobs:
             --output "./${{ github.event.inputs.artifactName }}.apk" \
             2>&1 | tee eas-build.log
 
-      - name: Generate release metadata and notes
+      - name: Collect release metadata
         id: meta
         run: |
           set -euo pipefail
@@ -117,6 +125,10 @@ jobs:
           echo "release_tag=${RELEASE_TAG}" >> "$GITHUB_OUTPUT"
           echo "release_name=${RELEASE_NAME}" >> "$GITHUB_OUTPUT"
 
+      - name: Generate changelog file
+        run: |
+          set -euo pipefail
+
           if git describe --tags --abbrev=0 > /dev/null 2>&1; then
             LAST_TAG=$(git describe --tags --abbrev=0)
             git log "$LAST_TAG"..HEAD --pretty=format:"- %s (%h)" > apps/mobile/changelog.md
@@ -124,13 +136,17 @@ jobs:
             git log --pretty=format:"- %s (%h)" -n 25 > apps/mobile/changelog.md
           fi
 
+      - name: Generate release notes file
+        run: |
+          set -euo pipefail
+
           {
             echo "## Release Android APK"
             echo
-            echo "- App version: ${VERSION}"
-            echo "- Android versionCode: ${ANDROID_VERSION_CODE}"
+            echo "- App version: ${{ steps.meta.outputs.version }}"
+            echo "- Android versionCode: ${{ steps.meta.outputs.android_version_code }}"
             echo "- EAS profile: ${{ github.event.inputs.profile }}"
-            echo "- Commit: ${SHORT_SHA}"
+            echo "- Commit: ${{ steps.meta.outputs.short_sha }}"
             echo "- Workflow run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
             echo "- Built at (UTC): $(date -u +%Y-%m-%dT%H:%M:%SZ)"
             echo
