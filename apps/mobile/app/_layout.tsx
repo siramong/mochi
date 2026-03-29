@@ -12,8 +12,14 @@ import Animated, {
 } from "react-native-reanimated";
 import * as Notifications from "expo-notifications";
 import { SystemBars } from "react-native-edge-to-edge";
-import { SessionProvider, useSession } from "@/src/core/providers/SessionContext";
-import { SystemBarsProvider, useSystemBars } from "@/src/core/providers/SystemBarsContext";
+import {
+  SessionProvider,
+  useSession,
+} from "@/src/core/providers/SessionContext";
+import {
+  SystemBarsProvider,
+  useSystemBars,
+} from "@/src/core/providers/SystemBarsContext";
 import { AchievementProvider } from "@/src/core/providers/AchievementContext";
 import { CycleProvider } from "@/src/core/providers/CycleContext";
 import { MochiCharacter } from "@/src/shared/components/MochiCharacter";
@@ -124,13 +130,17 @@ Notifications.setNotificationHandler({
 });
 
 function RootLayoutNavigator() {
-  const { session, loading, requiresOnboarding, profileError, refreshProfile } = useSession();
+  const { session, loading, requiresOnboarding, profileError, refreshProfile } =
+    useSession();
   const { theme } = useSystemBars();
   const pathname = usePathname();
-  const [moduleVisibility, setModuleVisibility] = useState<ModuleVisibility>(defaultModuleVisibility);
+  const [moduleVisibility, setModuleVisibility] = useState<ModuleVisibility>(
+    defaultModuleVisibility,
+  );
   const [moduleVisibilityLoaded, setModuleVisibilityLoaded] = useState(false);
   const loadingScale = useSharedValue(1);
-  const notificationResponseListener = useRef<Notifications.EventSubscription | null>(null);
+  const notificationResponseListener =
+    useRef<Notifications.EventSubscription | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -147,7 +157,7 @@ function RootLayoutNavigator() {
       const { data, error } = await supabase
         .from("user_settings")
         .select(
-          "partner_features_enabled, study_enabled, exercise_enabled, habits_enabled, goals_enabled, mood_enabled, gratitude_enabled, vouchers_enabled, cooking_enabled, notes_enabled"
+          "partner_features_enabled, study_enabled, exercise_enabled, habits_enabled, goals_enabled, mood_enabled, gratitude_enabled, vouchers_enabled, cooking_enabled, notes_enabled",
         )
         .eq("user_id", session.user.id)
         .maybeSingle();
@@ -179,11 +189,14 @@ function RootLayoutNavigator() {
     if (loading) {
       loadingScale.value = withRepeat(
         withSequence(
-          withTiming(1.06, { duration: 650, easing: Easing.inOut(Easing.quad) }),
-          withTiming(1, { duration: 650, easing: Easing.inOut(Easing.quad) })
+          withTiming(1.06, {
+            duration: 650,
+            easing: Easing.inOut(Easing.quad),
+          }),
+          withTiming(1, { duration: 650, easing: Easing.inOut(Easing.quad) }),
         ),
         -1,
-        false
+        false,
       );
       return;
     }
@@ -196,14 +209,20 @@ function RootLayoutNavigator() {
 
   useEffect(() => {
     if (loading) return;
-    if (!session) { router.replace("/login"); return; }
+    if (!session) {
+      router.replace("/login");
+      return;
+    }
     router.replace(requiresOnboarding ? "/onboarding" : "/");
   }, [session, loading, requiresOnboarding]);
 
   useEffect(() => {
     notificationResponseListener.current =
       Notifications.addNotificationResponseReceivedListener((response) => {
-        const data = response.notification.request.content.data as Record<string, unknown> | null;
+        const data = response.notification.request.content.data as Record<
+          string,
+          unknown
+        > | null;
         const screen = typeof data?.screen === "string" ? data.screen : null;
 
         if (screen === "habits") router.push("/habits");
@@ -212,7 +231,9 @@ function RootLayoutNavigator() {
         else if (screen === "weekly-summary") router.push("/weekly-summary");
         else if (screen === "exam-log") router.push("/exam-log");
       });
-    return () => { notificationResponseListener.current?.remove(); };
+    return () => {
+      notificationResponseListener.current?.remove();
+    };
   }, []);
 
   useEffect(() => {
@@ -255,12 +276,18 @@ function RootLayoutNavigator() {
           <Text className="text-center text-lg font-semibold text-purple-900">
             Ups, no pudimos cargar tu perfil
           </Text>
-          <Text className="mt-2 text-center text-sm text-purple-800">{profileError}</Text>
+          <Text className="mt-2 text-center text-sm text-purple-800">
+            {profileError}
+          </Text>
           <TouchableOpacity
             className="mt-5 rounded-2xl bg-yellow-300 px-4 py-3"
-            onPress={() => { void refreshProfile(); }}
+            onPress={() => {
+              void refreshProfile();
+            }}
           >
-            <Text className="text-center text-base font-semibold text-purple-900">Reintentar</Text>
+            <Text className="text-center text-base font-semibold text-purple-900">
+              Reintentar
+            </Text>
           </TouchableOpacity>
         </View>
       </View>

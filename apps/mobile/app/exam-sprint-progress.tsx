@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState } from "react";
 import {
   View,
   Text,
@@ -9,88 +9,93 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-} from 'react-native'
-import { router, useLocalSearchParams } from 'expo-router'
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
-import { useSession } from '@/src/core/providers/SessionContext'
-import { useExamSprints } from '@/src/shared/hooks/useExamSprints'
-import { useExamSprintProgress } from '@/src/shared/hooks/useExamSprintProgress'
-import { SprintTracker } from '@/src/shared/components/SprintTracker'
-import { MochiCharacter } from '@/src/shared/components/MochiCharacter'
+} from "react-native";
+import { router, useLocalSearchParams } from "expo-router";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
+import { useSession } from "@/src/core/providers/SessionContext";
+import { useExamSprints } from "@/src/shared/hooks/useExamSprints";
+import { useExamSprintProgress } from "@/src/shared/hooks/useExamSprintProgress";
+import { SprintTracker } from "@/src/shared/components/SprintTracker";
+import { MochiCharacter } from "@/src/shared/components/MochiCharacter";
 
 export function ExamSprintProgressScreen() {
-  const insets = useSafeAreaInsets()
-  const { session } = useSession()
-  const params = useLocalSearchParams<{ examId?: string; subject?: string }>()
+  const insets = useSafeAreaInsets();
+  const { session } = useSession();
+  const params = useLocalSearchParams<{ examId?: string; subject?: string }>();
 
-  const examId = params.examId ?? ''
-  const subject = params.subject ?? 'Examen'
+  const examId = params.examId ?? "";
+  const subject = params.subject ?? "Examen";
 
-  const { sprints, createSprint, isLoading: sprintsLoading } = useExamSprints(
-    session?.user.id
-  )
-  const [showCreateModal, setShowCreateModal] = useState(false)
+  const {
+    sprints,
+    createSprint,
+    isLoading: sprintsLoading,
+  } = useExamSprints(session?.user.id);
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   // Form state
-  const [startDate, setStartDate] = useState('')
-  const [endDate, setEndDate] = useState('')
-  const [dailyHours, setDailyHours] = useState('2')
-  const [targetGrade, setTargetGrade] = useState('')
-  const [creating, setCreating] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [dailyHours, setDailyHours] = useState("2");
+  const [targetGrade, setTargetGrade] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Get active sprint for this exam
   const activeSprint = sprints.find(
     (s) =>
       s.exam_id === examId &&
       new Date(s.start_date) <= new Date() &&
-      new Date(s.end_date) >= new Date()
-  )
+      new Date(s.end_date) >= new Date(),
+  );
 
   const handleCreateSprint = async () => {
     if (!startDate || !endDate || !dailyHours) {
-      setError('Por favor completa todos los campos')
-      return
+      setError("Por favor completa todos los campos");
+      return;
     }
 
     if (new Date(startDate) >= new Date(endDate)) {
-      setError('La fecha de inicio debe ser anterior a la de fin')
-      return
+      setError("La fecha de inicio debe ser anterior a la de fin");
+      return;
     }
 
     try {
-      setCreating(true)
-      setError(null)
+      setCreating(true);
+      setError(null);
 
-      const targetGradeNum = targetGrade ? parseFloat(targetGrade) : null
+      const targetGradeNum = targetGrade ? parseFloat(targetGrade) : null;
 
       await createSprint(
         examId,
         startDate,
         endDate,
         parseFloat(dailyHours),
-        targetGradeNum
-      )
+        targetGradeNum,
+      );
 
-      setStartDate('')
-      setEndDate('')
-      setDailyHours('2')
-      setTargetGrade('')
-      setShowCreateModal(false)
+      setStartDate("");
+      setEndDate("");
+      setDailyHours("2");
+      setTargetGrade("");
+      setShowCreateModal(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al crear sprint')
+      setError(err instanceof Error ? err.message : "Error al crear sprint");
     } finally {
-      setCreating(false)
+      setCreating(false);
     }
-  }
+  };
 
   return (
     <SafeAreaView
       className="flex-1 bg-green-50"
-      edges={['left', 'right', 'bottom']}
+      edges={["left", "right", "bottom"]}
     >
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
         className="flex-1"
       >
         <ScrollView
@@ -104,7 +109,9 @@ export function ExamSprintProgressScreen() {
               onPress={() => router.back()}
               className="mb-4 active:opacity-70"
             >
-              <Text className="text-base font-semibold text-green-700">← Volver</Text>
+              <Text className="text-base font-semibold text-green-700">
+                ← Volver
+              </Text>
             </Pressable>
 
             <View>
@@ -134,8 +141,8 @@ export function ExamSprintProgressScreen() {
 
               <View className="mt-6 bg-blue-50 rounded-xl p-4 border border-blue-200">
                 <Text className="text-sm text-blue-900">
-                  <Text className="font-bold">Consejo:</Text> Mantén consistencia diaria
-                  para una preparación efectiva. ¡Tú puedes!
+                  <Text className="font-bold">Consejo:</Text> Mantén
+                  consistencia diaria para una preparación efectiva. ¡Tú puedes!
                 </Text>
               </View>
             </>
@@ -174,9 +181,8 @@ export function ExamSprintProgressScreen() {
                     className="mb-3 p-3 rounded-lg bg-white border border-green-100"
                   >
                     <Text className="font-semibold text-gray-800">
-                      {new Date(sprint.start_date).toLocaleDateString('es-MX')}{' '}
-                      al{' '}
-                      {new Date(sprint.end_date).toLocaleDateString('es-MX')}
+                      {new Date(sprint.start_date).toLocaleDateString("es-MX")}{" "}
+                      al {new Date(sprint.end_date).toLocaleDateString("es-MX")}
                     </Text>
                     <Text className="text-xs text-gray-600 mt-1">
                       {sprint.daily_target_hours}h diarias
@@ -193,7 +199,9 @@ export function ExamSprintProgressScreen() {
         <View className="flex-1 bg-black/40 justify-end">
           <View className="bg-white rounded-t-3xl p-4 max-h-96">
             <View className="flex-row items-center justify-between mb-4">
-              <Text className="font-bold text-lg text-gray-800">Crear Sprint</Text>
+              <Text className="font-bold text-lg text-gray-800">
+                Crear Sprint
+              </Text>
               <Pressable
                 onPress={() => setShowCreateModal(false)}
                 className="rounded-full p-2 active:bg-gray-100"
@@ -267,7 +275,7 @@ export function ExamSprintProgressScreen() {
                 onPress={handleCreateSprint}
                 disabled={creating}
                 className={`rounded-lg py-3 ${
-                  creating ? 'bg-green-300' : 'bg-green-500'
+                  creating ? "bg-green-300" : "bg-green-500"
                 }`}
               >
                 {creating ? (
@@ -292,7 +300,7 @@ export function ExamSprintProgressScreen() {
         </View>
       </Modal>
     </SafeAreaView>
-  )
+  );
 }
 
-export default ExamSprintProgressScreen
+export default ExamSprintProgressScreen;

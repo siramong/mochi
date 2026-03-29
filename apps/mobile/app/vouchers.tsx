@@ -1,291 +1,326 @@
-import { Ionicons } from '@expo/vector-icons'
-import { useCallback, useMemo, useRef, useState } from 'react'
-import { Modal, ScrollView, Share, Text, TouchableOpacity, View } from 'react-native'
-import { router } from 'expo-router'
-import { useFocusEffect } from '@react-navigation/native'
-import { SafeAreaView } from 'react-native-safe-area-context'
-import { captureRef } from 'react-native-view-shot'
-import * as Sharing from 'expo-sharing'
-import { MochiCharacter } from '@/src/shared/components/MochiCharacter'
-import { useCustomAlert } from '@/src/shared/components/CustomAlert'
-import { useSession } from '@/src/core/providers/SessionContext'
-import { supabase } from '@/src/shared/lib/supabase'
-import type { Voucher, VoucherTemplate } from '@/src/shared/types/database'
+import { Ionicons } from "@expo/vector-icons";
+import { useCallback, useMemo, useRef, useState } from "react";
+import {
+  Modal,
+  ScrollView,
+  Share,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { router } from "expo-router";
+import { useFocusEffect } from "@react-navigation/native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { captureRef } from "react-native-view-shot";
+import * as Sharing from "expo-sharing";
+import { MochiCharacter } from "@/src/shared/components/MochiCharacter";
+import { useCustomAlert } from "@/src/shared/components/CustomAlert";
+import { useSession } from "@/src/core/providers/SessionContext";
+import { supabase } from "@/src/shared/lib/supabase";
+import type { Voucher, VoucherTemplate } from "@/src/shared/types/database";
 
 type ProfilePoints = {
-  total_points: number
-}
+  total_points: number;
+};
 
 type VoucherStatus = {
-  label: string
-  className: string
-  textClass: string
-}
+  label: string;
+  className: string;
+  textClass: string;
+};
 
 const templateCardClassMap: Record<string, string> = {
-  pink: 'border-pink-200 bg-pink-100',
-  purple: 'border-purple-200 bg-purple-100',
-  yellow: 'border-yellow-200 bg-yellow-100',
-  blue: 'border-blue-200 bg-blue-100',
-  mint: 'border-emerald-200 bg-emerald-100',
-  green: 'border-green-200 bg-green-100',
-  orange: 'border-orange-200 bg-orange-100',
-}
+  pink: "border-pink-200 bg-pink-100",
+  purple: "border-purple-200 bg-purple-100",
+  yellow: "border-yellow-200 bg-yellow-100",
+  blue: "border-blue-200 bg-blue-100",
+  mint: "border-emerald-200 bg-emerald-100",
+  green: "border-green-200 bg-green-100",
+  orange: "border-orange-200 bg-orange-100",
+};
 
 function formatDate(value: string): string {
-  return new Intl.DateTimeFormat('es-ES', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
+  return new Intl.DateTimeFormat("es-ES", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
   })
     .format(new Date(value))
-    .replace('.', '')
+    .replace(".", "");
 }
 
 function getStatus(isRedeemed: boolean): VoucherStatus {
   if (isRedeemed) {
     return {
-      label: 'Canjeado',
-      className: 'bg-emerald-100',
-      textClass: 'text-emerald-800',
-    }
+      label: "Canjeado",
+      className: "bg-emerald-100",
+      textClass: "text-emerald-800",
+    };
   }
 
   return {
-    label: 'Pendiente',
-    className: 'bg-yellow-100',
-    textClass: 'text-yellow-900',
-  }
+    label: "Pendiente",
+    className: "bg-yellow-100",
+    textClass: "text-yellow-900",
+  };
 }
 
 function resolveTemplateClass(color: string): string {
-  return templateCardClassMap[color] ?? 'border-purple-200 bg-purple-100'
+  return templateCardClassMap[color] ?? "border-purple-200 bg-purple-100";
 }
 
 export function VouchersScreen() {
-  const { session } = useSession()
-  const { showAlert, AlertComponent } = useCustomAlert()
-  const [templates, setTemplates] = useState<VoucherTemplate[]>([])
-  const [vouchers, setVouchers] = useState<Voucher[]>([])
-  const [totalPoints, setTotalPoints] = useState(0)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [generatingId, setGeneratingId] = useState<string | null>(null)
-  const [redeemingId, setRedeemingId] = useState<string | null>(null)
-  const [shareVoucher, setShareVoucher] = useState<Voucher | null>(null)
-  const [sharing, setSharing] = useState(false)
-  const shareCardRef = useRef<View>(null)
+  const { session } = useSession();
+  const { showAlert, AlertComponent } = useCustomAlert();
+  const [templates, setTemplates] = useState<VoucherTemplate[]>([]);
+  const [vouchers, setVouchers] = useState<Voucher[]>([]);
+  const [totalPoints, setTotalPoints] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [generatingId, setGeneratingId] = useState<string | null>(null);
+  const [redeemingId, setRedeemingId] = useState<string | null>(null);
+  const [shareVoucher, setShareVoucher] = useState<Voucher | null>(null);
+  const [sharing, setSharing] = useState(false);
+  const shareCardRef = useRef<View>(null);
 
-  const userId = session?.user.id
+  const userId = session?.user.id;
 
   const loadVouchersData = useCallback(async () => {
     if (!userId) {
-      setTemplates([])
-      setVouchers([])
-      setTotalPoints(0)
-      setLoading(false)
-      return
+      setTemplates([]);
+      setVouchers([]);
+      setTotalPoints(0);
+      setLoading(false);
+      return;
     }
 
     try {
-      setLoading(true)
-      setError(null)
+      setLoading(true);
+      setError(null);
 
       const [templatesRes, vouchersRes, profileRes] = await Promise.all([
         supabase
-          .from('voucher_templates')
-          .select('id, title, description, points_cost, icon, color')
-          .order('points_cost', { ascending: true }),
+          .from("voucher_templates")
+          .select("id, title, description, points_cost, icon, color")
+          .order("points_cost", { ascending: true }),
         supabase
-          .from('vouchers')
+          .from("vouchers")
           .select(
-            'id, user_id, title, description, points_cost, icon, color, is_redeemed, redeemed_at, created_at'
+            "id, user_id, title, description, points_cost, icon, color, is_redeemed, redeemed_at, created_at",
           )
-          .eq('user_id', userId)
-          .order('created_at', { ascending: false }),
-        supabase.from('profiles').select('total_points').eq('id', userId).single(),
-      ])
+          .eq("user_id", userId)
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("profiles")
+          .select("total_points")
+          .eq("id", userId)
+          .single(),
+      ]);
 
-      if (templatesRes.error) throw templatesRes.error
-      if (vouchersRes.error) throw vouchersRes.error
-      if (profileRes.error) throw profileRes.error
+      if (templatesRes.error) throw templatesRes.error;
+      if (vouchersRes.error) throw vouchersRes.error;
+      if (profileRes.error) throw profileRes.error;
 
-      setTemplates((templatesRes.data ?? []) as VoucherTemplate[])
-      setVouchers((vouchersRes.data ?? []) as Voucher[])
-      setTotalPoints(((profileRes.data as ProfilePoints | null)?.total_points ?? 0) as number)
+      setTemplates((templatesRes.data ?? []) as VoucherTemplate[]);
+      setVouchers((vouchersRes.data ?? []) as Voucher[]);
+      setTotalPoints(
+        ((profileRes.data as ProfilePoints | null)?.total_points ??
+          0) as number,
+      );
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudieron cargar los vales')
-      setTemplates([])
-      setVouchers([])
-      setTotalPoints(0)
+      setError(
+        err instanceof Error ? err.message : "No se pudieron cargar los vales",
+      );
+      setTemplates([]);
+      setVouchers([]);
+      setTotalPoints(0);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }, [userId])
+  }, [userId]);
 
   useFocusEffect(
     useCallback(() => {
-      void loadVouchersData()
-    }, [loadVouchersData])
-  )
+      void loadVouchersData();
+    }, [loadVouchersData]),
+  );
 
-  const hasGeneratedVouchers = useMemo(() => vouchers.length > 0, [vouchers.length])
+  const hasGeneratedVouchers = useMemo(
+    () => vouchers.length > 0,
+    [vouchers.length],
+  );
 
   const handleGenerateVoucher = async (template: VoucherTemplate) => {
-    if (!userId) return
+    if (!userId) return;
 
     if (totalPoints < template.points_cost) {
       showAlert({
-        title: 'Puntos insuficientes',
-        message: 'No tienes suficientes puntos',
-        buttons: [{ text: 'Entendido', style: 'cancel' }],
-      })
-      return
+        title: "Puntos insuficientes",
+        message: "No tienes suficientes puntos",
+        buttons: [{ text: "Entendido", style: "cancel" }],
+      });
+      return;
     }
 
     try {
-      setGeneratingId(template.id)
+      setGeneratingId(template.id);
 
-      const nextPoints = totalPoints - template.points_cost
+      const nextPoints = totalPoints - template.points_cost;
 
       const { error: updatePointsError } = await supabase
-        .from('profiles')
+        .from("profiles")
         .update({ total_points: nextPoints })
-        .eq('id', userId)
+        .eq("id", userId);
 
-      if (updatePointsError) throw updatePointsError
+      if (updatePointsError) throw updatePointsError;
 
-      const { error: createVoucherError } = await supabase.from('vouchers').insert({
-        user_id: userId,
-        template_id: template.id,
-        title: template.title,
-        description: template.description,
-        points_cost: template.points_cost,
-        icon: template.icon,
-        color: template.color,
-        is_redeemed: false,
-      })
+      const { error: createVoucherError } = await supabase
+        .from("vouchers")
+        .insert({
+          user_id: userId,
+          template_id: template.id,
+          title: template.title,
+          description: template.description,
+          points_cost: template.points_cost,
+          icon: template.icon,
+          color: template.color,
+          is_redeemed: false,
+        });
 
-      if (createVoucherError) throw createVoucherError
+      if (createVoucherError) throw createVoucherError;
 
-      setTotalPoints(nextPoints)
+      setTotalPoints(nextPoints);
 
       showAlert({
-        title: 'Vale generado',
-        message: 'Tu vale está listo para compartir con tu pareja',
-        buttons: [{ text: 'Perfecto', style: 'default' }],
-      })
+        title: "Vale generado",
+        message: "Tu vale está listo para compartir con tu pareja",
+        buttons: [{ text: "Perfecto", style: "default" }],
+      });
 
-      await loadVouchersData()
+      await loadVouchersData();
     } catch (err) {
       showAlert({
-        title: 'Error',
-        message: err instanceof Error ? err.message : 'No se pudo generar el vale',
-        buttons: [{ text: 'Entendido', style: 'destructive' }],
-      })
+        title: "Error",
+        message:
+          err instanceof Error ? err.message : "No se pudo generar el vale",
+        buttons: [{ text: "Entendido", style: "destructive" }],
+      });
     } finally {
-      setGeneratingId(null)
+      setGeneratingId(null);
     }
-  }
+  };
 
   const handleMarkAsRedeemed = (voucher: Voucher) => {
     if (voucher.is_redeemed) {
       showAlert({
-        title: 'Vale canjeado',
-        message: 'Este vale ya fue canjeado',
-        buttons: [{ text: 'Aceptar', style: 'cancel' }],
-      })
-      return
+        title: "Vale canjeado",
+        message: "Este vale ya fue canjeado",
+        buttons: [{ text: "Aceptar", style: "cancel" }],
+      });
+      return;
     }
 
     showAlert({
-      title: 'Canjear vale',
-      message: '¿Quieres marcar este vale como canjeado?',
+      title: "Canjear vale",
+      message: "¿Quieres marcar este vale como canjeado?",
       buttons: [
-        { text: 'Cancelar', style: 'cancel' },
+        { text: "Cancelar", style: "cancel" },
         {
-          text: 'Marcar como canjeado',
-          style: 'default',
+          text: "Marcar como canjeado",
+          style: "default",
           onPress: () => {
             void (async () => {
               try {
-                setRedeemingId(voucher.id)
+                setRedeemingId(voucher.id);
 
                 const { error: updateError } = await supabase
-                  .from('vouchers')
+                  .from("vouchers")
                   .update({
                     is_redeemed: true,
                     redeemed_at: new Date().toISOString(),
                   })
-                  .eq('id', voucher.id)
-                  .eq('user_id', voucher.user_id)
+                  .eq("id", voucher.id)
+                  .eq("user_id", voucher.user_id);
 
-                if (updateError) throw updateError
-                await loadVouchersData()
+                if (updateError) throw updateError;
+                await loadVouchersData();
               } catch (err) {
                 showAlert({
-                  title: 'Error',
-                  message: err instanceof Error ? err.message : 'No se pudo actualizar el vale',
-                  buttons: [{ text: 'Entendido', style: 'destructive' }],
-                })
+                  title: "Error",
+                  message:
+                    err instanceof Error
+                      ? err.message
+                      : "No se pudo actualizar el vale",
+                  buttons: [{ text: "Entendido", style: "destructive" }],
+                });
               } finally {
-                setRedeemingId(null)
+                setRedeemingId(null);
               }
-            })()
+            })();
           },
         },
       ],
-    })
-  }
+    });
+  };
 
   const handleShareVoucher = async () => {
-    if (!shareVoucher) return
-    setSharing(true)
+    if (!shareVoucher) return;
+    setSharing(true);
     try {
-      const canShare = await Sharing.isAvailableAsync()
+      const canShare = await Sharing.isAvailableAsync();
       if (canShare && shareCardRef.current) {
         const uri = await captureRef(shareCardRef, {
-          format: 'png',
+          format: "png",
           quality: 1,
-          result: 'tmpfile',
-        })
+          result: "tmpfile",
+        });
         await Sharing.shareAsync(uri, {
-          mimeType: 'image/png',
+          mimeType: "image/png",
           dialogTitle: shareVoucher.title,
-        })
+        });
       } else {
         await Share.share({
           message: `${shareVoucher.title}\n${shareVoucher.description}\n\nGenerado con Mochi`,
           title: shareVoucher.title,
-        })
+        });
       }
     } catch (err) {
-      if (err instanceof Error && err.message !== 'User did not share') {
+      if (err instanceof Error && err.message !== "User did not share") {
         showAlert({
-          title: 'Error al compartir',
-          message: 'No se pudo compartir el vale',
-          buttons: [{ text: 'Entendido', style: 'cancel' }],
-        })
+          title: "Error al compartir",
+          message: "No se pudo compartir el vale",
+          buttons: [{ text: "Entendido", style: "cancel" }],
+        });
       }
     } finally {
-      setSharing(false)
+      setSharing(false);
     }
-  }
+  };
 
   return (
     <>
       <SafeAreaView className="flex-1 bg-yellow-50">
-        <ScrollView className="flex-1 px-5" showsVerticalScrollIndicator={false}>
-          <TouchableOpacity className="mt-4 flex-row items-center" onPress={() => router.back()}>
+        <ScrollView
+          className="flex-1 px-5"
+          showsVerticalScrollIndicator={false}
+        >
+          <TouchableOpacity
+            className="mt-4 flex-row items-center"
+            onPress={() => router.back()}
+          >
             <Ionicons name="chevron-back" size={22} color="#92400e" />
             <Text className="ml-1 font-bold text-yellow-900">Volver</Text>
           </TouchableOpacity>
 
           <View className="mt-6 rounded-3xl border-2 border-yellow-200 bg-white p-4">
             <View className="flex-row items-center justify-between">
-              <Text className="text-2xl font-extrabold text-yellow-900">Vales</Text>
+              <Text className="text-2xl font-extrabold text-yellow-900">
+                Vales
+              </Text>
               <View className="rounded-full bg-yellow-200 px-3 py-1">
-                <Text className="text-xs font-extrabold text-yellow-900">{totalPoints} puntos</Text>
+                <Text className="text-xs font-extrabold text-yellow-900">
+                  {totalPoints} puntos
+                </Text>
               </View>
             </View>
             <Text className="mt-2 text-sm font-semibold text-yellow-700">
@@ -296,12 +331,16 @@ export function VouchersScreen() {
           {loading ? (
             <View className="mt-6 items-center rounded-3xl border-2 border-yellow-200 bg-white p-6">
               <MochiCharacter mood="thinking" size={88} />
-              <Text className="mt-3 text-sm font-semibold text-yellow-800">Cargando vales...</Text>
+              <Text className="mt-3 text-sm font-semibold text-yellow-800">
+                Cargando vales...
+              </Text>
             </View>
           ) : error ? (
             <View className="mt-6 items-center rounded-3xl border-2 border-red-200 bg-red-50 p-6">
               <MochiCharacter mood="sleepy" size={76} />
-              <Text className="mt-3 text-center text-sm font-semibold text-red-700">{error}</Text>
+              <Text className="mt-3 text-center text-sm font-semibold text-red-700">
+                {error}
+              </Text>
               <TouchableOpacity
                 className="mt-4 rounded-2xl bg-red-500 px-5 py-2"
                 onPress={() => void loadVouchersData()}
@@ -312,7 +351,9 @@ export function VouchersScreen() {
           ) : (
             <>
               <View className="mt-6">
-                <Text className="text-lg font-extrabold text-yellow-900">Mis vales</Text>
+                <Text className="text-lg font-extrabold text-yellow-900">
+                  Mis vales
+                </Text>
 
                 {!hasGeneratedVouchers ? (
                   <View className="mt-3 items-center rounded-3xl border-2 border-yellow-200 bg-white p-6">
@@ -324,7 +365,7 @@ export function VouchersScreen() {
                 ) : (
                   <View className="mt-3">
                     {vouchers.map((voucher) => {
-                      const status = getStatus(voucher.is_redeemed)
+                      const status = getStatus(voucher.is_redeemed);
 
                       return (
                         <TouchableOpacity
@@ -337,13 +378,18 @@ export function VouchersScreen() {
                             <View className="flex-row items-center flex-1 mr-2">
                               <View className="h-10 w-10 items-center justify-center rounded-xl bg-yellow-100">
                                 <Ionicons
-                                  name={(voucher.icon as keyof typeof Ionicons.glyphMap) || 'ticket-outline'}
+                                  name={
+                                    (voucher.icon as keyof typeof Ionicons.glyphMap) ||
+                                    "ticket-outline"
+                                  }
                                   size={18}
                                   color="#92400e"
                                 />
                               </View>
                               <View className="ml-3 flex-1">
-                                <Text className="text-base font-extrabold text-yellow-950">{voucher.title}</Text>
+                                <Text className="text-base font-extrabold text-yellow-950">
+                                  {voucher.title}
+                                </Text>
                                 <Text className="mt-1 text-xs font-semibold text-yellow-800">
                                   {formatDate(voucher.created_at)}
                                 </Text>
@@ -353,12 +399,27 @@ export function VouchersScreen() {
                               <TouchableOpacity
                                 className="h-8 w-8 items-center justify-center rounded-full bg-yellow-100"
                                 onPress={() => setShareVoucher(voucher)}
-                                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                                hitSlop={{
+                                  top: 8,
+                                  bottom: 8,
+                                  left: 8,
+                                  right: 8,
+                                }}
                               >
-                                <Ionicons name="share-outline" size={16} color="#92400e" />
+                                <Ionicons
+                                  name="share-outline"
+                                  size={16}
+                                  color="#92400e"
+                                />
                               </TouchableOpacity>
-                              <View className={`rounded-full px-3 py-1 ${status.className}`}>
-                                <Text className={`text-xs font-extrabold ${status.textClass}`}>{status.label}</Text>
+                              <View
+                                className={`rounded-full px-3 py-1 ${status.className}`}
+                              >
+                                <Text
+                                  className={`text-xs font-extrabold ${status.textClass}`}
+                                >
+                                  {status.label}
+                                </Text>
                               </View>
                             </View>
                           </View>
@@ -369,14 +430,16 @@ export function VouchersScreen() {
                             </Text>
                           )}
                         </TouchableOpacity>
-                      )
+                      );
                     })}
                   </View>
                 )}
               </View>
 
               <View className="mt-6">
-                <Text className="text-lg font-extrabold text-yellow-900">Catálogo</Text>
+                <Text className="text-lg font-extrabold text-yellow-900">
+                  Catálogo
+                </Text>
 
                 {templates.length === 0 ? (
                   <View className="mt-3 items-center rounded-3xl border-2 border-yellow-200 bg-white p-6">
@@ -396,7 +459,10 @@ export function VouchersScreen() {
                           <View className="flex-1 pr-3">
                             <View className="flex-row items-center">
                               <Ionicons
-                                name={(template.icon as keyof typeof Ionicons.glyphMap) || 'gift-outline'}
+                                name={
+                                  (template.icon as keyof typeof Ionicons.glyphMap) ||
+                                  "gift-outline"
+                                }
                                 size={16}
                                 color="#7c3aed"
                               />
@@ -419,7 +485,9 @@ export function VouchersScreen() {
                           disabled={generatingId === template.id}
                         >
                           <Text className="font-extrabold text-white">
-                            {generatingId === template.id ? 'Generando...' : 'Generar vale'}
+                            {generatingId === template.id
+                              ? "Generando..."
+                              : "Generar vale"}
                           </Text>
                         </TouchableOpacity>
                       </View>
@@ -440,7 +508,9 @@ export function VouchersScreen() {
         <View className="flex-1 items-center justify-center bg-black/50 px-6">
           <View className="w-full max-w-sm rounded-3xl bg-white pb-6 pt-5">
             <View className="mb-4 flex-row items-center justify-between px-5">
-              <Text className="text-base font-extrabold text-slate-800">Compartir vale</Text>
+              <Text className="text-base font-extrabold text-slate-800">
+                Compartir vale
+              </Text>
               <TouchableOpacity onPress={() => setShareVoucher(null)}>
                 <Ionicons name="close" size={22} color="#64748b" />
               </TouchableOpacity>
@@ -453,14 +523,14 @@ export function VouchersScreen() {
                   ref={shareCardRef}
                   collapsable={false}
                   className="mx-5 overflow-hidden rounded-2xl"
-                  style={{ backgroundColor: '#fffbeb' }}
+                  style={{ backgroundColor: "#fffbeb" }}
                 >
                   <View
                     style={{
                       padding: 24,
-                      alignItems: 'center',
+                      alignItems: "center",
                       borderWidth: 2,
-                      borderColor: '#fde68a',
+                      borderColor: "#fde68a",
                       borderRadius: 16,
                     }}
                   >
@@ -469,14 +539,17 @@ export function VouchersScreen() {
                         width: 64,
                         height: 64,
                         borderRadius: 20,
-                        backgroundColor: '#fef3c7',
-                        alignItems: 'center',
-                        justifyContent: 'center',
+                        backgroundColor: "#fef3c7",
+                        alignItems: "center",
+                        justifyContent: "center",
                         marginBottom: 12,
                       }}
                     >
                       <Ionicons
-                        name={(shareVoucher.icon as keyof typeof Ionicons.glyphMap) || 'ticket-outline'}
+                        name={
+                          (shareVoucher.icon as keyof typeof Ionicons.glyphMap) ||
+                          "ticket-outline"
+                        }
                         size={30}
                         color="#92400e"
                       />
@@ -484,9 +557,9 @@ export function VouchersScreen() {
                     <Text
                       style={{
                         fontSize: 18,
-                        fontWeight: '800',
-                        color: '#78350f',
-                        textAlign: 'center',
+                        fontWeight: "800",
+                        color: "#78350f",
+                        textAlign: "center",
                         marginBottom: 8,
                       }}
                     >
@@ -495,9 +568,9 @@ export function VouchersScreen() {
                     <Text
                       style={{
                         fontSize: 13,
-                        fontWeight: '600',
-                        color: '#92400e',
-                        textAlign: 'center',
+                        fontWeight: "600",
+                        color: "#92400e",
+                        textAlign: "center",
                         marginBottom: 16,
                       }}
                     >
@@ -505,32 +578,44 @@ export function VouchersScreen() {
                     </Text>
                     <View
                       style={{
-                        backgroundColor: '#fcd34d',
+                        backgroundColor: "#fcd34d",
                         borderRadius: 999,
                         paddingHorizontal: 14,
                         paddingVertical: 4,
                         marginBottom: 16,
                       }}
                     >
-                      <Text style={{ fontSize: 12, fontWeight: '800', color: '#78350f' }}>
+                      <Text
+                        style={{
+                          fontSize: 12,
+                          fontWeight: "800",
+                          color: "#78350f",
+                        }}
+                      >
                         {shareVoucher.points_cost} puntos
                       </Text>
                     </View>
-                    <Text style={{ fontSize: 11, color: '#b45309', fontWeight: '600' }}>
+                    <Text
+                      style={{
+                        fontSize: 11,
+                        color: "#b45309",
+                        fontWeight: "600",
+                      }}
+                    >
                       Generado con Mochi
                     </Text>
                   </View>
                 </View>
 
                 <TouchableOpacity
-                  className={`mx-5 mt-5 items-center rounded-2xl py-4 ${sharing ? 'bg-yellow-300' : 'bg-yellow-500'}`}
+                  className={`mx-5 mt-5 items-center rounded-2xl py-4 ${sharing ? "bg-yellow-300" : "bg-yellow-500"}`}
                   onPress={() => void handleShareVoucher()}
                   disabled={sharing}
                 >
                   <View className="flex-row items-center gap-2">
                     <Ionicons name="share-outline" size={18} color="white" />
                     <Text className="font-extrabold text-white">
-                      {sharing ? 'Compartiendo...' : 'Compartir imagen'}
+                      {sharing ? "Compartiendo..." : "Compartir imagen"}
                     </Text>
                   </View>
                 </TouchableOpacity>
@@ -540,7 +625,7 @@ export function VouchersScreen() {
         </View>
       </Modal>
     </>
-  )
+  );
 }
 
-export default VouchersScreen
+export default VouchersScreen;

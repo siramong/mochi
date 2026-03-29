@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -8,24 +8,24 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-} from 'react-native'
-import { Ionicons } from '@expo/vector-icons'
-import * as Linking from 'expo-linking'
-import * as WebBrowser from 'expo-web-browser'
-import { supabase } from '@/src/shared/lib/supabase'
-import { MochiCharacter } from '@/src/shared/components/MochiCharacter'
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import * as Linking from "expo-linking";
+import * as WebBrowser from "expo-web-browser";
+import { supabase } from "@/src/shared/lib/supabase";
+import { MochiCharacter } from "@/src/shared/components/MochiCharacter";
 
 // Ensure WebBrowser auth session complettion on app startup
-WebBrowser.maybeCompleteAuthSession()
+WebBrowser.maybeCompleteAuthSession();
 
-type Tab = 'login' | 'signup'
+type Tab = "login" | "signup";
 
 // ─── Email Sent confirmation screen ──────────────────────────────────────────
 
 type EmailSentScreenProps = {
-  email: string
-  onBack: () => void
-}
+  email: string;
+  onBack: () => void;
+};
 
 function EmailSentScreen({ email, onBack }: EmailSentScreenProps) {
   return (
@@ -42,9 +42,9 @@ function EmailSentScreen({ email, onBack }: EmailSentScreenProps) {
         </Text>
 
         <Text className="mt-2 text-center text-sm text-purple-500">
-          {'Te enviamos un enlace de verificación a\n'}
+          {"Te enviamos un enlace de verificación a\n"}
           <Text className="font-semibold text-purple-700">{email}</Text>
-          {'\n\nHaz clic en el enlace para activar tu cuenta.'}
+          {"\n\nHaz clic en el enlace para activar tu cuenta."}
         </Text>
 
         <TouchableOpacity
@@ -55,83 +55,86 @@ function EmailSentScreen({ email, onBack }: EmailSentScreenProps) {
         </TouchableOpacity>
       </View>
     </View>
-  )
+  );
 }
 
 // ─── Login screen ─────────────────────────────────────────────────────────────
 
 export function LoginScreen() {
-  const [tab, setTab] = useState<Tab>('login')
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [googleLoading, setGoogleLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [emailSent, setEmailSent] = useState(false)
+  const [tab, setTab] = useState<Tab>("login");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [emailSent, setEmailSent] = useState(false);
 
   function resetForm() {
-    setError(null)
-    setEmail('')
-    setPassword('')
-    setEmailSent(false)
-    setTab('login')
+    setError(null);
+    setEmail("");
+    setPassword("");
+    setEmailSent(false);
+    setTab("login");
   }
 
   function switchTab(next: Tab) {
-    setTab(next)
-    setError(null)
+    setTab(next);
+    setError(null);
   }
 
   async function signIn() {
     if (!email.trim() || !password) {
-      setError('Por favor ingresa tu correo y contraseña.')
-      return
+      setError("Por favor ingresa tu correo y contraseña.");
+      return;
     }
 
-    setError(null)
-    setLoading(true)
+    setError(null);
+    setLoading(true);
 
-    const { error: authError } = await supabase.auth.signInWithPassword({ email, password })
+    const { error: authError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
 
     if (authError) {
       setError(
-        authError.message.includes('Invalid login credentials')
-          ? 'Correo o contraseña incorrectos. Inténtalo de nuevo.'
+        authError.message.includes("Invalid login credentials")
+          ? "Correo o contraseña incorrectos. Inténtalo de nuevo."
           : authError.message,
-      )
+      );
     }
 
-    setLoading(false)
+    setLoading(false);
   }
 
   async function signUp() {
     if (!email.trim() || !password) {
-      setError('Por favor ingresa tu correo y contraseña.')
-      return
+      setError("Por favor ingresa tu correo y contraseña.");
+      return;
     }
     if (password.length < 6) {
-      setError('La contraseña debe tener al menos 6 caracteres.')
-      return
+      setError("La contraseña debe tener al menos 6 caracteres.");
+      return;
     }
 
-    setError(null)
-    setLoading(true)
+    setError(null);
+    setLoading(true);
 
-    const redirectTo = Linking.createURL('auth/callback')
+    const redirectTo = Linking.createURL("auth/callback");
 
     const { error: authError } = await supabase.auth.signUp({
       email,
       password,
       options: { emailRedirectTo: redirectTo },
-    })
+    });
 
     if (authError) {
-      setError(authError.message)
+      setError(authError.message);
     } else {
-      setEmailSent(true)
+      setEmailSent(true);
     }
 
-    setLoading(false)
+    setLoading(false);
   }
 
   /**
@@ -144,72 +147,81 @@ export function LoginScreen() {
    * This uses Supabase's recommended OAuth flow for Expo with WebBrowser.
    */
   async function signInWithGoogle() {
-    setError(null)
-    setGoogleLoading(true)
+    setError(null);
+    setGoogleLoading(true);
 
     try {
-      const redirectTo = Linking.createURL('auth/callback')
+      const redirectTo = Linking.createURL("auth/callback");
 
       const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
+        provider: "google",
         options: {
           redirectTo,
           skipBrowserRedirect: true,
         },
-      })
+      });
 
       if (error || !data.url) {
-        setError('No se pudo iniciar sesión con Google. Intenta de nuevo.')
-        setGoogleLoading(false)
-        return
+        setError("No se pudo iniciar sesión con Google. Intenta de nuevo.");
+        setGoogleLoading(false);
+        return;
       }
 
-      const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo)
+      const result = await WebBrowser.openAuthSessionAsync(
+        data.url,
+        redirectTo,
+      );
 
-      if (result.type === 'success') {
-        const url = result.url
+      if (result.type === "success") {
+        const url = result.url;
         // Extract tokens from the URL hash or query string
-        const fragment = url.split('#')[1] ?? url.split('?')[1]
-        const params = new URLSearchParams(fragment ?? '')
-        const accessToken = params.get('access_token')
-        const refreshToken = params.get('refresh_token')
+        const fragment = url.split("#")[1] ?? url.split("?")[1];
+        const params = new URLSearchParams(fragment ?? "");
+        const accessToken = params.get("access_token");
+        const refreshToken = params.get("refresh_token");
 
         if (accessToken && refreshToken) {
           // Set the session with the tokens
           const { error: sessionError } = await supabase.auth.setSession({
             access_token: accessToken,
             refresh_token: refreshToken,
-          })
+          });
 
           if (sessionError) {
-            setError('No se pudo completar la sesión. Intenta de nuevo.')
+            setError("No se pudo completar la sesión. Intenta de nuevo.");
           }
         }
-      } else if (result.type === 'cancel' || result.type === 'dismiss') {
+      } else if (result.type === "cancel" || result.type === "dismiss") {
         // User cancelled or dismissed the browser — no error needed
       } else {
-        setError('No se pudo iniciar sesión con Google. Intenta de nuevo.')
+        setError("No se pudo iniciar sesión con Google. Intenta de nuevo.");
       }
     } catch (err) {
-      setError('Ocurrió un error. Intenta de nuevo.')
+      setError("Ocurrió un error. Intenta de nuevo.");
     } finally {
-      setGoogleLoading(false)
+      setGoogleLoading(false);
     }
   }
 
   // Show email-sent confirmation screen after successful signup
   if (emailSent) {
-    return <EmailSentScreen email={email} onBack={resetForm} />
+    return <EmailSentScreen email={email} onBack={resetForm} />;
   }
 
   return (
     <KeyboardAvoidingView
       className="flex-1"
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
       <ScrollView
         className="flex-1 bg-purple-50"
-        contentContainerStyle={{ flexGrow: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24, paddingVertical: 48 }}
+        contentContainerStyle={{
+          flexGrow: 1,
+          alignItems: "center",
+          justifyContent: "center",
+          paddingHorizontal: 24,
+          paddingVertical: 48,
+        }}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
@@ -231,7 +243,9 @@ export function LoginScreen() {
           {/* Branding */}
           <View className="items-center">
             <MochiCharacter mood="excited" size={100} />
-            <Text className="mt-3 text-4xl font-extrabold text-purple-900">Mochi</Text>
+            <Text className="mt-3 text-4xl font-extrabold text-purple-900">
+              Mochi
+            </Text>
             <Text className="mt-1 text-base font-medium text-purple-500">
               Tu asistente de estudio
             </Text>
@@ -240,24 +254,24 @@ export function LoginScreen() {
           {/* Tab toggle */}
           <View className="mt-8 flex-row rounded-2xl bg-purple-100 p-1">
             <TouchableOpacity
-              className={`flex-1 items-center rounded-xl py-2.5 ${tab === 'login' ? 'bg-purple-600' : 'bg-transparent'}`}
-              onPress={() => switchTab('login')}
+              className={`flex-1 items-center rounded-xl py-2.5 ${tab === "login" ? "bg-purple-600" : "bg-transparent"}`}
+              onPress={() => switchTab("login")}
               activeOpacity={0.8}
             >
               <Text
-                className={`text-sm font-semibold ${tab === 'login' ? 'text-white' : 'text-purple-400'}`}
+                className={`text-sm font-semibold ${tab === "login" ? "text-white" : "text-purple-400"}`}
               >
                 Iniciar sesión
               </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              className={`flex-1 items-center rounded-xl py-2.5 ${tab === 'signup' ? 'bg-purple-600' : 'bg-transparent'}`}
-              onPress={() => switchTab('signup')}
+              className={`flex-1 items-center rounded-xl py-2.5 ${tab === "signup" ? "bg-purple-600" : "bg-transparent"}`}
+              onPress={() => switchTab("signup")}
               activeOpacity={0.8}
             >
               <Text
-                className={`text-sm font-semibold ${tab === 'signup' ? 'text-white' : 'text-purple-400'}`}
+                className={`text-sm font-semibold ${tab === "signup" ? "text-white" : "text-purple-400"}`}
               >
                 Crear cuenta
               </Text>
@@ -285,7 +299,9 @@ export function LoginScreen() {
               value={password}
               onChangeText={setPassword}
               secureTextEntry
-              autoComplete={tab === 'signup' ? 'new-password' : 'current-password'}
+              autoComplete={
+                tab === "signup" ? "new-password" : "current-password"
+              }
               editable={!loading && !googleLoading}
             />
 
@@ -298,7 +314,7 @@ export function LoginScreen() {
           <TouchableOpacity
             className="mt-6 items-center rounded-3xl bg-purple-600 py-4 disabled:opacity-60"
             onPress={() => {
-              void (tab === 'login' ? signIn() : signUp())
+              void (tab === "login" ? signIn() : signUp());
             }}
             disabled={loading || googleLoading}
             activeOpacity={0.85}
@@ -307,7 +323,7 @@ export function LoginScreen() {
               <ActivityIndicator color="#ffffff" />
             ) : (
               <Text className="text-lg font-extrabold text-white">
-                {tab === 'login' ? 'Iniciar sesión' : 'Crear cuenta'}
+                {tab === "login" ? "Iniciar sesión" : "Crear cuenta"}
               </Text>
             )}
           </TouchableOpacity>
@@ -315,7 +331,9 @@ export function LoginScreen() {
           {/* Divider */}
           <View className="mt-6 flex-row items-center gap-2">
             <View className="flex-1 border-t border-purple-200" />
-            <Text className="text-xs font-semibold text-purple-500">o continúa con</Text>
+            <Text className="text-xs font-semibold text-purple-500">
+              o continúa con
+            </Text>
             <View className="flex-1 border-t border-purple-200" />
           </View>
 
@@ -342,14 +360,14 @@ export function LoginScreen() {
 
           {/* Soft hint */}
           <Text className="mt-4 text-center text-xs text-purple-300">
-            {tab === 'login'
-              ? '¿No tienes cuenta? Cambia a Crear cuenta arriba.'
-              : 'Al registrarte aceptas nuestros términos de uso.'}
+            {tab === "login"
+              ? "¿No tienes cuenta? Cambia a Crear cuenta arriba."
+              : "Al registrarte aceptas nuestros términos de uso."}
           </Text>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
-  )
+  );
 }
 
-export default LoginScreen
+export default LoginScreen;
