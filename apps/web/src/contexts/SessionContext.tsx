@@ -58,30 +58,38 @@ export function SessionProvider({ children }: SessionProviderProps) {
     let mounted = true
 
     async function initialize() {
-      const {
-        data: { session: initialSession },
-      } = await supabase.auth.getSession()
+      try {
+        const {
+          data: { session: initialSession },
+        } = await supabase.auth.getSession()
 
-      if (!mounted) return
+        if (!mounted) return
 
-      setSession(initialSession)
+        setSession(initialSession)
 
-      if (initialSession?.user.id) {
-        try {
-          const needsOnboarding = await fetchOnboardingStatus(initialSession.user.id)
-          if (mounted) {
-            setRequiresOnboarding(needsOnboarding)
-            setProfileError(null)
-          }
-        } catch (error) {
-          if (mounted) {
-            setProfileError(error instanceof Error ? error.message : 'Error cargando perfil')
+        if (initialSession?.user.id) {
+          try {
+            const needsOnboarding = await fetchOnboardingStatus(initialSession.user.id)
+            if (mounted) {
+              setRequiresOnboarding(needsOnboarding)
+              setProfileError(null)
+            }
+          } catch (error) {
+            if (mounted) {
+              setProfileError(error instanceof Error ? error.message : 'Error cargando perfil')
+            }
           }
         }
-      }
-
-      if (mounted) {
-        setLoading(false)
+      } catch (error) {
+        if (mounted) {
+          setSession(null)
+          setRequiresOnboarding(false)
+          setProfileError(error instanceof Error ? error.message : 'Error cargando sesión')
+        }
+      } finally {
+        if (mounted) {
+          setLoading(false)
+        }
       }
     }
 

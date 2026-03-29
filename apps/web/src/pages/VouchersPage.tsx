@@ -8,30 +8,66 @@ export function VouchersPage() {
   const { session } = useSession()
   const [items, setItems] = useState<Voucher[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     const userId = session?.user.id
     if (!userId) {
+      setItems([])
+      setError(null)
       setLoading(false)
       return
     }
 
-    async function loadVouchers() {
-      const { data } = await supabase
-        .from('vouchers')
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false })
-        .returns<Voucher[]>()
+    let isActive = true
 
-      setItems(data ?? [])
-      setLoading(false)
+    async function loadVouchers() {
+      setLoading(true)
+      setError(null)
+
+      try {
+        const { data, error: vouchersError } = await supabase
+          .from('vouchers')
+          .select('*')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false })
+          .returns<Voucher[]>()
+
+        if (!isActive) {
+          return
+        }
+
+        if (vouchersError) {
+          setError(vouchersError.message)
+          setItems([])
+          return
+        }
+
+        setItems(data ?? [])
+      } catch (loadError) {
+        if (!isActive) {
+          return
+        }
+        console.error('Error inesperado cargando vales:', loadError)
+        setError('No se pudieron cargar los vales')
+        setItems([])
+      } finally {
+        if (isActive) {
+          setLoading(false)
+        }
+      }
     }
 
     void loadVouchers()
+
+    return () => {
+      isActive = false
+    }
   }, [session?.user.id])
 
   if (loading) return <p className="text-sm text-purple-700">Cargando vales...</p>
+
+  if (error) return <p className="text-sm text-red-600">{error}</p>
 
   if (items.length === 0) {
     return <EmptyState title="No tienes vales todavía" description="Tus recompensas creadas aparecerán aquí para seguimiento." />

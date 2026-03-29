@@ -182,99 +182,125 @@ export function AnalyticsPage() {
     async function loadAnalytics() {
       setLoading(true)
       setError(null)
+      try {
+        const now = new Date()
+        const todayISO = toISODate(startOfDay(now))
+        const since90 = new Date(now)
+        since90.setDate(since90.getDate() - 89)
+        const since90ISODate = toISODate(startOfDay(since90))
+        const since90ISODateTime = `${since90ISODate}T00:00:00`
 
-      const now = new Date()
-      const todayISO = toISODate(startOfDay(now))
-      const since90 = new Date(now)
-      since90.setDate(since90.getDate() - 89)
-      const since90ISODate = toISODate(startOfDay(since90))
-      const since90ISODateTime = `${since90ISODate}T00:00:00`
+        const [studyRes, habitsRes, habitLogsRes, examsRes, examActivityRes, engagementRes] = await Promise.allSettled([
+          supabase
+            .from('study_sessions')
+            .select('id, user_id, study_block_id, subject, duration_seconds, completed_at')
+            .eq('user_id', userId)
+            .gte('completed_at', since90ISODateTime)
+            .order('completed_at', { ascending: true })
+            .returns<StudySession[]>(),
+          supabase
+            .from('habits')
+            .select('id, user_id, name, icon, color, created_at')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: true })
+            .returns<Habit[]>(),
+          supabase
+            .from('habit_logs')
+            .select('id, user_id, habit_id, log_date, created_at')
+            .eq('user_id', userId)
+            .gte('log_date', since90ISODate)
+            .lte('log_date', todayISO)
+            .returns<HabitLog[]>(),
+          supabase
+            .from('exam_logs')
+            .select('id, user_id, subject, grade, max_grade, notes, preparation_notes, exam_date, is_upcoming, created_at')
+            .eq('user_id', userId)
+            .eq('is_upcoming', true)
+            .gte('exam_date', todayISO)
+            .order('exam_date', { ascending: true })
+            .limit(6)
+            .returns<ExamLog[]>(),
+          supabase
+            .from('exam_logs')
+            .select('created_at, exam_date, is_upcoming')
+            .eq('user_id', userId)
+            .eq('is_upcoming', false)
+            .or(`exam_date.gte.${since90ISODate},created_at.gte.${since90ISODateTime}`)
+            .order('exam_date', { ascending: true })
+            .returns<Array<Pick<ExamLog, 'created_at' | 'exam_date' | 'is_upcoming'>>>(),
+          supabase
+            .from('engagement_events')
+            .select('occurred_at')
+            .eq('user_id', userId)
+            .gte('occurred_at', since90ISODateTime)
+            .order('occurred_at', { ascending: true })
+            .returns<Array<Pick<EngagementEvent, 'occurred_at'>>>(),
+        ])
 
-      const [studyRes, habitsRes, habitLogsRes, examsRes, examActivityRes, engagementRes] = await Promise.all([
-        supabase
-          .from('study_sessions')
-          .select('id, user_id, study_block_id, subject, duration_seconds, completed_at')
-          .eq('user_id', userId)
-          .gte('completed_at', since90ISODateTime)
-          .order('completed_at', { ascending: true })
-          .returns<StudySession[]>(),
-        supabase
-          .from('habits')
-          .select('id, user_id, name, icon, color, created_at')
-          .eq('user_id', userId)
-          .order('created_at', { ascending: true })
-          .returns<Habit[]>(),
-        supabase
-          .from('habit_logs')
-          .select('id, user_id, habit_id, log_date, created_at')
-          .eq('user_id', userId)
-          .gte('log_date', since90ISODate)
-          .lte('log_date', todayISO)
-          .returns<HabitLog[]>(),
-        supabase
-          .from('exam_logs')
-          .select('id, user_id, subject, grade, max_grade, notes, preparation_notes, exam_date, is_upcoming, created_at')
-          .eq('user_id', userId)
-          .eq('is_upcoming', true)
-          .gte('exam_date', todayISO)
-          .order('exam_date', { ascending: true })
-          .limit(6)
-          .returns<ExamLog[]>(),
-        supabase
-          .from('exam_logs')
-          .select('created_at, exam_date, is_upcoming')
-          .eq('user_id', userId)
-          .eq('is_upcoming', false)
-          .or(`exam_date.gte.${since90ISODate},created_at.gte.${since90ISODateTime}`)
-          .order('exam_date', { ascending: true })
-          .returns<Array<Pick<ExamLog, 'created_at' | 'exam_date' | 'is_upcoming'>>>(),
-        supabase
-          .from('engagement_events')
-          .select('occurred_at')
-          .eq('user_id', userId)
-          .gte('occurred_at', since90ISODateTime)
-          .order('occurred_at', { ascending: true })
-          .returns<Array<Pick<EngagementEvent, 'occurred_at'>>>(),
-      ])
-
-      if (!isActive) {
-        return
-      }
-
-      if (studyRes.error || habitsRes.error || habitLogsRes.error || examsRes.error || examActivityRes.error) {
-        setError(
-          studyRes.error?.message
-            ?? habitsRes.error?.message
-            ?? habitLogsRes.error?.message
-            ?? examsRes.error?.message
-            ?? examActivityRes.error?.message
-            ?? 'No se pudieron cargar las analíticas.'
-        )
-        setLoading(false)
-        return
-      }
-
-      if (engagementRes.error) {
-        const code = getPostgresErrorCode(engagementRes.error)
-        const isMissingTable = code === '42P01'
-
-        if (!isMissingTable) {
-          console.warn('No se pudo consultar engagement_events para analíticas:', engagementRes.error)
+        if (!isActive) {
+          return
         }
 
-        setEngagementAvailable(false)
-        setEngagementRows90([])
-      } else {
-        setEngagementAvailable(true)
-        setEngagementRows90(engagementRes.data ?? [])
-      }
+        const studyError =
+          studyRes.status === 'rejected'
+            ? 'No se pudieron cargar las sesiones de estudio.'
+            : studyRes.value.error?.message
+        const habitsError =
+          habitsRes.status === 'rejected'
+            ? 'No se pudieron cargar los hábitos.'
+            : habitsRes.value.error?.message
+        const habitLogsError =
+          habitLogsRes.status === 'rejected'
+            ? 'No se pudieron cargar los registros de hábitos.'
+            : habitLogsRes.value.error?.message
+        const examsError =
+          examsRes.status === 'rejected'
+            ? 'No se pudieron cargar los exámenes próximos.'
+            : examsRes.value.error?.message
+        const examActivityError =
+          examActivityRes.status === 'rejected'
+            ? 'No se pudo cargar la actividad de exámenes.'
+            : examActivityRes.value.error?.message
 
-      setStudyRows90(studyRes.data ?? [])
-      setHabits(habitsRes.data ?? [])
-      setHabitLogs90(habitLogsRes.data ?? [])
-      setUpcomingExams(examsRes.data ?? [])
-      setExamActivityRows90(examActivityRes.data ?? [])
-      setLoading(false)
+        const primaryError = studyError ?? habitsError ?? habitLogsError ?? examsError ?? examActivityError
+
+        setError(primaryError ?? null)
+
+        setStudyRows90(studyRes.status === 'fulfilled' ? (studyRes.value.data ?? []) : [])
+        setHabits(habitsRes.status === 'fulfilled' ? (habitsRes.value.data ?? []) : [])
+        setHabitLogs90(habitLogsRes.status === 'fulfilled' ? (habitLogsRes.value.data ?? []) : [])
+        setUpcomingExams(examsRes.status === 'fulfilled' ? (examsRes.value.data ?? []) : [])
+        setExamActivityRows90(examActivityRes.status === 'fulfilled' ? (examActivityRes.value.data ?? []) : [])
+
+        if (engagementRes.status === 'rejected') {
+          console.warn('No se pudo consultar engagement_events para analíticas:', engagementRes.reason)
+          setEngagementAvailable(false)
+          setEngagementRows90([])
+        } else if (engagementRes.value.error) {
+          const code = getPostgresErrorCode(engagementRes.value.error)
+          const isMissingTable = code === '42P01'
+
+          if (!isMissingTable) {
+            console.warn('No se pudo consultar engagement_events para analíticas:', engagementRes.value.error)
+          }
+
+          setEngagementAvailable(false)
+          setEngagementRows90([])
+        } else {
+          setEngagementAvailable(true)
+          setEngagementRows90(engagementRes.value.data ?? [])
+        }
+      } catch (loadError) {
+        if (!isActive) {
+          return
+        }
+        console.error('Error inesperado cargando analíticas:', loadError)
+        setError('No se pudieron cargar las analíticas.')
+      } finally {
+        if (isActive) {
+          setLoading(false)
+        }
+      }
     }
 
     void loadAnalytics()

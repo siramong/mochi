@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { AlarmClock, BookOpen, Dumbbell, Flame, Heart, Star } from 'lucide-react'
+import { AlarmClock, BookOpen, Dumbbell, Flame, Heart, Sparkles, Star } from 'lucide-react'
 import { MochiCompanion } from '@/components/common/MochiCompanion'
 import { supabase } from '@/lib/supabase'
 import { useSession } from '@/hooks/useSession'
@@ -19,7 +19,6 @@ type ProgressData = {
   totalPoints: number
   currentStreak: number
   lastAchievementTitle: string | null
-  lastAchievementIcon: string | null
 }
 
 export function DashboardPage() {
@@ -35,7 +34,6 @@ export function DashboardPage() {
     totalPoints: 0,
     currentStreak: 0,
     lastAchievementTitle: null,
-    lastAchievementIcon: null,
   })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -55,125 +53,165 @@ export function DashboardPage() {
       return
     }
 
+    let isActive = true
+
     async function loadData() {
       setLoading(true)
       setError(null)
+      try {
+        const today = new Date()
+        const dayOfWeek = today.getDay()
+        const todayISO = today.toISOString().slice(0, 10)
+        const weekAgo = new Date(today)
+        weekAgo.setDate(weekAgo.getDate() - 6)
 
-      const today = new Date()
-      const dayOfWeek = today.getDay()
-      const todayISO = today.toISOString().slice(0, 10)
-      const weekAgo = new Date(today)
-      weekAgo.setDate(weekAgo.getDate() - 6)
+        const [blocksRes, routinesRes, habitsRes, moodRes, profileRes, streakRes, lastAchievementRes] =
+          await Promise.allSettled([
+            supabase
+              .from('study_blocks')
+              .select('id', { count: 'exact', head: true })
+              .eq('user_id', userId)
+              .eq('day_of_week', dayOfWeek),
+            supabase.from('routines').select('id', { count: 'exact', head: true }).eq('user_id', userId),
+            supabase
+              .from('habit_logs')
+              .select('id', { count: 'exact', head: true })
+              .eq('user_id', userId)
+              .eq('log_date', todayISO),
+            supabase
+              .from('mood_logs')
+              .select('id', { count: 'exact', head: true })
+              .eq('user_id', userId)
+              .gte('logged_date', weekAgo.toISOString().slice(0, 10)),
+            supabase.from('profiles').select('total_points').eq('id', userId).maybeSingle<{ total_points: number }>(),
+            supabase.from('streaks').select('current_streak').eq('user_id', userId).maybeSingle<{ current_streak: number }>(),
+            supabase
+              .from('user_achievements')
+              .select('unlocked_at, achievement:achievements(title)')
+              .eq('user_id', userId)
+              .order('unlocked_at', { ascending: false })
+              .limit(1)
+              .maybeSingle<{ unlocked_at: string; achievement: { title: string } }>(),
+          ])
 
-      const [blocksRes, routinesRes, habitsRes, moodRes, profileRes, streakRes, lastAchievementRes] =
-        await Promise.all([
+        const now = new Date()
+        const isMonday = now.getDay() === 1
+        const weekStart = new Date(now)
+        weekStart.setDate(now.getDate() - now.getDay() + 1 - (isMonday ? 7 : 0))
+        weekStart.setHours(0, 0, 0, 0)
+        const weekEnd = new Date(weekStart)
+        weekEnd.setDate(weekStart.getDate() + 7)
+
+        const [weeklyStudyRes, weeklySessionsRes, weeklyRoutinesRes, weeklyHabitsRes, habitsCountRes, weeklyGratitudeRes] = await Promise.allSettled([
           supabase
-            .from('study_blocks')
+            .from('study_sessions')
+            .select('duration_seconds, completed_at')
+            .eq('user_id', userId)
+            .gte('completed_at', weekStart.toISOString())
+            .lt('completed_at', weekEnd.toISOString()),
+          supabase
+            .from('study_sessions')
             .select('id', { count: 'exact', head: true })
             .eq('user_id', userId)
-            .eq('day_of_week', dayOfWeek),
-          supabase.from('routines').select('id', { count: 'exact', head: true }).eq('user_id', userId),
+            .gte('completed_at', weekStart.toISOString())
+            .lt('completed_at', weekEnd.toISOString()),
+          supabase
+            .from('routine_logs')
+            .select('id', { count: 'exact', head: true })
+            .eq('user_id', userId)
+            .gte('completed_at', weekStart.toISOString())
+            .lt('completed_at', weekEnd.toISOString()),
           supabase
             .from('habit_logs')
             .select('id', { count: 'exact', head: true })
             .eq('user_id', userId)
-            .eq('log_date', todayISO),
+            .gte('log_date', weekStart.toISOString().slice(0, 10))
+            .lt('log_date', weekEnd.toISOString().slice(0, 10)),
+          supabase.from('habits').select('id', { count: 'exact', head: true }).eq('user_id', userId),
           supabase
-            .from('mood_logs')
+            .from('gratitude_logs')
             .select('id', { count: 'exact', head: true })
             .eq('user_id', userId)
-            .gte('logged_date', weekAgo.toISOString().slice(0, 10)),
-          supabase.from('profiles').select('total_points').eq('id', userId).maybeSingle<{ total_points: number }>(),
-          supabase.from('streaks').select('current_streak').eq('user_id', userId).maybeSingle<{ current_streak: number }>(),
-          supabase
-            .from('user_achievements')
-            .select('unlocked_at, achievement:achievements(title, icon)')
-            .eq('user_id', userId)
-            .order('unlocked_at', { ascending: false })
-            .limit(1)
-            .maybeSingle<{ unlocked_at: string; achievement: { title: string; icon: string | null } }>(),
+            .gte('logged_date', weekStart.toISOString().slice(0, 10))
+            .lt('logged_date', weekEnd.toISOString().slice(0, 10)),
         ])
 
-      const now = new Date()
-      const isMonday = now.getDay() === 1
-      const weekStart = new Date(now)
-      weekStart.setDate(now.getDate() - now.getDay() + 1 - (isMonday ? 7 : 0))
-      weekStart.setHours(0, 0, 0, 0)
-      const weekEnd = new Date(weekStart)
-      weekEnd.setDate(weekStart.getDate() + 7)
+        if (!isActive) return
 
-      const [weeklyStudyRes, weeklySessionsRes, weeklyRoutinesRes, weeklyHabitsRes, habitsCountRes, weeklyGratitudeRes] = await Promise.all([
-        supabase
-          .from('study_sessions')
-          .select('duration_seconds, completed_at')
-          .eq('user_id', userId)
-          .gte('completed_at', weekStart.toISOString())
-          .lt('completed_at', weekEnd.toISOString()),
-        supabase
-          .from('study_sessions')
-          .select('id', { count: 'exact', head: true })
-          .eq('user_id', userId)
-          .gte('completed_at', weekStart.toISOString())
-          .lt('completed_at', weekEnd.toISOString()),
-        supabase
-          .from('routine_logs')
-          .select('id', { count: 'exact', head: true })
-          .eq('user_id', userId)
-          .gte('completed_at', weekStart.toISOString())
-          .lt('completed_at', weekEnd.toISOString()),
-        supabase
-          .from('habit_logs')
-          .select('id', { count: 'exact', head: true })
-          .eq('user_id', userId)
-          .gte('log_date', weekStart.toISOString().slice(0, 10))
-          .lt('log_date', weekEnd.toISOString().slice(0, 10)),
-        supabase.from('habits').select('id', { count: 'exact', head: true }).eq('user_id', userId),
-        supabase
-          .from('gratitude_logs')
-          .select('id', { count: 'exact', head: true })
-          .eq('user_id', userId)
-          .gte('logged_date', weekStart.toISOString().slice(0, 10))
-          .lt('logged_date', weekEnd.toISOString().slice(0, 10)),
-      ])
+        const primaryHasError =
+          blocksRes.status === 'rejected'
+          || routinesRes.status === 'rejected'
+          || habitsRes.status === 'rejected'
+          || moodRes.status === 'rejected'
+          || (blocksRes.status === 'fulfilled' && !!blocksRes.value.error)
+          || (routinesRes.status === 'fulfilled' && !!routinesRes.value.error)
+          || (habitsRes.status === 'fulfilled' && !!habitsRes.value.error)
+          || (moodRes.status === 'fulfilled' && !!moodRes.value.error)
 
-      const studyHours = (((weeklyStudyRes.data as Array<{ duration_seconds: number }> | null) ?? []).reduce((sum, row) => sum + row.duration_seconds, 0) / 3600)
-      const sessionsCount = weeklySessionsRes.count ?? 0
-      const routinesCount = weeklyRoutinesRes.count ?? 0
-      const habitsCompleted = weeklyHabitsRes.count ?? 0
-      const habitsTotal = (habitsCountRes.count ?? 0) * 7
-      const points = sessionsCount * 5 + routinesCount * 10 + (weeklyGratitudeRes.count ?? 0) * 3
+        if (primaryHasError) {
+          setError('No se pudo cargar el resumen de hoy')
+        }
 
-      setWeekly({
-        studyHours: Number(studyHours.toFixed(1)),
-        sessions: sessionsCount,
-        routines: routinesCount,
-        habitsCompleted,
-        habitsTotal,
-        points,
-      })
-
-      if (blocksRes.error || routinesRes.error || habitsRes.error || moodRes.error) {
-        setError('No se pudo cargar el resumen de hoy')
-      } else {
         setStats({
-          todayBlocks: blocksRes.count ?? 0,
-          routines: routinesRes.count ?? 0,
-          habitsToday: habitsRes.count ?? 0,
-          moodThisWeek: moodRes.count ?? 0,
+          todayBlocks: blocksRes.status === 'fulfilled' ? (blocksRes.value.count ?? 0) : 0,
+          routines: routinesRes.status === 'fulfilled' ? (routinesRes.value.count ?? 0) : 0,
+          habitsToday: habitsRes.status === 'fulfilled' ? (habitsRes.value.count ?? 0) : 0,
+          moodThisWeek: moodRes.status === 'fulfilled' ? (moodRes.value.count ?? 0) : 0,
         })
+
+        setProgress({
+          totalPoints:
+            profileRes.status === 'fulfilled' && !profileRes.value.error
+              ? (profileRes.value.data?.total_points ?? 0)
+              : 0,
+          currentStreak:
+            streakRes.status === 'fulfilled' && !streakRes.value.error
+              ? (streakRes.value.data?.current_streak ?? 0)
+              : 0,
+          lastAchievementTitle:
+            lastAchievementRes.status === 'fulfilled' && !lastAchievementRes.value.error
+              ? (lastAchievementRes.value.data?.achievement?.title ?? null)
+              : null,
+        })
+
+        const studyHours = (
+          ((weeklyStudyRes.status === 'fulfilled'
+            ? (weeklyStudyRes.value.data as Array<{ duration_seconds: number }> | null)
+            : null) ?? [])
+            .reduce((sum, row) => sum + row.duration_seconds, 0) / 3600
+        )
+
+        const sessionsCount = weeklySessionsRes.status === 'fulfilled' ? (weeklySessionsRes.value.count ?? 0) : 0
+        const routinesCount = weeklyRoutinesRes.status === 'fulfilled' ? (weeklyRoutinesRes.value.count ?? 0) : 0
+        const habitsCompleted = weeklyHabitsRes.status === 'fulfilled' ? (weeklyHabitsRes.value.count ?? 0) : 0
+        const habitsCatalogCount = habitsCountRes.status === 'fulfilled' ? (habitsCountRes.value.count ?? 0) : 0
+        const gratitudeCount = weeklyGratitudeRes.status === 'fulfilled' ? (weeklyGratitudeRes.value.count ?? 0) : 0
+        const points = sessionsCount * 5 + routinesCount * 10 + gratitudeCount * 3
+
+        setWeekly({
+          studyHours: Number(studyHours.toFixed(1)),
+          sessions: sessionsCount,
+          routines: routinesCount,
+          habitsCompleted,
+          habitsTotal: habitsCatalogCount * 7,
+          points,
+        })
+      } catch (loadError) {
+        if (!isActive) return
+        console.error('Error cargando dashboard:', loadError)
+        setError('No se pudo cargar el dashboard')
+      } finally {
+        if (isActive) {
+          setLoading(false)
+        }
       }
-
-      setProgress({
-        totalPoints: profileRes.data?.total_points ?? 0,
-        currentStreak: streakRes.data?.current_streak ?? 0,
-        lastAchievementTitle: lastAchievementRes.data?.achievement?.title ?? null,
-        lastAchievementIcon: lastAchievementRes.data?.achievement?.icon ?? null,
-      })
-
-      setLoading(false)
     }
 
     void loadData()
+
+    return () => {
+      isActive = false
+    }
   }, [session?.user.id])
 
   if (loading) {
@@ -228,45 +266,44 @@ export function DashboardPage() {
 
       <div className="mt-6 rounded-3xl border border-yellow-200 bg-gradient-to-br from-yellow-50 to-purple-50 p-5">
         <h2 className="text-lg font-black text-purple-950">Tu progreso</h2>
-        <div className="mt-4 grid gap-3 sm:grid-cols-3">
-          <div className="rounded-2xl bg-white p-3">
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          <div className="rounded-2xl bg-white p-4">
             <p className="inline-flex items-center text-xs font-bold uppercase text-yellow-700">
               <Star className="mr-1 h-4 w-4" /> Puntos totales
-                  {/* Quick capture & modals */}
-                  <div className="mb-6 flex gap-2">
-                    <button className="flex-1 rounded-xl bg-gradient-to-r from-purple-100 to-pink-100 px-4 py-2 text-sm font-semibold text-purple-700 hover:from-purple-200 hover:to-pink-200 transition-all">
-                      ⚡ Idea rápida
-                    </button>
-                  </div>
             </p>
-            <p className="mt-1 text-3xl font-black text-yellow-900">{progress.totalPoints}</p>
+            <p className="mt-2 text-3xl font-black text-yellow-900">{progress.totalPoints}</p>
           </div>
-          <div className="rounded-2xl bg-white p-3">
+          <div className="rounded-2xl bg-white p-4">
             <p className="inline-flex items-center text-xs font-bold uppercase text-orange-700">
               <Flame className="mr-1 h-4 w-4" /> Racha actual
             </p>
-            <p className="mt-1 text-3xl font-black text-orange-900">{progress.currentStreak}</p>
+            <p className="mt-2 text-3xl font-black text-orange-900">{progress.currentStreak}</p>
           </div>
-          <div className="rounded-2xl bg-white p-3">
-                  {/* Energy and Planner Section */}
-                  <div className="mt-6 grid gap-6 md:grid-cols-2">
-                    <EnergyLevelCard />
-                    <div>
-                      <DailyPlannerDashboard />
-                    </div>
-                  </div>
-            <p className="text-xs font-bold uppercase text-purple-700">Último logro desbloqueado</p>
-            <p className="mt-1 text-sm font-semibold text-purple-900">
-              {progress.lastAchievementTitle ?? 'Aún no hay logros desbloqueados'}
-            </p>
-            {progress.lastAchievementIcon ? (
-              <p className="mt-1 text-xs text-purple-600">Icono: {progress.lastAchievementIcon}</p>
-            ) : null}
+          <div className="rounded-2xl bg-white p-4 md:col-span-2">
+            <div className="flex items-start gap-3">
+              <div className="rounded-xl bg-purple-100 p-2 text-purple-700">
+                <Sparkles className="h-4 w-4" />
+              </div>
+              <div>
+                <p className="text-xs font-bold uppercase text-purple-700">Último logro desbloqueado</p>
+                <p className="mt-1 text-sm font-semibold text-purple-900">
+                  {progress.lastAchievementTitle ?? 'Aún no hay logros desbloqueados'}
+                </p>
+                <p className="mt-1 text-xs text-purple-600">Sigue constante y pronto desbloquearás el siguiente.</p>
+              </div>
+            </div>
           </div>
         </div>
         <Link to="/profile" className="mt-4 inline-flex text-sm font-semibold text-purple-700 hover:text-purple-900">
           Ver todos los logros
         </Link>
+      </div>
+
+      <div className="mt-6 grid gap-6 lg:grid-cols-2">
+        <EnergyLevelCard />
+        <div>
+          <DailyPlannerDashboard />
+        </div>
       </div>
 
       <div className="mt-6 grid gap-4 md:grid-cols-2">

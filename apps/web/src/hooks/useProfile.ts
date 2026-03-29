@@ -34,31 +34,38 @@ export function useProfile(): ProfileState {
     setLoading(true)
     setError(null)
 
-    const [profileRes, streakRes, achievementsRes] = await Promise.all([
-      supabase.from('profiles').select('*').eq('id', userId).maybeSingle<Profile>(),
-      supabase.from('streaks').select('*').eq('user_id', userId).maybeSingle<Streak>(),
-      supabase
-        .from('user_achievements')
-        .select('*, achievement:achievements(*)')
-        .eq('user_id', userId)
-        .returns<UserAchievement[]>(),
-    ])
+    try {
+      const [profileRes, streakRes, achievementsRes] = await Promise.all([
+        supabase.from('profiles').select('*').eq('id', userId).maybeSingle<Profile>(),
+        supabase.from('streaks').select('*').eq('user_id', userId).maybeSingle<Streak>(),
+        supabase
+          .from('user_achievements')
+          .select('*, achievement:achievements(*)')
+          .eq('user_id', userId)
+          .returns<UserAchievement[]>(),
+      ])
 
-    if (profileRes.error) {
-      setError(profileRes.error.message)
-    } else {
-      setProfile(profileRes.data ?? null)
+      if (profileRes.error) {
+        setError(profileRes.error.message)
+      } else {
+        setProfile(profileRes.data ?? null)
+      }
+
+      if (!streakRes.error) {
+        setStreak(streakRes.data ?? null)
+      }
+
+      if (!achievementsRes.error) {
+        setAchievements(achievementsRes.data ?? [])
+      }
+    } catch (refreshError) {
+      setError(refreshError instanceof Error ? refreshError.message : 'No se pudo cargar el perfil')
+      setProfile(null)
+      setStreak(null)
+      setAchievements([])
+    } finally {
+      setLoading(false)
     }
-
-    if (!streakRes.error) {
-      setStreak(streakRes.data ?? null)
-    }
-
-    if (!achievementsRes.error) {
-      setAchievements(achievementsRes.data ?? [])
-    }
-
-    setLoading(false)
   }, [session?.user.id])
 
   useEffect(() => {

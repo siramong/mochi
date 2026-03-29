@@ -68,36 +68,51 @@ export function StudyExamsPage() {
       setLoading(true)
       setError(null)
 
-      const [resultsRes, upcomingRes] = await Promise.all([
-        supabase
-          .from('exam_logs')
-          .select('*')
-          .eq('user_id', userId)
-          .or('is_upcoming.is.false,is_upcoming.is.null')
-          .order('exam_date', { ascending: false })
-          .returns<ExamLog[]>(),
-        supabase
-          .from('exam_logs')
-          .select('*')
-          .eq('user_id', userId)
-          .eq('is_upcoming', true)
-          .order('exam_date', { ascending: true })
-          .returns<ExamLog[]>(),
-      ])
+      try {
+        const [resultsRes, upcomingRes] = await Promise.allSettled([
+          supabase
+            .from('exam_logs')
+            .select('*')
+            .eq('user_id', userId)
+            .or('is_upcoming.is.false,is_upcoming.is.null')
+            .order('exam_date', { ascending: false })
+            .returns<ExamLog[]>(),
+          supabase
+            .from('exam_logs')
+            .select('*')
+            .eq('user_id', userId)
+            .eq('is_upcoming', true)
+            .order('exam_date', { ascending: true })
+            .returns<ExamLog[]>(),
+        ])
 
-      if (!isActive) {
-        return
+        if (!isActive) {
+          return
+        }
+
+        const resultError =
+          resultsRes.status === 'rejected'
+            ? 'No se pudo cargar historial de exámenes.'
+            : resultsRes.value.error?.message
+        const upcomingError =
+          upcomingRes.status === 'rejected'
+            ? 'No se pudieron cargar exámenes próximos.'
+            : upcomingRes.value.error?.message
+
+        setRows(resultsRes.status === 'fulfilled' ? (resultsRes.value.data ?? []) : [])
+        setUpcomingRows(upcomingRes.status === 'fulfilled' ? (upcomingRes.value.data ?? []) : [])
+        setError(resultError ?? upcomingError ?? null)
+      } catch (loadError) {
+        if (!isActive) {
+          return
+        }
+        console.error('Error inesperado cargando exámenes:', loadError)
+        setError('No se pudo cargar exámenes')
+      } finally {
+        if (isActive) {
+          setLoading(false)
+        }
       }
-
-      if (resultsRes.error || upcomingRes.error) {
-        setError(resultsRes.error?.message ?? upcomingRes.error?.message ?? 'No se pudo cargar exámenes')
-      } else {
-        setRows(resultsRes.data ?? [])
-        setUpcomingRows(upcomingRes.data ?? [])
-        setError(null)
-      }
-
-      setLoading(false)
     }
 
     void loadExams()

@@ -51,31 +51,63 @@ export function ExercisePage() {
     setLoading(true)
     setError(null)
 
-    const [routinesRes, exercisesRes, routineExercisesRes] = await Promise.all([
-      supabase.from('routines').select('*').eq('user_id', userId).order('created_at', { ascending: false }).returns<Routine[]>(),
-      supabase.from('exercises').select('*').eq('user_id', userId).order('created_at', { ascending: false }).returns<Exercise[]>(),
-      supabase.from('routine_exercises').select('routine_id').returns<Array<{ routine_id: string }>>(),
-    ])
+    try {
+      const [routinesRes, exercisesRes, routineExercisesRes] = await Promise.allSettled([
+        supabase.from('routines').select('*').eq('user_id', userId).order('created_at', { ascending: false }).returns<Routine[]>(),
+        supabase.from('exercises').select('*').eq('user_id', userId).order('created_at', { ascending: false }).returns<Exercise[]>(),
+        supabase.from('routine_exercises').select('routine_id').returns<Array<{ routine_id: string }>>(),
+      ])
 
-    if (routinesRes.error || exercisesRes.error || routineExercisesRes.error) {
+      const routinesError =
+        routinesRes.status === 'rejected'
+          ? true
+          : !!routinesRes.value.error
+      const exercisesError =
+        exercisesRes.status === 'rejected'
+          ? true
+          : !!exercisesRes.value.error
+      const routineExercisesError =
+        routineExercisesRes.status === 'rejected'
+          ? true
+          : !!routineExercisesRes.value.error
+
+      if (routinesError || exercisesError || routineExercisesError) {
+        setError('No se pudo cargar el módulo de ejercicio')
+      }
+
+      const exerciseCountByRoutine = new Map<string, number>()
+      const routineExerciseRows =
+        routineExercisesRes.status === 'fulfilled' && !routineExercisesRes.value.error
+          ? (routineExercisesRes.value.data ?? [])
+          : []
+
+      for (const row of routineExerciseRows) {
+        exerciseCountByRoutine.set(row.routine_id, (exerciseCountByRoutine.get(row.routine_id) ?? 0) + 1)
+      }
+
+      const routineRows =
+        routinesRes.status === 'fulfilled' && !routinesRes.value.error
+          ? (routinesRes.value.data ?? [])
+          : []
+
+      const exerciseRows =
+        exercisesRes.status === 'fulfilled' && !exercisesRes.value.error
+          ? (exercisesRes.value.data ?? [])
+          : []
+
+      setRoutines(
+        routineRows.map((routine) => ({
+          ...routine,
+          exerciseCount: exerciseCountByRoutine.get(routine.id) ?? 0,
+        }))
+      )
+      setExercises(exerciseRows)
+    } catch (loadError) {
+      console.error('Error inesperado cargando ejercicio:', loadError)
       setError('No se pudo cargar el módulo de ejercicio')
+    } finally {
       setLoading(false)
-      return
     }
-
-    const exerciseCountByRoutine = new Map<string, number>()
-    for (const row of routineExercisesRes.data ?? []) {
-      exerciseCountByRoutine.set(row.routine_id, (exerciseCountByRoutine.get(row.routine_id) ?? 0) + 1)
-    }
-
-    setRoutines(
-      (routinesRes.data ?? []).map((routine) => ({
-        ...routine,
-        exerciseCount: exerciseCountByRoutine.get(routine.id) ?? 0,
-      }))
-    )
-    setExercises(exercisesRes.data ?? [])
-    setLoading(false)
   }, [userId])
 
   useEffect(() => {

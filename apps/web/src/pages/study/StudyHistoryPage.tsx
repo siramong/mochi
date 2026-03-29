@@ -25,24 +25,34 @@ export function StudyHistoryPage() {
       setLoading(true)
       setError(null)
 
-      const { data, error: historyError } = await supabase
-        .from('study_sessions')
-        .select('*')
-        .eq('user_id', userId)
-        .order('completed_at', { ascending: false })
-        .returns<StudySession[]>()
+      try {
+        const { data, error: historyError } = await supabase
+          .from('study_sessions')
+          .select('*')
+          .eq('user_id', userId)
+          .order('completed_at', { ascending: false })
+          .returns<StudySession[]>()
 
-      if (!isActive) {
-        return
+        if (!isActive) {
+          return
+        }
+
+        if (historyError) {
+          setError(historyError.message)
+        } else {
+          setSessions(data ?? [])
+        }
+      } catch (loadError) {
+        if (!isActive) {
+          return
+        }
+        console.error('Error inesperado cargando historial:', loadError)
+        setError('No se pudo cargar el historial de estudio')
+      } finally {
+        if (isActive) {
+          setLoading(false)
+        }
       }
-
-      if (historyError) {
-        setError(historyError.message)
-      } else {
-        setSessions(data ?? [])
-      }
-
-      setLoading(false)
     }
 
     void loadSessions()

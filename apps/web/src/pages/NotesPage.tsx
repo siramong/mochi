@@ -29,29 +29,56 @@ export function NotesPage() {
 
   useEffect(() => {
     if (!userId) {
+      setNotes([])
+      setError(null)
       setLoading(false)
       return
     }
 
+    let isActive = true
+
     async function load() {
       setLoading(true)
-      const { data, error: fetchError } = await supabase
-        .from('quick_notes')
-        .select('*')
-        .eq('user_id', userId)
-        .order('is_pinned', { ascending: false })
-        .order('updated_at', { ascending: false })
-        .returns<QuickNote[]>()
+      setError(null)
 
-      if (fetchError) {
-        setError(fetchError.message)
-      } else {
-        setNotes(data ?? [])
+      try {
+        const { data, error: fetchError } = await supabase
+          .from('quick_notes')
+          .select('*')
+          .eq('user_id', userId)
+          .order('is_pinned', { ascending: false })
+          .order('updated_at', { ascending: false })
+          .returns<QuickNote[]>()
+
+        if (!isActive) {
+          return
+        }
+
+        if (fetchError) {
+          setError(fetchError.message)
+          setNotes([])
+        } else {
+          setNotes(data ?? [])
+        }
+      } catch (loadError) {
+        if (!isActive) {
+          return
+        }
+        console.error('Error inesperado cargando notas:', loadError)
+        setError('No se pudieron cargar las notas')
+        setNotes([])
+      } finally {
+        if (isActive) {
+          setLoading(false)
+        }
       }
-      setLoading(false)
     }
 
     void load()
+
+    return () => {
+      isActive = false
+    }
   }, [userId])
 
   const filtered = useMemo(() => {

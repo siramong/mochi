@@ -8,31 +8,69 @@ export function GoalsPage() {
   const { session } = useSession()
   const [goals, setGoals] = useState<Goal[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     const userId = session?.user.id
     if (!userId) {
+      setGoals([])
+      setError(null)
       setLoading(false)
       return
     }
 
-    async function loadGoals() {
-      const { data } = await supabase
-        .from('goals')
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false })
-        .returns<Goal[]>()
+    let isActive = true
 
-      setGoals(data ?? [])
-      setLoading(false)
+    async function loadGoals() {
+      setLoading(true)
+      setError(null)
+
+      try {
+        const { data, error: goalsError } = await supabase
+          .from('goals')
+          .select('*')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false })
+          .returns<Goal[]>()
+
+        if (!isActive) {
+          return
+        }
+
+        if (goalsError) {
+          setError(goalsError.message)
+          setGoals([])
+          return
+        }
+
+        setGoals(data ?? [])
+      } catch (loadError) {
+        if (!isActive) {
+          return
+        }
+        console.error('Error inesperado cargando metas:', loadError)
+        setError('No se pudieron cargar las metas')
+        setGoals([])
+      } finally {
+        if (isActive) {
+          setLoading(false)
+        }
+      }
     }
 
     void loadGoals()
+
+    return () => {
+      isActive = false
+    }
   }, [session?.user.id])
 
   if (loading) {
     return <p className="text-sm text-purple-700">Cargando metas...</p>
+  }
+
+  if (error) {
+    return <p className="text-sm text-red-600">{error}</p>
   }
 
   if (goals.length === 0) {
