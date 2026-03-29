@@ -25,7 +25,6 @@ concurrency:
 
 env:
   EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   NODE_VERSION: "20"
   PNPM_VERSION: "10.32.1"
   EAS_CLI_VERSION: "16.26.0"
@@ -37,19 +36,19 @@ jobs:
     timeout-minutes: 25
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
+        uses: actions/checkout@v5
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
           version: ${{ env.PNPM_VERSION }}
           run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -65,7 +64,7 @@ jobs:
 
       - name: Upload gate bundle trace
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: mobile-gate-export-${{ github.run_number }}.${{ github.run_attempt }}
           path: apps/mobile/.expo-export/android
@@ -79,21 +78,21 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
           version: ${{ env.PNPM_VERSION }}
           run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
 
       - name: Setup Java 17 (Android local build)
         uses: actions/setup-java@v4
@@ -163,7 +162,7 @@ jobs:
 
       - name: Upload APK and build logs (traceability)
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: mobile-apk-trace-${{ steps.meta.outputs.release_tag || github.run_id }}
           path: |
