@@ -42,24 +42,20 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
-      - name: Install pnpm (from packageManager)
-        run: |
-          set -euo pipefail
-          PNPM_VERSION=$(node -p "require('./package.json').packageManager.split('@')[1]")
-          npm install -g "pnpm@${PNPM_VERSION}"
-          pnpm --version
+      - name: Enable Corepack
+        run: corepack enable
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: corepack pnpm install --frozen-lockfile
 
       - name: Gate 1 - Lint/format check (mobile)
-        run: pnpm --filter mochi-mobile exec prettier --check "app/**/*.{ts,tsx}" "src/**/*.{ts,tsx}"
+        run: corepack pnpm --filter mochi-mobile exec prettier --check "app/**/*.{ts,tsx}" "src/**/*.{ts,tsx}"
 
       - name: Gate 2 - Check types (mobile)
-        run: pnpm --filter mochi-mobile exec tsc --noEmit -p tsconfig.json
+        run: corepack pnpm --filter mochi-mobile exec tsc --noEmit -p tsconfig.json
 
       - name: Gate 3 - Build validation (Expo export Android)
-        run: pnpm --filter mochi-mobile exec expo export --platform android --output-dir .expo-export/android --clear
+        run: corepack pnpm --filter mochi-mobile exec expo export --platform android --output-dir .expo-export/android --clear
 
   build-production-apk:
     name: Build + Draft Release (Android APK)
@@ -77,12 +73,8 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
-      - name: Install pnpm (from packageManager)
-        run: |
-          set -euo pipefail
-          PNPM_VERSION=$(node -p "require('./package.json').packageManager.split('@')[1]")
-          npm install -g "pnpm@${PNPM_VERSION}"
-          pnpm --version
+      - name: Enable Corepack
+        run: corepack enable
 
       - name: Setup Java 17 (Android local build)
         uses: actions/setup-java@v4
@@ -92,16 +84,16 @@ jobs:
           cache: gradle
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: corepack pnpm install --frozen-lockfile
 
       - name: Verify pinned EAS CLI
-        run: pnpm dlx eas-cli@${{ env.EAS_CLI_VERSION }} --version
+        run: corepack pnpm dlx eas-cli@${{ env.EAS_CLI_VERSION }} --version
 
       - name: Build Production APK (EAS local)
         working-directory: apps/mobile
         run: |
           set -euo pipefail
-          pnpm dlx eas-cli@${{ env.EAS_CLI_VERSION }} build \
+          corepack pnpm dlx eas-cli@${{ env.EAS_CLI_VERSION }} build \
             --platform android \
             --profile "${{ github.event.inputs.profile }}" \
             --local \
