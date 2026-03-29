@@ -1,7 +1,7 @@
 ---
 description: "Coordina el trabajo cuando múltiples agentes de Mochi trabajan en paralelo en una feature compleja. Rastrea el estado de cada tarea, detecta bloqueos, resuelve conflictos entre outputs de agentes, y asegura que los resultados se integren correctamente. Úsalo cuando una feature atraviesa 3+ agentes y necesitas saber qué falta, qué está listo y qué está bloqueado."
 name: "Mochi Coordinator"
-tools: [read, search]
+tools: [read, search, agent]
 user-invocable: true
 ---
 

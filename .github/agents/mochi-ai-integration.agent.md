@@ -1,7 +1,7 @@
 ---
 description: "Especialista en integración de IA en Mochi. Diseña prompts para OpenRouter, maneja parsing de respuestas JSON, gestiona rate limiting y errores, y construye las funciones callAI para nuevas features. Úsalo cuando necesites añadir generación de IA a cualquier feature: recetas, sugerencias de rutinas, mensajes motivacionales, flashcards, resúmenes."
 name: "Mochi AI Integration"
-tools: [read, edit, search]
+tools: [read, edit, search, execute]
 user-invocable: true
 ---
 

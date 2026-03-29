@@ -1,7 +1,7 @@
 ---
 description: "Especialista en base de datos de Mochi. Escribe migraciones SQL para Supabase, diseña políticas RLS, crea RPCs y funciones PostgreSQL, optimiza queries, y verifica el schema actual. Úsalo para cualquier tarea que toque la base de datos: nuevas tablas, modificaciones de columnas, nuevas políticas, índices, funciones."
 name: "Mochi Database"
-tools: [read, search, edit]
+tools: [read, search, edit, execute]
 user-invocable: true
 ---
 

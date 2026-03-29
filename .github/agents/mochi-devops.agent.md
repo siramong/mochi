@@ -1,7 +1,7 @@
 ---
 description: "Especialista en infraestructura y deployment de Mochi. Gestiona CI/CD con GitHub Actions, builds EAS para Android, deployments en Vercel, variables de entorno, y resolución de problemas de build. Úsalo cuando haya fallos en CI, cuando necesites configurar nuevas variables de entorno, o cuando el build de EAS o Vercel falle."
 name: "Mochi DevOps"
-tools: [read, search, execute]
+tools: [read, search, edit, execute]
 user-invocable: true
 ---
 

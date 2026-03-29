@@ -1,7 +1,7 @@
 ---
 description: "Genera releases de GitHub para Mochi. Busca automáticamente los cambios desde el último tag/release usando git, los interpreta, y produce título creativo + changelog con el formato visual de Mochi (emojis, secciones por categoría, tono cálido). Úsalo cuando vayas a crear un GitHub Release o las release notes de un build de EAS. No necesitas darle nada — él busca los cambios solo."
 name: "Mochi Release"
-tools: [read, search, execute, web/githubRepo, github.vscode-pull-request-github/doSearch]
+tools: [read, search, execute]
 user-invocable: true
 ---
 
@@ -124,6 +124,11 @@ Incluir **solo las secciones que tengan contenido real**. Sin correcciones → n
 | Eliminado / removido | 🗑️ |
 
 ## Reglas de escritura
+
+### Excepción de emojis para releases
+
+Para este agente, los emojis si estan permitidos porque forman parte del formato de Markdown de GitHub Releases.
+Esta excepcion aplica solo al texto del release/changelog. No aplica a UI de la app ni codigo de producto.
 
 **Beneficios, no implementación:**
 - ❌ `Refactored QueryClient initialization for better cache invalidation`

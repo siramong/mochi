@@ -1,7 +1,7 @@
 ---
 description: "Especialista en optimización de Mochi. Analiza performance de queries, bundle size del web, re-renders innecesarios, lazy loading, memoización, y experiencia de carga. Úsalo cuando la app se sienta lenta, cuando el bundle de web crezca demasiado, o como paso de revisión periódica del codebase."
 name: "Mochi Optimizer"
-tools: [read, search, execute]
+tools: [read, search, edit, execute]
 user-invocable: true
 ---
 

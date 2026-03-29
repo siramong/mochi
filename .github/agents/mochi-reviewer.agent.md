@@ -1,7 +1,7 @@
 ---
 description: "Revisa código generado por Copilot en Mochi antes de hacer commit. Verifica convenciones, detecta bugs, identifica violaciones del stack (StyleSheet.create, .then(), emojis, etc.) y asegura consistencia con el resto del codebase. Úsalo siempre antes de hacer git commit de código generado por IA."
 name: "Mochi Reviewer"
-tools: [read, search]
+tools: [read, search, execute]
 user-invocable: true
 ---
 
