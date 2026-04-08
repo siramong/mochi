@@ -84,14 +84,6 @@ export function ExerciseListScreen() {
     <>
       <ScrollView className="flex-1 bg-teal-100">
         <View className="px-5 py-6">
-          <TouchableOpacity
-            onPress={() => router.back()}
-            className="mb-4 flex-row items-center"
-          >
-            <Ionicons name="chevron-back" size={24} color="#0d9488" />
-            <Text className="ml-2 text-lg font-bold text-teal-700">Volver</Text>
-          </TouchableOpacity>
-
           <View className="flex-row items-center justify-between">
             <View>
               <Text className="text-3xl font-extrabold text-teal-900">

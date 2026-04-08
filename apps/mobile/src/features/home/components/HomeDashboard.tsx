@@ -28,7 +28,6 @@ import type {
 } from "@/src/shared/types/database";
 import { MochiCharacter } from "@/src/shared/components/MochiCharacter";
 import { DailyMotivation } from "@/src/features/home/components/DailyMotivation";
-import { DailyPlanner } from "@/src/shared/components/DailyPlanner";
 import { CycleWidget } from "@/src/shared/components/CycleWidget";
 import {
   getGreeting,
@@ -567,9 +566,6 @@ export function HomeDashboard({
           cyclePhase={cycleData?.phase}
         />
       </View>
-
-      {/* Daily Planner */}
-      <DailyPlanner />
 
       {shouldShowCycleWidget && (
         <CycleWidget

@@ -1,7 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useCallback, useState } from "react";
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
-import { router } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Animated, {
@@ -138,14 +137,6 @@ export function StudyHistoryScreen() {
   return (
     <SafeAreaView className="flex-1 bg-blue-50">
       <ScrollView className="flex-1 px-5" showsVerticalScrollIndicator={false}>
-        <TouchableOpacity
-          className="mt-4 flex-row items-center"
-          onPress={() => router.back()}
-        >
-          <Ionicons name="chevron-back" size={22} color="#1d4ed8" />
-          <Text className="ml-1 font-bold text-blue-900">Volver</Text>
-        </TouchableOpacity>
-
         <View className="mt-6 rounded-3xl border-2 border-blue-200 bg-white p-4">
           <View className="flex-row items-center">
             <Ionicons name="book" size={22} color="#1d4ed8" />

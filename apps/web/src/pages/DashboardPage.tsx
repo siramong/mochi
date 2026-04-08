@@ -5,8 +5,6 @@ import { MochiCompanion } from '@/components/common/MochiCompanion'
 import { supabase } from '@/lib/supabase'
 import { useSession } from '@/hooks/useSession'
 import { useCyclePhase } from '@/hooks/useCyclePhase'
-import { DailyPlannerDashboard } from '@/components/DailyPlannerDashboard'
-import { EnergyLevelCard } from '@/components/EnergyLevelCard'
 
 type DashboardStats = {
   todayBlocks: number
@@ -319,13 +317,6 @@ export function DashboardPage() {
         <Link to="/profile" className="mt-4 inline-flex text-sm font-semibold text-purple-700 hover:text-purple-900">
           Ver todos los logros
         </Link>
-      </div>
-
-      <div className="mt-6 grid gap-6 lg:grid-cols-2">
-        <EnergyLevelCard />
-        <div>
-          <DailyPlannerDashboard />
-        </div>
       </div>
 
       <div className="mt-6 grid gap-4 md:grid-cols-2">
