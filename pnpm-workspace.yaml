@@ -2,4 +2,6 @@ packages:
   - "apps/*"
   - "packages/*"
 allowBuilds:
+  dtrace-provider: true
   esbuild: true
+  msw: true
