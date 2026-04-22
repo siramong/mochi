@@ -1,3 +1,6 @@
+> [!IMPORTANT]
+> Este repositorio fue archivado el 21/04/2026 y migrado a versiones individuales de Mochi bajo Mochi Platform © 2026 DEM Development
+
 <div align="center">
 
 <img src="https://raw.githubusercontent.com/siramong/mochi/main/apps/mobile/assets/icon.png" alt="Mochi" width="120" height="120" />
